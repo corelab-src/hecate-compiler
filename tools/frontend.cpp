@@ -7,13 +7,16 @@
 
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "llvm/Support/SourceMgr.h"
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/Dialect/SCF/IR/SCF.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/Dialect/Tensor/Transforms/Passes.h>
 #include <mlir/IR/Builders.h>
@@ -48,6 +51,7 @@ void handler(int sig) {
 namespace hecate {
 
 using valueID = size_t;
+using loopID = size_t;
 using funcID = size_t;
 
 struct Context {
@@ -55,7 +59,9 @@ struct Context {
   mlir::MLIRContext ctxt;
   mlir::OwningOpRef<mlir::ModuleOp> mod;
   std::unique_ptr<mlir::OpBuilder> builder;
+  std::unique_ptr<mlir::IRRewriter> rewriter;
   llvm::SmallVector<mlir::Value, 32> valueMap;
+  llvm::SmallVector<mlir::scf::ForOp, 32> loopMap;
   llvm::SmallVector<mlir::func::FuncOp, 32> funcMap;
 };
 
@@ -63,9 +69,12 @@ Context::Context() : ctxt(), mod(), builder() {
 
   ctxt.getOrLoadDialect<mlir::func::FuncDialect>();
   auto ed = ctxt.getOrLoadDialect<hecate::earth::EarthDialect>();
+  ctxt.getOrLoadDialect<scf::SCFDialect>();
 
   auto tmp = std::make_unique<mlir::OpBuilder>(&ctxt);
   builder.swap(tmp);
+  auto ttmp = std::make_unique<mlir::IRRewriter>(*builder);
+  rewriter.swap(ttmp);
 
   mod = mlir::OwningOpRef<mlir::ModuleOp>(
       mlir::ModuleOp::create(builder->getUnknownLoc()));
@@ -123,6 +132,7 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
 char *save(Context *c, char *const_name, char *mlir_name) {
   c->mod->getOperation()->setAttr(mlir::SymbolTable::getSymbolAttrName(),
                                   c->builder->getStringAttr(mlir_name));
+  /* c->mod->dump(); */
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
   pm.addPass(createCSEPass());
@@ -218,6 +228,98 @@ valueID createRotation(Context *ctxt, size_t valueID, int offset,
       offset);
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
+}
+
+loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
+                  size_t len, char *filename, size_t line) {
+  auto &&builder = *ctxt->builder;
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  llvm::SmallVector<mlir::Value> inputarr;
+  for (size_t i = 0; i < len; i++) {
+    inputarr.push_back(ctxt->valueMap[inputs[i]]);
+  }
+
+  /* for (size_t i = 0; i < 3; i++) { */
+  /*   auto tmp = builder.create<mlir::arith::ConstantIndexOp>(location,
+   * rng[i]); */
+  /*   ctxt->valueMap.push_back(tmp); */
+  /*   rng[] = ctxt->valueMap.size() - 1; */
+  /* } */
+  auto loop = builder.create<mlir::scf::ForOp>(
+      location, builder.create<mlir::arith::ConstantIndexOp>(location, rng[0]),
+      builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]),
+      builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]), inputarr);
+  ctxt->loopMap.push_back(loop);
+
+  ctxt->valueMap.push_back(loop.getInductionVar());
+  indvar[0] = ctxt->valueMap.size() - 1;
+  llvm::errs() << "idv : " << indvar[0] << '\n';
+  /* ctxt->valueMap.push_back(loop.getInductionVar()); */
+  /* ctxt->valueMap.push_back(loop.getLowerBound()); */
+  /* ctxt->valueMap.push_back(loop.getUpperBound()); */
+  /* ctxt->valueMap.push_back(loop.getStep()); */
+
+  builder.setInsertionPointToStart(loop.getBody());
+
+  return ctxt->loopMap.size() - 1;
+}
+
+valueID getInductionVar(Context *ctxt, loopID loopID) {
+  auto &&loop = ctxt->loopMap[loopID];
+  Value iv = loop.getInductionVar();
+  ctxt->valueMap.push_back(iv);
+  return ctxt->valueMap.size() - 1;
+}
+
+void setLoopCarriedVars(Context *ctxt, valueID loopID, valueID *arg, size_t len,
+                        char *filename, size_t line) {
+  auto &&builder = *ctxt->builder;
+  auto &&rewriter = *ctxt->rewriter;
+  auto &&loop = ctxt->loopMap[loopID];
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Block &loop_block = loop_body.front();
+
+  // check the type conflict
+
+  llvm::errs() << "return Type : " << loop.getResultTypes() << '\n';
+  llvm::errs() << "term Type : " << loop_block.getTerminator()->getResultTypes()
+               << '\n';
+  // set loop argument
+  SmallPtrSet<mlir::Operation *, 2> excepted;
+  for (size_t i = 0; i < len; i++) {
+    auto v = ctxt->valueMap[arg[i]];
+    /* auto carriedVar = loop_block.addArgument(v.getType(), location); */
+    auto carriedVar = loop_block.getArgument(i + 1);
+    for (auto use : v.getUsers()) {
+      if (loop.isDefinedOutsideOfLoop(use->getResult(0))) {
+        excepted.insert(use);
+      }
+    }
+    v.replaceAllUsesExcept(carriedVar, excepted);
+  }
+}
+
+void setYield(Context *ctxt, valueID loopID, valueID *ret, size_t len,
+              char *filename, size_t line) {
+  auto &&builder = *ctxt->builder;
+  auto &&loop = ctxt->loopMap[loopID];
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Block &loop_block = loop_body.front();
+  llvm::SmallVector<mlir::Value> rets;
+  Value iv = loop.getInductionVar();
+  iv = builder.create<mlir::arith::AddIOp>(location, iv, loop.getStep());
+  rets.push_back(iv);
+  for (size_t i = 0; i < len; i++) {
+    rets.push_back(ctxt->valueMap[ret[i]]);
+    /* loop_block.addArgument(ctxt->valueMap[ret[i]].getType(), location); */
+  }
+  auto loopYield = builder.create<mlir::scf::YieldOp>(location, rets);
+  builder.setInsertionPointToEnd(loop->getBlock());
 }
 
 void setOutput(Context *ctxt, funcID fun, valueID *ret, size_t len) {

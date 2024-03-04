@@ -113,10 +113,12 @@ int main(int argc, char **argv) {
   registry.insert<ckks::CKKSDialect>();
   registry.insert<func::FuncDialect>();
   registry.insert<tensor::TensorDialect>();
+  registry.insert<scf::SCFDialect>();
   context.getOrLoadDialect<earth::EarthDialect>();
   context.getOrLoadDialect<ckks::CKKSDialect>();
   context.loadDialect<func::FuncDialect>();
   context.loadDialect<tensor::TensorDialect>();
+  context.loadDialect<scf::SCFDialect>();
 
   // Uncomment the following to include *all* MLIR Core dialects, or selectively
   // include what you need like above. You only need to register dialects that

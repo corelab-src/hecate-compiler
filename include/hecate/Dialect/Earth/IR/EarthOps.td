@@ -72,6 +72,19 @@ def PlainType :TypeDef<Earth_Dialect, "Plain", [DeclareTypeInterfaceMethods<HESc
   let genVerifyDecl = 0;
 }
 
+def UnknownType :TypeDef<Earth_Dialect, "Erased", [DeclareTypeInterfaceMethods<MemRefElementTypeInterface>]> {
+  let summary = "HE Type not being determined";
+  let description = [{
+    A type for Plain and Cipher Type conflict.
+      Type that implement this interface can be analyzed and managed by scale management scheme.
+  }];
+  let mnemonic = "er";
+  let parameters = (ins "unsigned":$scale, "unsigned":$level);
+  let assemblyFormat = "`<` $scale `*` $level `>`";
+  /* let extraClassDefinition = [{ */
+  /* }]; */
+  let genVerifyDecl = 0;
+}
 
 def HETensor : TensorOf<[CipherType,PlainType]>;
 def CipherTensor : TensorOf<[CipherType]>;
@@ -258,8 +271,6 @@ def BootstrapOp : Unary_Earth_Op<"bootstrap"> {
     }
 
     void $cppClass::processResultsEVA(int64_t param){
-      /*   getResult().setType( */
-      /*       getScaleType().switchScale(hecate::earth::EarthDialect::rescalingFactor)); */
       getResult().setType(
           getScaleType().switchLevel(0));
       setTargetLevel(getType().dyn_cast<HEScaleTypeInterface>().getLevel());
