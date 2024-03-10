@@ -28,6 +28,11 @@ lt.createConstant.argtypes = [
         ctypes.POINTER(ctypes.c_double), ctypes.c_size_t, ctypes.c_char_p,
         ctypes.c_size_t
         ]
+lt.createArithConstant.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int, ctypes.c_char_p,
+        ctypes.c_size_t
+        ]
 lt.createFunc.argtypes = [
         ctypes.c_void_p, ctypes.c_char_p, 
         ctypes.POINTER(ctypes.c_int), ctypes.c_size_t, ctypes.c_char_p,
@@ -37,7 +42,6 @@ lt.initFunc.argtypes = [
         ctypes.c_void_p, ctypes.c_size_t,
         ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t
         ]
-lt.createConstant.restype = ctypes.c_size_t
 lt.createConstant.restype = ctypes.c_size_t
 lt.createFunc.restype = ctypes.c_size_t
 lt.createLoop.argtypes = [
@@ -59,7 +63,7 @@ lt.getInductionVar.argtypes = [
 
 """Immediate arguments"""
 lt.createRotation.argtypes = [
-        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int64, ctypes.c_char_p, ctypes.c_size_t
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
         ]
 lt.createRotation.restype = ctypes.c_size_t
 
@@ -95,9 +99,11 @@ toUnary = {
         "bootstrap": 0,  # Bootstrap
         }
 toBinary = {
+        # "rotate": 1, #Rotation
         "add": 6,  # Addition
         "sub": 7,  # Subtraction
         "mul": 8,  # Multiplication
+        "lshift": 101,
         }
 toInnerUnary = {
         "neg": 13,  # Negation
@@ -208,7 +214,8 @@ class hecateMetaBinary(hecateMetaBase):
         def rotate(self, offset) :
             (frame, filename, line_number, function_name, lines,
                         index) = inspect.stack()[1]
-            return Expr(lt.createRotation(ctxt, self.obj, offset, 
+            tmp = resolveType(offset)
+            return Expr(lt.createRotation(ctxt, self.obj, tmp.obj, 
                 filename.encode('utf-8'), line_number))
         setattr(newcls, "rotate", rotate)
 
@@ -249,7 +256,8 @@ def resolveType(other):
     if isinstance(other, Expr):
         return other
     elif isinstance(other, int):
-        return Plain(np.array([other], dtype=np.float64)) #Plain([other])
+        return Index(other)
+        # return Plain(np.array([other], dtype=np.float64)) #Plain([other])
     elif isinstance(other, float):
         return Plain(np.array([other], dtype=np.float64)) #Plain([other])
     elif isinstance(other, list):
@@ -283,6 +291,17 @@ class Plain(Expr):
         super().__init__(
                 lt.createConstant(ctxt, carr, len(data), filename.encode('utf-8'),
                     line_number))
+
+class Index(Expr):
+    def __init__(self, data, scale = 40):
+         
+        # carr = npcl.as_ctypes(data) 
+        (frame, filename, line_number, function_name, lines,
+                index) = getProperFrame()
+        super().__init__(
+                lt.createArithConstant(ctxt, data, filename.encode('utf-8'),
+                    line_number))
+
 
 class Empty :
     def __init__ (self) : 
@@ -343,9 +362,6 @@ class Func(metaclass=hecateMetaBase):
     def eval(self):
         inputarr = (ctypes.c_size_t * self.inputlen)()
         lt.initFunc(ctxt, self.obj, inputarr, self.inputlen)
-        print("input type")
-        for x in inputarr[:self.inputlen] :
-            print(x)
         inputs = [Expr(x) for x in inputarr[:self.inputlen]]
         returns = self.fun(*inputs)
         if not isinstance (returns, Iterable) : 
@@ -371,49 +387,40 @@ class WithScope(metaclass=hecateMetaBase):
     def __init__(self, rng, inputarr, name):
         (frame, filename, line_number, function_name, lines, index) = getProperFrame()
         self.frame = frame;
-        self.inputarr = inputarr
+        # self.inputarr = inputarr
         self.filename = filename.encode('utf-8')
         self.line_number = line_number
         self.i = 0
-        self.ret = []
-        self.args = []
-        self.indvar = (ctypes.c_size_t)()
+        # self.carriedvars = []
+        self.ind = [ a== "i" for a in name]
+        self.loopargs = [0 for i in range(len(self.ind+inputarr))] 
+        self.indvars = (ctypes.c_size_t * len(self.loopargs))(*self.loopargs)
         self.init_vars = {} 
-        # self.indvar = name
 
         for k, v in frame.f_locals.items() :
             self.init_vars[k] = v 
         # self.indvar = i
-        inputarr = (ctypes.c_size_t *len(self.inputarr))(*[resolveType(i).obj for i in self.inputarr])
-        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rng), self.indvar, inputarr, len(inputarr), self.filename, self.line_number)
-        print("enter")
-        print(*self.indvar)
+        self.inputarr = (ctypes.c_size_t *len(inputarr))(*[resolveType(bb).obj for bb in inputarr])
+        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rng), self.indvars, self.inputarr, len(self.inputarr), self.filename, self.line_number)
+        for i in range(len(inputarr)) :
+            inputarr[i].obj = self.indvars[i+1] 
 
     def __enter__(self):
-             # inputarr = (ctypes.c_size_t * self.inputlen)()
-        # lt.initFunc(ctxt, self.obj, inputarr, self.inputlen)
-        # inputs = [Expr(x) for x in inputarr[:self.inputlen]]
-        # self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*self._rng), self.filename, self.line_number)
-
-        return self.indvar[0]
-        # return resolveType(lt.getInductionVar(ctxt, self.obj)).obj 
-        # return lt.getInductionVar(ctxt, self.obj) 
+        return Expr(self.indvars[0])
     
     
     def __exit__(self, exc_type, exc_value, trace):
+        self.ret = []
         curloc = self.frame.f_locals
         for key, expr in self.init_vars.items() :
             if key in curloc and expr != curloc[key]: 
                 self.ret.append(curloc[key])
-                self.args.append(expr)
-                # print(key)
-                # print(expr)
-                # print(curloc[key])
+                # self.carriedvars.append(expr)
 
         rets = (ctypes.c_size_t * len(self.ret))(*[resolveType(bb).obj for bb in self.ret])
         lt.setYield(ctxt, self.obj, rets, len(self.ret), self.filename, self.line_number)
-        args = (ctypes.c_size_t * len(self.inputarr))(*[bb.obj for bb in self.inputarr])
-        lt.setLoopCarriedVars(ctxt, self.obj, args, len(self.inputarr), self.filename, self.line_number)
+        for i in range(len(self.ret)) :
+            self.ret[i].obj = rets[i]
         return
 
 def loop(lower_bound, upper_bound, step, inputarr = [], name='i') :

@@ -5,9 +5,14 @@
 #include <limits>
 #include <memory>
 
+#include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Index/IR/IndexDialect.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "llvm/Support/SourceMgr.h"
@@ -16,6 +21,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
+#include <mlir/Dialect/Index/IR/IndexOps.h>
 #include <mlir/Dialect/SCF/IR/SCF.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/Dialect/Tensor/Transforms/Passes.h>
@@ -70,6 +76,7 @@ Context::Context() : ctxt(), mod(), builder() {
   ctxt.getOrLoadDialect<mlir::func::FuncDialect>();
   auto ed = ctxt.getOrLoadDialect<hecate::earth::EarthDialect>();
   ctxt.getOrLoadDialect<scf::SCFDialect>();
+  ctxt.getOrLoadDialect<index::IndexDialect>();
 
   auto tmp = std::make_unique<mlir::OpBuilder>(&ctxt);
   builder.swap(tmp);
@@ -89,6 +96,15 @@ valueID createConstant(Context *ctxt, double *data, int64_t len, char *filename,
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0),
       llvm::ArrayRef(data, len));
 
+  ctxt->valueMap.push_back(cons);
+  return ctxt->valueMap.size() - 1;
+}
+valueID createArithConstant(Context *ctxt, int data, char *filename,
+                            size_t line) {
+  auto &&builder = *ctxt->builder;
+  auto cons = builder.create<mlir::arith::ConstantIndexOp>(
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0),
+      data);
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
 }
@@ -132,7 +148,6 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
 char *save(Context *c, char *const_name, char *mlir_name) {
   c->mod->getOperation()->setAttr(mlir::SymbolTable::getSymbolAttrName(),
                                   c->builder->getStringAttr(mlir_name));
-  /* c->mod->dump(); */
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
   pm.addPass(createCSEPass());
@@ -143,7 +158,6 @@ char *save(Context *c, char *const_name, char *mlir_name) {
   pm.addPass(createCanonicalizerPass());
 
   auto ret = pm.run(*c->mod);
-
   std::error_code EC;
   llvm::raw_fd_ostream outputFile(mlir_name, EC);
   c->mod->print(outputFile, mlir::OpPrintingFlags()
@@ -171,11 +185,11 @@ valueID createUnary(Context *ctxt, size_t opcode, valueID lhs, char *filename,
     break;
   }
   case 13: {
-    auto res = builder.create<hecate::earth::NegateOp>(location, source);
-    valueMap.push_back(res);
+    if (source.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+      auto res = builder.create<hecate::earth::NegateOp>(location, source);
+    }
     break;
   }
-
   default:
     assert(0 && "Unary Operation type is wrong");
   }
@@ -200,15 +214,25 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
     break;
   }
   case 7: {
-    auto neg = builder.create<hecate::earth::NegateOp>(location, srcr);
-    valueMap.push_back(neg);
-    auto res = builder.create<hecate::earth::AddOp>(location, srcl, neg);
-    valueMap.push_back(res);
+    if (srcr.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+      auto neg = builder.create<hecate::earth::NegateOp>(location, srcr);
+      valueMap.push_back(neg);
+      auto res = builder.create<hecate::earth::AddOp>(location, srcl, neg);
+      valueMap.push_back(res);
+    } else {
+      auto res = builder.create<mlir::arith::SubIOp>(location, srcl, srcr);
+      valueMap.push_back(res);
+    }
     break;
   }
 
   case 8: {
     auto res = builder.create<hecate::earth::MulOp>(location, srcl, srcr);
+    valueMap.push_back(res);
+    break;
+  }
+  case 101: {
+    auto res = builder.create<mlir::index::ShlOp>(location, srcl, srcr);
     valueMap.push_back(res);
     break;
   }
@@ -219,13 +243,17 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
   return valueMap.size() - 1;
 }
 
-valueID createRotation(Context *ctxt, size_t valueID, int offset,
+/* valueID createRotation(Context *ctxt, size_t valueID, int offset, */
+valueID createRotation(Context *ctxt, size_t valueID, size_t offsetID,
                        char *filename, size_t line) {
   auto &&builder = *ctxt->builder;
   auto &&srcl = ctxt->valueMap[valueID];
+  auto &&srcr = ctxt->valueMap[offsetID];
+
   auto cons = builder.create<hecate::earth::RotateOp>(
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0), srcl,
-      offset);
+      /* offset); */
+      srcr);
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
 }
@@ -237,31 +265,30 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
   llvm::SmallVector<mlir::Value> inputarr;
   for (size_t i = 0; i < len; i++) {
-    inputarr.push_back(ctxt->valueMap[inputs[i]]);
+    auto v = ctxt->valueMap[inputs[i]];
+    auto er = builder.create<hecate::earth::EraseTypeOp>(
+        location, ctxt->valueMap[inputs[i]]);
+    inputarr.push_back(er);
+    ctxt->valueMap.push_back(er);
   }
 
-  /* for (size_t i = 0; i < 3; i++) { */
-  /*   auto tmp = builder.create<mlir::arith::ConstantIndexOp>(location,
-   * rng[i]); */
-  /*   ctxt->valueMap.push_back(tmp); */
-  /*   rng[] = ctxt->valueMap.size() - 1; */
-  /* } */
   auto loop = builder.create<mlir::scf::ForOp>(
       location, builder.create<mlir::arith::ConstantIndexOp>(location, rng[0]),
       builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]),
       builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]), inputarr);
   ctxt->loopMap.push_back(loop);
 
+  builder.setInsertionPointToStart(loop.getBody());
   ctxt->valueMap.push_back(loop.getInductionVar());
   indvar[0] = ctxt->valueMap.size() - 1;
-  llvm::errs() << "idv : " << indvar[0] << '\n';
-  /* ctxt->valueMap.push_back(loop.getInductionVar()); */
-  /* ctxt->valueMap.push_back(loop.getLowerBound()); */
-  /* ctxt->valueMap.push_back(loop.getUpperBound()); */
-  /* ctxt->valueMap.push_back(loop.getStep()); */
 
-  builder.setInsertionPointToStart(loop.getBody());
-
+  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Block &loop_block = loop_body.front();
+  for (size_t i = 0; i < len; i++) {
+    auto carriedVar = loop_block.getArgument(i + 1);
+    ctxt->valueMap.push_back(carriedVar);
+    indvar[i + 1] = ctxt->valueMap.size() - 1;
+  }
   return ctxt->loopMap.size() - 1;
 }
 
@@ -284,14 +311,10 @@ void setLoopCarriedVars(Context *ctxt, valueID loopID, valueID *arg, size_t len,
 
   // check the type conflict
 
-  llvm::errs() << "return Type : " << loop.getResultTypes() << '\n';
-  llvm::errs() << "term Type : " << loop_block.getTerminator()->getResultTypes()
-               << '\n';
   // set loop argument
   SmallPtrSet<mlir::Operation *, 2> excepted;
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[arg[i]];
-    /* auto carriedVar = loop_block.addArgument(v.getType(), location); */
     auto carriedVar = loop_block.getArgument(i + 1);
     for (auto use : v.getUsers()) {
       if (loop.isDefinedOutsideOfLoop(use->getResult(0))) {
@@ -312,13 +335,16 @@ void setYield(Context *ctxt, valueID loopID, valueID *ret, size_t len,
   mlir::Block &loop_block = loop_body.front();
   llvm::SmallVector<mlir::Value> rets;
   Value iv = loop.getInductionVar();
-  iv = builder.create<mlir::arith::AddIOp>(location, iv, loop.getStep());
-  rets.push_back(iv);
   for (size_t i = 0; i < len; i++) {
-    rets.push_back(ctxt->valueMap[ret[i]]);
-    /* loop_block.addArgument(ctxt->valueMap[ret[i]].getType(), location); */
+    auto v = ctxt->valueMap[ret[i]];
+    auto er = builder.create<hecate::earth::EraseTypeOp>(location, v);
+    rets.push_back(er);
   }
   auto loopYield = builder.create<mlir::scf::YieldOp>(location, rets);
+  for (size_t i = 0; i < len; i++) {
+    ctxt->valueMap.push_back(loop->getResult(i));
+    ret[i] = ctxt->valueMap.size() - 1;
+  }
   builder.setInsertionPointToEnd(loop->getBlock());
 }
 

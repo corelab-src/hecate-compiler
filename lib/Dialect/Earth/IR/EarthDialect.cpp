@@ -231,7 +231,16 @@ void hecate::earth::RotateOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   /* patterns.add<RotateOffsetModuloPattern>(context); */
 }
-
+::mlir::LogicalResult hecate::earth::RotateOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = RotateOpAdaptor(operands, attributes, regions);
+  auto lScale = earth::getScaleType(op.getValue());
+  inferredReturnTypes.push_back(lScale);
+  return ::mlir::success();
+}
 ::mlir::LogicalResult hecate::earth::RescaleOp::inferReturnTypes(
     ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,
     ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
@@ -331,9 +340,10 @@ void hecate::earth::AddOp::getCanonicalizationPatterns(
   auto lTensor = earth::getTensorType(op.getLhs());
   auto rScale = earth::getScaleType(op.getRhs());
   auto rTensor = earth::getTensorType(op.getRhs());
-  if (lScale.getLevel() == rScale.getLevel() &&
-      lScale.getScale() == rScale.getScale() &&
-      lTensor.getShape()[0] == rTensor.getShape()[0]) {
+  // nulltype rScale means indexType
+  if (!rScale || (lScale.getLevel() == rScale.getLevel() &&
+                  lScale.getScale() == rScale.getScale() &&
+                  lTensor.getShape()[0] == rTensor.getShape()[0])) {
     inferredReturnTypes.push_back(lScale.toCipher());
     return ::mlir::success();
   } else {
@@ -356,10 +366,12 @@ void hecate::earth::MulOp::getCanonicalizationPatterns(
   auto lTensor = earth::getTensorType(op.getLhs());
   auto rScale = earth::getScaleType(op.getRhs());
   auto rTensor = earth::getTensorType(op.getRhs());
-  if (lScale.getLevel() == rScale.getLevel() &&
-      lTensor.getShape()[0] == rTensor.getShape()[0] &&
-      ((EarthDialect::bootstrapLevelUpperBound)*EarthDialect::rescalingFactor >=
-       lScale.getLevel() * EarthDialect::rescalingFactor + lScale.getScale())) {
+  if (!rScale || (lScale.getLevel() == rScale.getLevel() &&
+                  lTensor.getShape()[0] == rTensor.getShape()[0] &&
+                  ((EarthDialect::bootstrapLevelUpperBound)*EarthDialect::
+                       rescalingFactor >=
+                   lScale.getLevel() * EarthDialect::rescalingFactor +
+                       lScale.getScale()))) {
     inferredReturnTypes.push_back(
         lScale.switchScale(lScale.getScale() + rScale.getScale()).toCipher());
     return ::mlir::success();

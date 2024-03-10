@@ -1,5 +1,7 @@
 
 #include "mlir/Bytecode/BytecodeWriter.h"
+#include "mlir/Dialect/Index/IR/IndexDialect.h"
+#include "mlir/Dialect/Index/IR/IndexOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -114,11 +116,13 @@ int main(int argc, char **argv) {
   registry.insert<func::FuncDialect>();
   registry.insert<tensor::TensorDialect>();
   registry.insert<scf::SCFDialect>();
+  registry.insert<index::IndexDialect>();
   context.getOrLoadDialect<earth::EarthDialect>();
   context.getOrLoadDialect<ckks::CKKSDialect>();
   context.loadDialect<func::FuncDialect>();
   context.loadDialect<tensor::TensorDialect>();
   context.loadDialect<scf::SCFDialect>();
+  context.loadDialect<index::IndexDialect>();
 
   // Uncomment the following to include *all* MLIR Core dialects, or selectively
   // include what you need like above. You only need to register dialects that

@@ -134,6 +134,13 @@ void hecate::ckks::CKKSDialect::initialize() {
     return ::mlir::failure();
   }
 }
+::mlir::LogicalResult hecate::ckks::RotateCOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  return ::mlir::success();
+}
 
 ::mlir::LogicalResult hecate::ckks::BootstrapCOp::inferReturnTypes(
     ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,

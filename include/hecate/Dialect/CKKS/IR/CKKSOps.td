@@ -84,19 +84,19 @@ def EncodeOp : CKKS_Op<"encode",[]> {
 /* ######### Unary Operations ########## */
 
 
-def RotateCOp : CKKS_Op<"rotatec", [SameOperandsAndResultType]> {
-  let arguments = (ins PolyTensor:$dst, PolyTensor:$src, DenseI64ArrayAttr:$offset);
-  code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
-      HEVMOperation op;
-      op.opcode = 1;
-      op.dst = cipherMap[getDst()];
-      op.lhs = cipherMap[getSrc()];
-      op.rhs = getOffset()[0];
-      return op;
-    }
-  }];
-}
+/* def RotateCOp : CKKS_Op<"rotatec", [SameOperandsAndResultType]> { */
+/*   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, DenseI64ArrayAttr:$offset); */
+/*   code extraClassDefinition = arithClassDefinition # [{ */
+/*     HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){ */
+/*       HEVMOperation op; */
+/*       op.opcode = 1; */
+/*       op.dst = cipherMap[getDst()]; */
+/*       op.lhs = cipherMap[getSrc()]; */
+/*       op.rhs = getOffset()[0]; */
+/*       return op; */
+/*     } */
+/*   }]; */
+/* } */
 def NegateCOp : CKKS_Op<"negatec", [SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src);
   code extraClassDefinition = arithClassDefinition # [{
@@ -217,6 +217,21 @@ def MulCPOp: CKKS_Op<"mulcp", [Commutative, SameOperandsAndResultShape]> {
       op.dst = cipherMap[getDst()];
       op.lhs = cipherMap[getLhs()];
       op.rhs = plainMap[getRhs()];
+      return op;
+    }
+  }];
+}
+def RotateCOp : CKKS_Op<"rotatec", [Commutative, SameOperandsAndResultShape]> {
+  let arguments = (ins PolyTensor:$dst, PolyTensor:$src, AnyTypeOf<[AnyInteger, Index]>:$offset);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+      HEVMOperation op;
+      op.opcode = 1;
+      op.dst = cipherMap[getDst()];
+      op.lhs = cipherMap[getSrc()];
+      /* op.rhs = getOffset().dyn_cast<mlir::arith::IndexOp>(); */
+      /* getOffset().dump(); */
+      op.rhs = 1;
       return op;
     }
   }];
