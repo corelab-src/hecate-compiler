@@ -49,6 +49,13 @@ struct ScaleTypeTensorModel
                            .dyn_cast<hecate::earth::HEScaleTypeInterface>()
                            .toPlain());
   }
+  hecate::earth::HEScaleTypeInterface toErased(Type t) const {
+    auto tt = t.dyn_cast<RankedTensorType>();
+    return RankedTensorType::get(
+        tt.getShape(), tt.getElementType()
+                           .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                           .toErased());
+  }
   hecate::earth::HEScaleTypeInterface switchScale(Type t,
                                                   unsigned scale) const {
     auto tt = t.dyn_cast<RankedTensorType>();
@@ -190,6 +197,32 @@ void hecate::earth::EarthDialect::setCKKSParameters(llvm::StringRef filename) {
   return ::mlir::success();
 }
 
+::mlir::LogicalResult hecate::earth::VariableOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = VariableOpAdaptor(operands, attributes, regions);
+
+  inferredReturnTypes.push_back(mlir::RankedTensorType::get(
+      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context, 0, 0)));
+  return ::mlir::success();
+}
+
+::mlir::LogicalResult hecate::earth::EraseTypeOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::llvm::Optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = EraseTypeOpAdaptor(operands, attributes, regions);
+  inferredReturnTypes.push_back(mlir::RankedTensorType::get(
+      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context, 0, 0)));
+  return ::mlir::success();
+}
+void hecate::earth::EraseTypeOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  patterns.add<RescaleUpscalePattern>(context);
+}
 void hecate::earth::RescaleOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   patterns.add<RescaleUpscalePattern>(context);
