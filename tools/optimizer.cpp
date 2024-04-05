@@ -501,4 +501,50 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         pm.addNestedPass<func::FuncOp>(
             hecate::ckks::createEmitHEVM({dir + "/" + stem}));
       });
+  PassPipelineRegistration<>(
+      "halo", "Perform Loop Optimization on HE programs",
+      [&](OpPassManager &pm) {
+        std::string dir;
+        std::string stem;
+        if (outputFilename != "-") {
+          std::filesystem::path outputName(outputFilename.getValue());
+          stem = outputName.stem();
+          dir = outputName.parent_path();
+        }
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        /* pm.addPass(createForToWhileLoopPass()); */
+        /* pm.addPass(createForLoopPeelingPass({false})); */
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createProactiveRescaling({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(mlir::createCSEPass());
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".earth.mlir", "earth"));
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToCKKSConversionPass());
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createUpscaleToMulcpConversionPass());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".ckks.mlir", "ckks"));
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createRemoveLevel());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createReuseBuffer());
+        pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createEmitHEVM({dir + "/" + stem}));
+      });
 }
