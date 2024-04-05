@@ -200,6 +200,18 @@ def CodeSegmentation : Pass<"code-segmentation", "::mlir::func::FuncOp"> {
     This pass make code segments by cutting edges of code .
   }];
 }
+def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
+def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
 /* def ScaleManagementStructuring : Pass<> */
 
 
