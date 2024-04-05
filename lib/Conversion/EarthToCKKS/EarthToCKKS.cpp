@@ -4,6 +4,9 @@
 #include "hecate/Dialect/CKKS/IR/CKKSOps.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "mlir/Conversion/ArithCommon/AttrToLLVMConverter.h"
+#include "mlir/Conversion/IndexToLLVM/IndexToLLVM.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"
@@ -403,6 +406,7 @@ struct EarthToCKKSConversion
     hecate::PolyTypeConverter converter(base_level);
     target.addLegalDialect<hecate::ckks::CKKSDialect>();
     target.addLegalDialect<tensor::TensorDialect>();
+    target.addLegalDialect<scf::SCFDialect>();
     target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp fop) {
       return converter.isSignatureLegal(fop.getFunctionType());
     });
@@ -417,6 +421,8 @@ struct EarthToCKKSConversion
         &getContext(), converter, patterns, base_level);
     mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
         patterns, converter);
+    scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
+                                                         target);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))

@@ -1,6 +1,7 @@
 #include "hecate/Dialect/Earth/Transforms/Common.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Support/Support.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Value.h"
 
 using namespace mlir;
@@ -53,8 +54,15 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
 
   // Reduce the level of the resulting values to reduce the size of returns
   //
-  auto rop = dyn_cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
+  func.walk([&](scf::ForOp ForOp) {
+    mlir::Block *loopBodyBlock = ForOp.getBody();
+    for (size_t i = 0; i < ForOp.getNumResults(); i++) {
+      ForOp.getResult(i).setType(
+          loopBodyBlock->getTerminator()->getOperand(i).getType());
+    }
+  });
 
+  auto rop = dyn_cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
   if (func->hasAttr("is_mid_segment") &&
       func->getAttrOfType<mlir::BoolAttr>("is_mid_segment").getValue()) {
     auto &&bypassTypes = func->getAttr("segment_returnBypasses")
@@ -110,12 +118,14 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
   // Set function argument types
   if (!func->hasAttr("segment_inputType")) {
     for (auto argval : func.getArguments()) {
-      argval.setType(argval.getType()
-                         .dyn_cast<RankedTensorType>()
-                         .getElementType()
-                         .replace([&](hecate::earth::HEScaleTypeInterface t) {
-                           return t.switchScale(waterline);
-                         }));
+      argval.setType(mlir::RankedTensorType::get(
+          argval.getType().dyn_cast<mlir::RankedTensorType>().getShape(),
+          argval.getType()
+              .dyn_cast<mlir::RankedTensorType>()
+              .getElementType()
+              .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+              .switchScale(waterline)));
+
       inputTypes.push_back(argval.getType());
     }
   } else {
@@ -132,6 +142,23 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
       inputTypes.push_back(argval.getType());
     }
   }
+  func.walk([&](scf::ForOp ForOp) {
+    auto inputTy = ForOp.getOperandTypes();
+    mlir::Region &loop_body = ForOp.getBodyRegion();
+    mlir::Block *loopBodyBlock = ForOp.getBody();
+    for (auto argval : loop_body.getArguments()) {
+      if (auto sop = argval.getType().dyn_cast<mlir::RankedTensorType>()) {
+        argval.setType(mlir::RankedTensorType::get(
+            argval.getType().dyn_cast<mlir::RankedTensorType>().getShape(),
+            argval.getType()
+                .dyn_cast<mlir::RankedTensorType>()
+                .getElementType()
+                .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                .switchScale(hecate::earth::EarthDialect::rescalingFactor)));
+      }
+    }
+  });
+
   return;
 }
 

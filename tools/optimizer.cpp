@@ -1,10 +1,18 @@
 
 #include "mlir/Bytecode/BytecodeWriter.h"
+#include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Async/Passes.h"
 #include "mlir/Dialect/Index/IR/IndexDialect.h"
 #include "mlir/Dialect/Index/IR/IndexOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMAttrs.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/TransformOps/SCFTransformOps.h"
+#include "mlir/Dialect/SCF/Transforms/Passes.h"
+#include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/Transform/IR/TransformDialect.h"
+#include "mlir/Dialect/Transform/Transforms/Passes.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -117,12 +125,18 @@ int main(int argc, char **argv) {
   registry.insert<tensor::TensorDialect>();
   registry.insert<scf::SCFDialect>();
   registry.insert<index::IndexDialect>();
+  registry.insert<transform::TransformDialect>();
+  registry.insert<affine::AffineDialect>();
+  registry.insert<arith::ArithDialect>();
   context.getOrLoadDialect<earth::EarthDialect>();
   context.getOrLoadDialect<ckks::CKKSDialect>();
   context.loadDialect<func::FuncDialect>();
   context.loadDialect<tensor::TensorDialect>();
   context.loadDialect<scf::SCFDialect>();
   context.loadDialect<index::IndexDialect>();
+  context.loadDialect<transform::TransformDialect>();
+  context.loadDialect<affine::AffineDialect>();
+  context.loadDialect<arith::ArithDialect>();
 
   // Uncomment the following to include *all* MLIR Core dialects, or selectively
   // include what you need like above. You only need to register dialects that
@@ -140,13 +154,18 @@ int main(int argc, char **argv) {
   earth::registerEarthPasses();
   ckks::registerCKKSPasses();
   hecate::registerConversionPasses();
+  transform::registerTransformPasses();
+  transform::registerInterpreterPass();
+
+  scf::registerTransformDialectExtension(registry);
+  registry.applyExtensions(&context);
 
   // Register any command line options.
   registerAsmPrinterCLOptions();
   registerMLIRContextCLOptions();
   registerPassManagerCLOptions();
   registerDefaultTimingManagerCLOptions();
-  DebugCounter::registerCLOptions();
+  /* DebugCounter::registerCLOptions(); */
   registerHecatePipeline(outputFilename);
 
   PassPipelineCLParser passPipeline("", "Compiler passes to run", "p");

@@ -3,6 +3,7 @@
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "hecate/Dialect/Earth/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "llvm/Support/Debug.h"
 
 #include "hecate/Dialect/Earth/Analysis/ScaleManagementUnit.h"
@@ -54,6 +55,7 @@ struct ProactiveRescalingPass
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::earth::EarthDialect>();
+    registry.insert<scf::SCFDialect>();
   }
 };
 } // namespace

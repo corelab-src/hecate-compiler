@@ -3,7 +3,9 @@
 #include "hecate/Dialect/CKKS/IR/CKKSOps.h"
 #include "hecate/Dialect/CKKS/IR/PolyTypeInterface.h"
 #include "hecate/Dialect/CKKS/Transforms/Passes.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace hecate {
@@ -45,8 +47,26 @@ struct RemoveLevelPass
     }
     func.walk([&](Operation *op) {
       for (auto value : op->getResults()) {
-        auto &&tt = value.getType().dyn_cast<hecate::ckks::PolyTypeInterface>();
-        value.setType(tt.switchLevel(0));
+        if (auto &&tt =
+                value.getType().dyn_cast<hecate::ckks::PolyTypeInterface>())
+          value.setType(tt.switchLevel(0));
+      }
+    });
+    func.walk([&](scf::ForOp ForOp) {
+      auto inputTy = ForOp.getOperandTypes();
+      mlir::Region &loop_body = ForOp.getBodyRegion();
+      mlir::Block *loopBodyBlock = ForOp.getBody();
+      for (auto argval : loop_body.getArguments()) {
+        if (auto &&tt =
+                argval.getType().dyn_cast<hecate::ckks::PolyTypeInterface>()) {
+          argval.setType(tt.switchLevel(0));
+        }
+      }
+      for (auto retval : ForOp.getResults()) {
+        if (auto &&tt =
+                retval.getType().dyn_cast<hecate::ckks::PolyTypeInterface>()) {
+          retval.setType(tt.switchLevel(0));
+        }
       }
     });
 

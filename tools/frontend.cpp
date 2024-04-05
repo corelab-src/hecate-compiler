@@ -10,15 +10,19 @@
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Index/IR/IndexDialect.h"
+#include "mlir/Dialect/SCF/TransformOps/SCFTransformOps.h"
+#include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/CastInterfaces.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/SourceMgr.h"
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <mlir/Dialect/Affine/IR/AffineOps.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Index/IR/IndexOps.h>
@@ -63,11 +67,13 @@ using funcID = size_t;
 struct Context {
   Context();
   mlir::MLIRContext ctxt;
+  DialectRegistry registry;
   mlir::OwningOpRef<mlir::ModuleOp> mod;
   std::unique_ptr<mlir::OpBuilder> builder;
   std::unique_ptr<mlir::IRRewriter> rewriter;
   llvm::SmallVector<mlir::Value, 32> valueMap;
   llvm::SmallVector<mlir::scf::ForOp, 32> loopMap;
+  /* llvm::SmallVector<affine::AffineForOp, 32> loopMap; */
   llvm::SmallVector<mlir::func::FuncOp, 32> funcMap;
 };
 
@@ -76,7 +82,13 @@ Context::Context() : ctxt(), mod(), builder() {
   ctxt.getOrLoadDialect<mlir::func::FuncDialect>();
   auto ed = ctxt.getOrLoadDialect<hecate::earth::EarthDialect>();
   ctxt.getOrLoadDialect<scf::SCFDialect>();
+  ctxt.getOrLoadDialect<affine::AffineDialect>();
   ctxt.getOrLoadDialect<index::IndexDialect>();
+  ctxt.getOrLoadDialect<transform::TransformDialect>();
+  ctxt.getOrLoadDialect<arith::ArithDialect>();
+
+  /* scf::registerTransformDialectExtension(registry); */
+  registry.applyExtensions(&ctxt);
 
   auto tmp = std::make_unique<mlir::OpBuilder>(&ctxt);
   builder.swap(tmp);
@@ -272,17 +284,23 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
     ctxt->valueMap.push_back(er);
   }
 
-  auto loop = builder.create<mlir::scf::ForOp>(
-      location, builder.create<mlir::arith::ConstantIndexOp>(location, rng[0]),
-      builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]),
-      builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]), inputarr);
+  /* auto loop = builder.create<affine::AffineForOp>(location, rng[0], rng[1],
+   */
+  /*                                                 rng[2], inputarr); */
+  auto lowerBound =
+      builder.create<mlir::arith::ConstantIndexOp>(location, rng[0]);
+  auto upperBound =
+      builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]);
+  auto step = builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]);
+  auto loop = builder.create<mlir::scf::ForOp>(location, lowerBound, upperBound,
+                                               step, inputarr);
   ctxt->loopMap.push_back(loop);
 
   builder.setInsertionPointToStart(loop.getBody());
   ctxt->valueMap.push_back(loop.getInductionVar());
   indvar[0] = ctxt->valueMap.size() - 1;
 
-  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Region &loop_body = loop.getBodyRegion();
   mlir::Block &loop_block = loop_body.front();
   for (size_t i = 0; i < len; i++) {
     auto carriedVar = loop_block.getArgument(i + 1);
@@ -306,7 +324,7 @@ void setLoopCarriedVars(Context *ctxt, valueID loopID, valueID *arg, size_t len,
   auto &&loop = ctxt->loopMap[loopID];
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
-  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Region &loop_body = loop.getBodyRegion();
   mlir::Block &loop_block = loop_body.front();
 
   // check the type conflict
@@ -331,7 +349,7 @@ void setYield(Context *ctxt, valueID loopID, valueID *ret, size_t len,
   auto &&loop = ctxt->loopMap[loopID];
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
-  mlir::Region &loop_body = loop.getLoopBody();
+  mlir::Region &loop_body = loop.getBodyRegion();
   mlir::Block &loop_block = loop_body.front();
   llvm::SmallVector<mlir::Value> rets;
   Value iv = loop.getInductionVar();
