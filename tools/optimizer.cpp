@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
     llvm::errs() << errorMessage << "\n";
     return asMainReturnCode(failure());
   }
-  /* MlirOptMainConfig config = MlirOptMainConfig::createFromCLOptions(); */
+
   MlirOptMainConfig config;
   config.setPassPipelineParser(passPipeline)
       .splitInputFile(splitInputFile)
@@ -216,6 +216,7 @@ int main(int argc, char **argv) {
       .allowUnregisteredDialects(allowUnregisteredDialects)
       .emitBytecode(emitBytecode)
       .dumpPassPipeline(dumpPassPipeline);
+
   if (failed(MlirOptMain(output->os(), std::move(file), registry, config))) {
     return asMainReturnCode(failure());
   }
