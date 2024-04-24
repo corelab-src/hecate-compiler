@@ -25,6 +25,8 @@ struct HEAAN_HEVM {
   ConfigBody config;
   /* std::vector<uint64_t> config_dats; */
   std::vector<HEVMOperation> ops;
+  std::vector<HEVMLoopOp> loops;
+  std::vector<std::vector<HEVMOperation>> loop_insts;
   std::vector<uint64_t> arg_scale;
   std::vector<uint64_t> arg_level;
   std::vector<uint64_t> res_scale;
@@ -190,6 +192,16 @@ struct HEAAN_HEVM {
     ops.resize(config.num_operations);
     iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
 
+    loops.resize(config.num_loops);
+    loop_insts.resize(config.num_loops);
+    iff.read((char *)loops.data(), config.num_loops * sizeof(HEVMLoopOp));
+
+    for (size_t i = 0; i < loops.size(); i++) {
+      loop_insts[i].resize(loops[i].config_body.num_operations);
+      iff.read((char *)loop_insts[i].data(),
+               loop_insts[i].size() * sizeof(HEVMOperation));
+    }
+
     ciphers.resize(config.num_ctxt_buffer, HEaaN::Ciphertext(context));
     if (togpu) {
       for (auto &&cipher : ciphers)
@@ -244,9 +256,9 @@ struct HEAAN_HEVM {
     }
   }
 
-  void preprocess() {
+  void preprocess(std::vector<HEVMOperation> &heops) {
     std::vector<double> identity(1LL << (N - 1), 1.0);
-    for (HEVMOperation &op : ops) {
+    for (HEVMOperation &op : heops) {
       if (op.opcode == 0) {
         if (preencode) {
           encode_internal(plains[op.dst],
@@ -259,6 +271,10 @@ struct HEAAN_HEVM {
         }
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
+      }
+      if (op.opcode == 11) {
+        std::vector<HEVMOperation> &loop_body = loop_insts[op.dst];
+        preprocess(loop_body);
       }
     }
   }
@@ -397,12 +413,21 @@ struct HEAAN_HEVM {
     boot_cnt++;
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
   }
+  void heloop(int16_t dst) {
+    HEVMLoopOp &loop = loops[dst];
+    std::vector<HEVMOperation> &loop_body = loop_insts[dst];
+    auto lb = loop.config_body.lb;
+    auto ub = loop.config_body.ub;
+    auto step = loop.config_body.step;
+    for (size_t i = lb; i < ub; i += step)
+      run(loop_body);
+  }
 
-  void run() {
+  void run(std::vector<HEVMOperation> &heops) {
     int i = (header.hevm_header_size + config.config_body_length) / 8;
     int j = 0;
     /* HEaaN::CudaTools::cudaDeviceSynchronize(); */
-    for (HEVMOperation &op : ops) {
+    for (HEVMOperation &op : heops) {
       if (debug) {
         std::cout << std::endl;
         std::cout << std::oct << i++ << " " << std::dec << j++ << std::endl;
@@ -454,6 +479,10 @@ struct HEAAN_HEVM {
       case 10: { // Bootstrap
         HEaaN::CudaTools::cudaDeviceSynchronize();
         bootstrap(op.dst, op.lhs, op.rhs);
+        break;
+      }
+      case 11: { // loop
+        heloop(op.dst);
         break;
       }
       default: {
@@ -547,11 +576,11 @@ void *getCtxt(void *vm, int64_t id) {
 
 void preprocess(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->preprocess();
+  hevm->preprocess(hevm->ops);
 }
 void run(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->run();
+  hevm->run(hevm->ops);
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
