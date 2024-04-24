@@ -17,6 +17,12 @@ def ReuseBuffer : Pass<"reuse-buffer", "::mlir::func::FuncOp"> {
   }];
 }
 
+def AllocLoopBuffer : Pass<"alloc-loop-buffer", "::mlir::func::FuncOp"> {
+  let summary = "Remove Level Informations for Ciphertext-granularity Register Allocation";
+  let description = [{
+  }];
+}
+
 def EmitHEVM : Pass<"emit-hevm", "::mlir::func::FuncOp"> {
   let summary = "Remove Level Informations for Ciphertext-granularity Register Allocation";
   let description = [{

@@ -544,6 +544,7 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
               dir + "/" + stem + ".ckks.mlir", "ckks"));
         pm.addNestedPass<func::FuncOp>(hecate::ckks::createRemoveLevel());
         pm.addNestedPass<func::FuncOp>(hecate::ckks::createReuseBuffer());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createAllocLoopBuffer());
         pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
         pm.addNestedPass<func::FuncOp>(
             hecate::ckks::createEmitHEVM({dir + "/" + stem}));
