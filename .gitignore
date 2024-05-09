@@ -27,5 +27,6 @@ python/poly/dist
 python/poly/poly.egg-info
 examples/optimized
 examples/traced
+examples/data
 Session.vim
 .venv
