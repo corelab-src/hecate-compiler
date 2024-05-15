@@ -79,13 +79,6 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
 
   } else
     hecate::earth::refineLevel(builder, rop, waterline, output_val, 0);
-
-  func.walk([&](hecate::earth::BootstrapOp bop) {
-    hecate::earth::refineLevel(
-        builder, bop, waterline, 0,
-        hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
-  });
-
   /* func.walk([&](func::ReturnOp rop) { */
   // Remap the return types
   func.setFunctionType(

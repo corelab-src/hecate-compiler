@@ -41,7 +41,6 @@ struct EarlyModswitchPass
     mlir::IRRewriter rewriter(builder);
 
     SmallVector<mlir::Type, 4> inputTypes;
-
     auto &&bb = func.getBody().getBlocks().front();
     for (auto iter = bb.rbegin(); iter != bb.rend(); ++iter) {
       if (auto op = dyn_cast<hecate::earth::HEScaleOpInterface>(*iter)) {
@@ -49,6 +48,14 @@ struct EarlyModswitchPass
         // Skip the bootstrapping operation
         if (auto oop =
                 dyn_cast<hecate::earth::BootstrapOp>(op.getOperation())) {
+          builder.setInsertionPoint(oop);
+          auto v = oop->getOperand(0);
+          auto level_diff =
+              hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+              hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+              op.getOperandLevel(0);
+          oop->setOperand(0, builder.create<hecate::earth::ModswitchOp>(
+                                 op->getLoc(), v, level_diff));
           continue; // Go to next operation
         }
 
