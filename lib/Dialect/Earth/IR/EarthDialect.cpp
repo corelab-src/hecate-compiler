@@ -151,8 +151,6 @@ struct ForOpMgmtInterfaceModel
     auto yieldOp =
         dyn_cast<mlir::scf::YieldOp>(forOp.getBody()->getTerminator());
 
-    for (auto tt : forOp.getYieldedValues())
-      llvm::errs() << tt.getType();
     for (size_t yieldIdx = 0; yieldIdx < forOp.getNumResults(); yieldIdx++) {
       size_t initArgIdx = yieldIdx + forOp.getNumControlOperands();
       auto aop = dyn_cast<hecate::earth::HEScaleOpInterface>(
@@ -161,21 +159,26 @@ struct ForOpMgmtInterfaceModel
       auto yop = dyn_cast<hecate::earth::HEScaleOpInterface>(
                      yieldOp.getOperand(yieldIdx).getDefiningOp())
                      .getScaleType();
-      if (aop.getLevel() > yop.getLevel()) {
-        auto level_diff = aop.getLevel() - yop.getLevel();
-        yieldOp.setOperand(
-            yieldIdx,
-            builder.create<hecate::earth::ModswitchOp>(
-                yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
-      } else if (aop.getLevel() < yop.getLevel()) {
-        auto level_diff = yop.getLevel() - aop.getLevel();
-        forOp.setOperand(
-            initArgIdx,
-            builder.create<hecate::earth::ModswitchOp>(
-                forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
-        forOp.getRegionIterArg(yieldIdx).setType(
-            op->getOperand(initArgIdx).getType());
-      }
+      auto level_diff = hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+                        hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+                        yop.getLevel();
+
+      builder.setInsertionPoint(yieldOp);
+      yieldOp.setOperand(
+          yieldIdx,
+          builder.create<hecate::earth::ModswitchOp>(
+              yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
+      level_diff = hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+                   hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+                   aop.getLevel();
+
+      builder.setInsertionPoint(forOp);
+      forOp.setOperand(
+          initArgIdx,
+          builder.create<hecate::earth::ModswitchOp>(
+              forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
+      forOp.getRegionIterArg(yieldIdx).setType(
+          op->getOperand(initArgIdx).getType());
     }
     return;
   }
