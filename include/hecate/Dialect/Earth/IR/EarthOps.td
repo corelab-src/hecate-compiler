@@ -10,6 +10,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpAsmInterface.td"
+include "mlir/Interfaces/LoopLikeInterface.td"
 include "hecate/Dialect/Earth/IR/HEParameterInterface.td"
 include "hecate/Dialect/Earth/IR/ForwardManagementInterface.td"
 

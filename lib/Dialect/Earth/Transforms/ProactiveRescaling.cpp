@@ -55,7 +55,7 @@ struct ProactiveRescalingPass
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::earth::EarthDialect>();
-    registry.insert<scf::SCFDialect>();
+    hecate::earth::registerSCFOpInterfaceExternalModels(registry);
   }
 };
 } // namespace

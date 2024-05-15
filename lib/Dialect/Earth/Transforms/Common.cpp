@@ -154,14 +154,15 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
 
 void hecate::earth::inferTypeForward(hecate::earth::ForwardMgmtInterface sop) {
   Operation *oop = sop.getOperation();
-  auto iop = dyn_cast<mlir::InferTypeOpInterface>(oop);
-  SmallVector<Type, 4> retTypes;
-  if (iop.inferReturnTypes(oop->getContext(), oop->getLoc(), oop->getOperands(),
-                           oop->getAttrDictionary(),
-                           oop->getPropertiesStorage(), oop->getRegions(),
-                           retTypes)
-          .succeeded()) {
-    oop->getResults().back().setType(retTypes.back());
+  if (auto iop = dyn_cast<mlir::InferTypeOpInterface>(oop)) {
+    SmallVector<Type, 4> retTypes;
+    if (iop.inferReturnTypes(oop->getContext(), oop->getLoc(),
+                             oop->getOperands(), oop->getAttrDictionary(),
+                             oop->getPropertiesStorage(), oop->getRegions(),
+                             retTypes)
+            .succeeded()) {
+      oop->getResults().back().setType(retTypes.back());
+    }
   }
 }
 
