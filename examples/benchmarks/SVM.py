@@ -46,8 +46,8 @@ def SVM(x_data, y_data) :
     W = hc.Plain([0.00000001 for _ in range(elements*3)])
     W = W + x_data * hc.Plain([0.00000001])
 
-    # for i in range(epochs):
-    with hc.loop(0, epochs, step, inputarr = W) as i:
+    for i in range(epochs):
+    # with hc.loop(0, epochs, step, inputarr = W) as i:
         dot = W * x_data
         dot = dot + dot.rotate(elements)    # np.dot(x_i, W)
         dot = dot - W.rotate(elements*2)    # np.dot(x_i, W) - b 

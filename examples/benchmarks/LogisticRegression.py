@@ -42,7 +42,7 @@ def LogisticRegression(x_data, y_data):
     block    = 2048 
     learning_rate = hc.Plain([-0.0001])
     learning_rate_elements = hc.Plain([-0.0001/elements])
-    W = [0.0 for _ in range(block*31)]
+    W = [0.00000001 for _ in range(block*31)]
     W = hc.Plain(W)
     
     mask = create_mask(elements, block)

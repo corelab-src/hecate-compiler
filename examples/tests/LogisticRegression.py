@@ -16,13 +16,19 @@ hevm = hc.HEVM()
 stem = Path(__file__).stem
 hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
 
-x = [ uniform (-1, 1) for a in range(4096)]
-a = 2.0
-b = 1.0
-y = [ a*point +b + uniform (-0.01, 0.01) for point in x]
+from sklearn import datasets
 
-
-# print(res)
+bc = datasets.load_breast_cancer()
+X, Y = bc.data, bc.target
+n_samples, n_features = X.shape
+X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
+x_data = [X.T[i] for i in range(n_features)]
+pad = [0.0 for _ in range(2048-n_samples)]
+x = [1.0 for _ in range(n_samples)] + pad
+y = Y.tolist() + pad
+for samples in x_data:
+    samples = samples.tolist()
+    x += samples + pad
 
 epochs = 10
 learning_rate = -0.01
@@ -36,7 +42,7 @@ def _sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 for i in range(epochs):
-    linear_model = np.dot(X, W) + bias
+    linear_model = np.dot(X, W) + b
     y_predicted = _sigmoid(linear_model)
 
     # compute gradients
@@ -57,16 +63,13 @@ timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-resW = [res[i * 4096] for i in range(31)]
-print("TEST RESULT")
-print (W, c)
-print(res[0], res[1])
+resW = [res[i][0] for i in range(31)]
 # rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
 # rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
 import math
-rms = math.sqrt(pow(resW[0] - b, 2))
+rms = math.sqrt(np.power(resW[0] - b, 2))
 for i in range(1,31):
-    rms += math.sqrt(pow(W[i-1] - resW[i], 2))
+    rms += math.sqrt(np.power(W[i-1] - resW[i], 2))
 
 
 # print (timer / pow(10,9))
