@@ -414,7 +414,11 @@ class WithScope(metaclass=hecateMetaBase):
         curloc = self.frame.f_locals
         for key, expr in self.init_vars.items() :
             if key in curloc and expr != curloc[key]: 
-                self.ret.append(curloc[key])
+                if type(curloc[key]) is list :
+                    arr = np.array(curloc[key]).reshape(-1)
+                    self.ret.extend(arr.tolist())
+                else :
+                    self.ret.append(curloc[key])
                 # self.carriedvars.append(expr)
 
         rets = (ctypes.c_size_t * len(self.ret))(*[resolveType(bb).obj for bb in self.ret])
@@ -424,7 +428,9 @@ class WithScope(metaclass=hecateMetaBase):
         return
 
 def loop(lower_bound, upper_bound, step, inputarr = [], name='i') :
-    return WithScope([lower_bound, upper_bound, step], inputarr, name)
+    arr = np.array(inputarr).reshape(-1).tolist()
+    # arr = [resolveType(tt) for tt in arrt]
+    return WithScope([lower_bound, upper_bound, step], arr, name)
 
 def removeCtxt() :
     lt.removeCtxt()

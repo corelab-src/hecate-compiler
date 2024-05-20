@@ -239,45 +239,46 @@ Earth_Op<mnemonic, !listconcat(traits, [])> {
       return {estimation[0]};
     }
   }];
+  let results = (outs HETensor);
   code extraClassDefinition = unaryClassDefinition;
 }
 
-/* def RotateOp : Unary_Earth_Op<"rotate", [SameOperandsAndResultType]> { */
-/*   let arguments = (ins HETensor:$value, DenseI64ArrayAttr:$offset); */
-/*   code extraClassDeclaration = [{ */
-/*     bool isNoisy(); */
-/*     void processOperandsSNR(int64_t param); */
-/*     unsigned getNum(); */
+def RotateOp : Unary_Earth_Op<"rotate", [SameOperandsAndResultType]> {
+  let arguments = (ins HETensor:$value, DenseI64ArrayAttr:$offset);
+  code extraClassDeclaration = [{
+    bool isNoisy();
+    void processOperandsSNR(int64_t param);
+    unsigned getNum();
 
-/*   }]; */
-/*   code extraClassDefinition = unaryClassDefinition # [{ */
-/*     bool $cppClass::isNoisy() { */
-/*       return true; */
-/*     } */
-/*     unsigned $cppClass::getNum(){ */
-/*       SmallVector<SmallVector<int, 4>, 4> nafs(getOffset().size()); */
-/*       llvm::transform(getOffset(), nafs.begin(), [&](int64_t i) { */
-/*           return hecate::naf(i % (hecate::earth::EarthDialect::polynomialDegree / 2)); */
-/*           }); */
+  }];
+  code extraClassDefinition = unaryClassDefinition # [{
+    bool $cppClass::isNoisy() {
+      return true;
+    }
+    unsigned $cppClass::getNum(){
+      SmallVector<SmallVector<int, 4>, 4> nafs(getOffset().size());
+      llvm::transform(getOffset(), nafs.begin(), [&](int64_t i) {
+          return hecate::naf(i % (hecate::earth::EarthDialect::polynomialDegree / 2));
+          });
 
-/*       unsigned sum = 0 ; */
-/*       for (auto && i : nafs){ */
-/*         for (auto && j : i){ */
-/*           sum+= (j% (hecate::earth::EarthDialect::polynomialDegree / 2)) ? 1 : 0; */
-/*         } */
-/*       } */
+      unsigned sum = 0 ;
+      for (auto && i : nafs){
+        for (auto && j : i){
+          sum+= (j% (hecate::earth::EarthDialect::polynomialDegree / 2)) ? 1 : 0;
+        }
+      }
 
-/*       return sum; */
-/*     } */
-/*     void $cppClass::processOperandsSNR(int64_t param){ */
-/*       if (getOperandScale(0) < param ){ */
-/*         OpBuilder builder(getOperation()); */
-/*         getOperation()->setOperand(0, builder.create<hecate::earth::UpscaleOp>( getLoc(), getValue(), param - getOperandScale(0))); */
-/*       } */
-/*     } */
-/*   }]; */
-/*   let hasCanonicalizer = 1; */
-/* } */
+      return sum;
+    }
+    void $cppClass::processOperandsSNR(int64_t param){
+      if (getOperandScale(0) < param ){
+        OpBuilder builder(getOperation());
+        getOperation()->setOperand(0, builder.create<hecate::earth::UpscaleOp>( getLoc(), getValue(), param - getOperandScale(0)));
+      }
+    }
+  }];
+  let hasCanonicalizer = 1;
+}
 def NegateOp : Unary_Earth_Op<"negate", [SameOperandsAndResultType]> {
   /* let arguments = (ins AnyTypeOf<[HETensor, Index]>:$value); */
   let arguments = (ins HETensor:$value);
@@ -333,7 +334,7 @@ def BootstrapOp : Unary_Earth_Op<"bootstrap"> {
 }
 
 /* ######## Scale Management Operations ####### */
-def EraseTypeOp : Unary_Earth_Op<"erase"> {
+def EraseTypeOp : Unary_Earth_Op<"erase", [SameOperandsAndResultShape]> {
   let arguments = (ins HETensor:$value);
   let results = (outs ErasedTensor);
   let hasCanonicalizer = 1;
@@ -618,61 +619,5 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
   let hasCanonicalizer = 1;
 }
 
-def RotateOp : Earth_Op<"rotate", []> {
-  /*   let arguments = (ins HETensor:$value, DenseI64ArrayAttr:$offset); */
-  let arguments = (ins HETensor:$value, AnyTypeOf<[AnyInteger, Index]>:$offset);
-  /* let arguments = (ins HETensor:$value, AnyVector:$offset); */
-  let results = (outs HETensor);
-  code extraClassDeclaration = [{
-    bool isNoisy();
-    void processOperandsSNR(int64_t param);
-    static bool isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs) ;
-    unsigned getNum();
-
-  }];
-  code extraClassDefinition = arithClassDefinition # [{
-    bool $cppClass::isNoisy() {
-      return true;
-    }
-    bool $cppClass::isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs){
-      return !rhs.back().dyn_cast<HEScaleTypeInterface>().isCipher();
-    }
-    unsigned $cppClass::getNum(){
-      SmallVector<SmallVector<int, 4>, 4> nafs(/*getOffset().size()*/1);
-      /* llvm::transform(getOffset(), nafs.begin(), [&](int64_t i) { */
-      /*     return hecate::naf(i % (hecate::earth::EarthDialect::polynomialDegree / 2)); */
-      /*     }); */
-
-      unsigned sum = 0 ;
-      for (auto && i : nafs){
-        for (auto && j : i){
-          sum+= (j% (hecate::earth::EarthDialect::polynomialDegree / 2)) ? 1 : 0;
-        }
-      }
-
-      return sum;
-    }
-    void $cppClass::processOperandsSNR(int64_t param){
-      if (getOperandScale(0) < param ){
-        OpBuilder builder(getOperation());
-        getOperation()->setOperand(0, builder.create<hecate::earth::UpscaleOp>( getLoc(), getValue(), param - getOperandScale(0)));
-      }
-    }
-    bool $cppClass::isConsume() {
-      return false;
-    }
-    bool $cppClass::isSingle() {
-      return true;
-    }
-    ::llvm::SmallVector<double, 2> $cppClass::differentiate(::llvm::ArrayRef<double> gradient,
-        ::llvm::ArrayRef<double> estimation){
-      return {0 };
-    }
-    ::llvm::SmallVector<double, 1> $cppClass::estimateValue(::llvm::ArrayRef<double> estimation){
-      return {0};
-    }
-  }];
-  let hasCanonicalizer = 1;
-}
 
 #endif
