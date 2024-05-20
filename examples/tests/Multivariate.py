@@ -14,7 +14,7 @@ a_compile_opt = int(sys.argv[2])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
-print("sim:", sf.simulate(f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm"))
+# print("sim:", sf.simulate(f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm"))
 
 hevm = hc.HEVM()
 stem = Path(__file__).stem
@@ -36,7 +36,7 @@ w1 = [1.5,1.5,1.5]
 w2 = [2.0,2.0,2.0]
 W = [w0, w1, w2]
 
-epochs = 2
+epochs = 10
 learning_rate = -0.01
 itr = [ 0, 1, 2]
 for k in range(epochs):
@@ -68,7 +68,7 @@ res = hevm.getOutput()
 rms = 0
 for i in range(3):
     for j in range(3) : 
-        rms = rms + pow(res[3*i+j] - W[i][j], 2)
+        rms = rms + pow(res[3*i+j][:4096] - W[i][j], 2)
 rms = math.sqrt(np.mean(rms))
 # print (rms)
 
