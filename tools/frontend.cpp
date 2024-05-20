@@ -199,6 +199,7 @@ valueID createUnary(Context *ctxt, size_t opcode, valueID lhs, char *filename,
   case 13: {
     if (source.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
       auto res = builder.create<hecate::earth::NegateOp>(location, source);
+      valueMap.push_back(res);
     }
     break;
   }
