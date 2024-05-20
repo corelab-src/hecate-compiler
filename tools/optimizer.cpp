@@ -26,7 +26,6 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
-#include "mlir/Support/DebugCounter.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/Timing.h"
 #include "mlir/Support/ToolUtilities.h"
@@ -128,6 +127,7 @@ int main(int argc, char **argv) {
   registry.insert<transform::TransformDialect>();
   registry.insert<affine::AffineDialect>();
   registry.insert<arith::ArithDialect>();
+
   context.getOrLoadDialect<earth::EarthDialect>();
   context.getOrLoadDialect<ckks::CKKSDialect>();
   context.loadDialect<func::FuncDialect>();
@@ -157,6 +157,8 @@ int main(int argc, char **argv) {
   transform::registerTransformPasses();
   transform::registerInterpreterPass();
 
+  /* scf::ForOp::attachInterface<mlir::DestinationStyleOpInterface>(context); */
+  earth::registerSCFOpInterfaceExternalModels(registry);
   scf::registerTransformDialectExtension(registry);
   registry.applyExtensions(&context);
 
@@ -515,15 +517,17 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 
-        /* pm.addPass(createForToWhileLoopPass()); */
-        /* pm.addPass(createForLoopPeelingPass({false})); */
+        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
+         */
         pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
-        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createFlexibleBootstrap());
         pm.addPass(mlir::createCSEPass());
+        pm.addPass(mlir::createCanonicalizerPass());
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 

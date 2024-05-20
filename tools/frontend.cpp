@@ -79,15 +79,14 @@ struct Context {
 
 Context::Context() : ctxt(), mod(), builder() {
 
+  ctxt.getOrLoadDialect<hecate::earth::EarthDialect>();
   ctxt.getOrLoadDialect<mlir::func::FuncDialect>();
-  auto ed = ctxt.getOrLoadDialect<hecate::earth::EarthDialect>();
   ctxt.getOrLoadDialect<scf::SCFDialect>();
   ctxt.getOrLoadDialect<affine::AffineDialect>();
   ctxt.getOrLoadDialect<index::IndexDialect>();
   ctxt.getOrLoadDialect<transform::TransformDialect>();
   ctxt.getOrLoadDialect<arith::ArithDialect>();
 
-  /* scf::registerTransformDialectExtension(registry); */
   registry.applyExtensions(&ctxt);
 
   auto tmp = std::make_unique<mlir::OpBuilder>(&ctxt);
@@ -160,6 +159,7 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
 char *save(Context *c, char *const_name, char *mlir_name) {
   c->mod->getOperation()->setAttr(mlir::SymbolTable::getSymbolAttrName(),
                                   c->builder->getStringAttr(mlir_name));
+  c->mod->dump();
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
   pm.addPass(createCSEPass());
@@ -256,17 +256,13 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
   return valueMap.size() - 1;
 }
 
-/* valueID createRotation(Context *ctxt, size_t valueID, int offset, */
-valueID createRotation(Context *ctxt, size_t valueID, size_t offsetID,
+valueID createRotation(Context *ctxt, size_t valueID, int offset,
                        char *filename, size_t line) {
   auto &&builder = *ctxt->builder;
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
   auto &&srcl = ctxt->valueMap[valueID];
-  auto &&srcr = ctxt->valueMap[offsetID];
-
-  auto cons = builder.create<hecate::earth::RotateOp>(
-      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0), srcl,
-      /* offset); */
-      srcr);
+  auto cons = builder.create<hecate::earth::RotateOp>(location, srcl, offset);
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
 }
