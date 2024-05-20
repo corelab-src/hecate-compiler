@@ -63,7 +63,8 @@ lt.getInductionVar.argtypes = [
 
 """Immediate arguments"""
 lt.createRotation.argtypes = [
-        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t
+        # ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
         ]
 lt.createRotation.restype = ctypes.c_size_t
 
@@ -214,8 +215,8 @@ class hecateMetaBinary(hecateMetaBase):
         def rotate(self, offset) :
             (frame, filename, line_number, function_name, lines,
                         index) = inspect.stack()[1]
-            tmp = resolveType(offset)
-            return Expr(lt.createRotation(ctxt, self.obj, tmp.obj, 
+            # tmp = resolveType(offset)
+            return Expr(lt.createRotation(ctxt, self.obj, offset, 
                 filename.encode('utf-8'), line_number))
         setattr(newcls, "rotate", rotate)
 
@@ -256,8 +257,8 @@ def resolveType(other):
     if isinstance(other, Expr):
         return other
     elif isinstance(other, int):
-        return Index(other)
-        # return Plain(np.array([other], dtype=np.float64)) #Plain([other])
+        # return Index(other)
+        return Plain(np.array([other], dtype=np.float64)) #Plain([other])
     elif isinstance(other, float):
         return Plain(np.array([other], dtype=np.float64)) #Plain([other])
     elif isinstance(other, list):
