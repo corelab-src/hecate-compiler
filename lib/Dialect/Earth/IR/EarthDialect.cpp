@@ -180,6 +180,11 @@ struct ForOpMgmtInterfaceModel
       forOp.getRegionIterArg(yieldIdx).setType(
           op->getOperand(initArgIdx).getType());
     }
+    for (size_t i = 0; i < forOp.getNumResults(); i++) {
+      forOp.getResult(i).setType(
+          forOp.getBody()->getTerminator()->getOperand(i).getType());
+    }
+
     return;
   }
   void processOperandsPARS(Operation *op, int64_t param) const {
