@@ -41,43 +41,16 @@ struct LoopRotationPass
     : public hecate::earth::impl::LoopRotationBase<LoopRotationPass> {
   LoopRotationPass() {}
 
-  void bfs(mlir::SmallVector<mlir::Value, 1> inputs) {
-    for (auto arg : inputs) {
-      auto argDefType = arg.getDefiningOp()
-                            ->getOperand(0)
-                            .getType()
-                            .dyn_cast<hecate::earth::HEScaleTypeInterface>();
-      if (!argDefType.isCipher()) {
-        arg.replaceAllUsesWith(arg.getDefiningOp()->getOperand(0));
-        arg.getDefiningOp()->erase();
-        continue;
-      }
-      std::queue<mlir::Value> values;
-      values.push(arg);
-      while (!values.empty()) {
-        auto val = values.front();
-        values.pop();
-        for (auto user : val.getUsers()) {
-        }
+  mlir::SmallVector<scf::ForOp, 4> scfForQueue;
+  void schedulePeelForOp(mlir::scf::ForOp &op) {
+    auto &&bb = op.getBody();
+    for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
+      if (auto forOp = dyn_cast<mlir::scf::ForOp>(*iter)) {
+        schedulePeelForOp(forOp);
       }
     }
-  }
-
-  static bool isInnermostAffineForOp(affine::AffineForOp op) {
-    return !op.getBody()
-                ->walk([&](affine::AffineForOp nestedForOp) {
-                  return WalkResult::interrupt();
-                })
-                .wasInterrupted();
-  }
-
-  static void
-  gatherInnermostLoops(func::FuncOp f,
-                       SmallVectorImpl<affine::AffineForOp> &loops) {
-    f.walk([&](affine::AffineForOp forOp) {
-      if (isInnermostAffineForOp(forOp))
-        loops.push_back(forOp);
-    });
+    scfForQueue.push_back(op);
+    return;
   }
 
   void runOnOperation() override {
@@ -86,53 +59,49 @@ struct LoopRotationPass
     auto mod = func->getParentOfType<mlir::ModuleOp>();
 
     mlir::OpBuilder builder(func);
-
-    Type transAnyType = transform::AnyOpType::get(builder.getContext());
-    SmallVector<mlir::Type, 2> inputTypes, retTypes;
-    inputTypes.push_back(transAnyType);
+    mlir::IRRewriter rewriter(builder);
+    mlir::RewritePatternSet pattern(builder.getContext());
 
     PassManager pm(mod.getContext());
-    OpPassManager &nestedModulePM = pm.nest<mlir::ModuleOp>();
-
-    transform::PreloadLibraryPassOptions opts;
-    std::string path = std::filesystem::path(getenv("HECATE")).string() +
-                       "/examples/optimized/halo/" +
-                       std::string("loop.transform.mlir");
-    opts.transformLibraryPaths = path;
-    pm.addPass(transform::createPreloadLibraryPass(opts));
-    pm.addPass(transform::createInterpreterPass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveErasedOp());
     pm.addNestedPass<func::FuncOp>(hecate::earth::createPrivatizeConstant());
 
+    auto &&bb = func.getBody().getBlocks().front();
+    for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
+      if (auto forOp = dyn_cast<mlir::scf::ForOp>(*iter)) {
+        schedulePeelForOp(forOp);
+      }
+    }
+    for (auto forOp : scfForQueue) {
+      scf::ForOp result;
+      bool anyOfPlainArg =
+          llvm::any_of(forOp.getInitArgs(), [](mlir::Value arg) {
+            auto erOp =
+                dyn_cast<hecate::earth::EraseTypeOp>(arg.getDefiningOp());
+            return !erOp.getOperand()
+                        .getType()
+                        .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                        .isCipher();
+          });
+      if (anyOfPlainArg) {
+        LogicalResult status =
+            scf::peelForLoopFirstIteration(rewriter, forOp, result);
+        if (failed(status))
+          llvm::errs() << "failed to peel the first iteration\n";
+      }
+      mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
+    }
     if (failed(pm.run(mod))) {
       llvm::errs() << "loop transform failed" << '\n';
       func.dump();
     }
-    func.walk([&](scf::ForOp ForOp) {
-      mlir::Region &loop_body = ForOp.getBodyRegion();
-      mlir::Block *loopBodyBlock = ForOp.getBody();
-      mlir::IRRewriter rewriter(builder);
-      SmallVector<Operation *, 8> toRotate;
-      for (auto args : loopBodyBlock->getArguments()) {
-        if (llvm::all_of(args.getUsers(), [&](auto &&v) {
-              return hecate::earth::getScaleType(v->getResult(0)).isCipher();
-            })) {
-        }
-      }
-    });
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::earth::EarthDialect>();
     registry.insert<scf::SCFDialect>();
-    registry.insert<transform::TransformDialect>();
-    registry.insert<affine::AffineDialect>();
     registry.insert<arith::ArithDialect>();
-    /* addExtensions<transform::SCFTransformDialectExtension>(registry); */
-    /* registry.addExtensions<transform::SCFTransformDialectExtension>(); */
-    /* transform::registerTransformDialectExtension(registry); */
-    scf::registerTransformDialectExtension(registry);
   }
 };
 } // namespace
