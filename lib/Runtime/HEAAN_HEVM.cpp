@@ -16,6 +16,7 @@
 
 #include <type_traits>
 #include <vector>
+#include <zlib.h>
 
 #include "hecate/Support/HEVMHeader.h"
 
@@ -170,16 +171,29 @@ struct HEAAN_HEVM {
     int64_t len;
     iff.read((char *)&len, sizeof(int64_t));
     buffer.resize(len);
+    int64_t serializedLength = len;
 
     for (int64_t i = 0; i < len; i++) {
       int64_t veclen;
       iff.read((char *)&veclen, sizeof(int64_t));
-      std::vector<double> tmp;
-      tmp.resize(veclen);
-      iff.read((char *)tmp.data(), veclen * sizeof(double));
-      buffer[i] = tmp;
+      buffer[i].resize(veclen);
+      serializedLength += veclen;
     }
+
+    // Decompress the constant data
+    std::vector<Bytef> compressedData((std::istreambuf_iterator<char>(iff)),
+                                      std::istreambuf_iterator<char>());
+    std::vector<double> tmp(serializedLength);
+    uLongf decompressedSize = serializedLength * sizeof(double);
+    uncompress((Bytef *)(tmp.data()), &decompressedSize, compressedData.data(),
+               compressedData.size());
+
     iff.close();
+    int cnt = 0;
+    for (auto &&b : buffer) {
+      b.assign(tmp.begin() + cnt, tmp.begin() + cnt + b.size());
+      cnt += b.size();
+    }
     /* std::cerr << "Constant Loaded From" << sname << std::endl; */
   }
 

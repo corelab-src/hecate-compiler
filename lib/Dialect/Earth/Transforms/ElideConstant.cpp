@@ -3,8 +3,10 @@
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "hecate/Dialect/Earth/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Builders.h"
 #include <fstream>
+#include <zlib.h>
 
 namespace hecate {
 namespace earth {
@@ -43,13 +45,22 @@ struct ElideConstantPass
     int64_t a;
     a = save_data.size();
     of.write((char *)&a, sizeof(int64_t));
+    SmallVector<double> serializedData;
     for (auto k : save_data) {
       a = k.size();
       of.write((char *)&a, sizeof(int64_t));
       for (auto d : k) {
-        of.write((char *)&d, sizeof(double));
+        serializedData.push_back(d);
       }
     }
+    // compress the constant data
+    uLongf compressedSize =
+        compressBound(serializedData.size() * sizeof(double));
+    std::vector<Bytef> buffer(compressedSize);
+    compress(buffer.data(), &compressedSize, (Bytef *)(serializedData.data()),
+             serializedData.size() * sizeof(double));
+    of.write((char *)(buffer.data()), compressedSize);
+
     of.close();
   }
 
