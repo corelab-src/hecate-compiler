@@ -523,6 +523,8 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         /* pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
          */
         pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
+        /* pm.addNestedPass<func::FuncOp>( */
+        /*     hecate::earth::createApplyDaCapoToLoop()); */
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));

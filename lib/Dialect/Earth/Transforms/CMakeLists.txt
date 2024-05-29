@@ -1,4 +1,5 @@
 add_mlir_dialect_library(EarthTransforms
+ ApplyDaCapoToLoop.cpp
  WaterlineRescaling.cpp
  ElideConstant.cpp
  PrivatizeConstant.cpp

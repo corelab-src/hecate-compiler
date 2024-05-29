@@ -206,6 +206,12 @@ def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
     This pass changes the loop structure through rotation and removes EraseOp.
   }];
 }
+def ApplyDaCapoToLoop : Pass<"dacapo-loop", "::mlir::func::FuncOp"> {
+  let summary = "Apply DaCapo scheme to loop body";
+  let description = [{
+    This pass applies DaCapo scheme on loop body to optimize.
+  }];
+}
 def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
   let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
   let description = [{
