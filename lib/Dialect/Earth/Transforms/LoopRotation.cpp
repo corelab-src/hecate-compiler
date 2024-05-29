@@ -91,6 +91,7 @@ struct LoopRotationPass
           llvm::errs() << "failed to peel the first iteration\n";
       }
       mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
+      /* (void)mlir::loopUnrollByFactor(forOp, 2); */
     }
     if (failed(pm.run(mod))) {
       llvm::errs() << "loop transform failed" << '\n';
