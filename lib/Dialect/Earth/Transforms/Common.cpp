@@ -91,14 +91,15 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
   SmallVector<int64_t, 4> scales_out;
 
   for (auto &&arg : func.getArguments()) {
-    scales_in.push_back(arg.getType()
-                            .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                            .getScale());
+    if (auto tt = arg.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>())
+      scales_in.push_back(tt.getScale());
+    else
+      scales_in.push_back(0);
   }
   func->setAttr("arg_scale", builder.getDenseI64ArrayAttr(scales_in));
   for (auto &&restype : func.getResultTypes()) {
-    scales_out.push_back(
-        restype.dyn_cast<hecate::earth::HEScaleTypeInterface>().getScale());
+    if (auto tt = restype.dyn_cast<hecate::earth::HEScaleTypeInterface>())
+      scales_out.push_back(tt.getScale());
   }
   func->setAttr("res_scale", builder.getDenseI64ArrayAttr(scales_out));
 }
@@ -111,11 +112,12 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
   // Set function argument types
   if (!func->hasAttr("segment_inputType")) {
     for (auto argval : func.getArguments()) {
-      auto tt = argval.getType().dyn_cast<RankedTensorType>();
-      argval.setType(RankedTensorType::get(
-          tt.getShape(), tt.getElementType()
-                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                             .switchScale(waterline)));
+      if (auto tt = argval.getType().dyn_cast<RankedTensorType>()) {
+        argval.setType(RankedTensorType::get(
+            tt.getShape(), tt.getElementType()
+                               .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                               .switchScale(waterline)));
+      }
       inputTypes.push_back(argval.getType());
     }
   } else {
@@ -124,11 +126,12 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
                                  .getValue();
     for (size_t i = 0; i < func.getNumArguments(); i++) {
       auto argval = func.getArgument(i);
-      auto input_type = inputType_attrs[i]
-                            .dyn_cast<mlir::TypeAttr>()
-                            .getValue()
-                            .dyn_cast<hecate::earth::HEScaleTypeInterface>();
-      argval.setType(input_type);
+      if (auto input_type =
+              inputType_attrs[i]
+                  .dyn_cast<mlir::TypeAttr>()
+                  .getValue()
+                  .dyn_cast<hecate::earth::HEScaleTypeInterface>())
+        argval.setType(input_type);
       inputTypes.push_back(argval.getType());
     }
   }
@@ -166,12 +169,11 @@ void hecate::earth::inferTypeForward(hecate::earth::ForwardMgmtInterface sop) {
   }
 }
 
-llvm::SmallVector<mlir::Value, 4>
-hecate::earth::attachOpid(mlir::func::FuncOp func) {
+llvm::SmallVector<mlir::Value, 4> hecate::earth::attachOpid(mlir::Block *bb) {
   llvm::SmallVector<mlir::Value, 4> values;
   // attach the opid to operation
   values.push_back(NULL);
-  func->walk([&](hecate::earth::HEScaleOpInterface sop) {
+  bb->walk([&](hecate::earth::HEScaleOpInterface sop) {
     if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
          llvm::isa<hecate::earth::RescaleOp>(sop) ||
          llvm::isa<hecate::earth::BootstrapOp>(sop) ||

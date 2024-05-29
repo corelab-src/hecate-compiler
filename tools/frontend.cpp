@@ -123,12 +123,16 @@ funcID createFunc(Context *ctxt, char *name, int *inputTys, size_t len,
                   char *filename, size_t line) {
   auto &&builder = *ctxt->builder;
   auto &&funcMap = ctxt->funcMap;
-  llvm::SmallVector<mlir::Type, 4> arg_types(len);
-  std::transform(inputTys, inputTys + len, arg_types.begin(), [&](auto a) {
-    return mlir::RankedTensorType::get(
-        llvm::SmallVector<int64_t, 1>{1},
-        builder.getType<hecate::earth::CipherType>(0, 0));
-  });
+  llvm::SmallVector<mlir::Type, 4> arg_types;
+  for (size_t i = 0; i < len; i++) {
+    if (inputTys[i] == 1)
+      arg_types.push_back(mlir::RankedTensorType::get(
+          llvm::SmallVector<int64_t, 1>{1},
+          builder.getType<hecate::earth::CipherType>(0, 0)));
+    else if (inputTys[i] == 0) {
+      arg_types.push_back(mlir::IndexType::get(&ctxt->ctxt));
+    }
+  }
   auto funcType = builder.getFunctionType(
       arg_types, mlir::RankedTensorType::get(
                      llvm::SmallVector<int64_t, 1>{1},
@@ -159,7 +163,6 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
 char *save(Context *c, char *const_name, char *mlir_name) {
   c->mod->getOperation()->setAttr(mlir::SymbolTable::getSymbolAttrName(),
                                   c->builder->getStringAttr(mlir_name));
-  c->mod->dump();
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
   pm.addPass(createCSEPass());
@@ -281,13 +284,13 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
     ctxt->valueMap.push_back(er);
   }
 
-  /* auto loop = builder.create<affine::AffineForOp>(location, rng[0], rng[1],
-   */
-  /*                                                 rng[2], inputarr); */
   auto lowerBound =
       builder.create<mlir::arith::ConstantIndexOp>(location, rng[0]);
-  auto upperBound =
-      builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]);
+  Value upperBound;
+  if (isa<mlir::IndexType>((ctxt->valueMap[rng[1]]).getType()))
+    upperBound = ctxt->valueMap[rng[1]];
+  else
+    upperBound = builder.create<mlir::arith::ConstantIndexOp>(location, rng[1]);
   auto step = builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]);
   auto loop = builder.create<mlir::scf::ForOp>(location, lowerBound, upperBound,
                                                step, inputarr);

@@ -8,6 +8,7 @@ mkdir -p $HECATE/examples/optimized/eva
 mkdir -p $HECATE/examples/optimized/elasm
 mkdir -p $HECATE/examples/optimized/dacapo
 mkdir -p $HECATE/examples/optimized/pars
+mkdir -p $HECATE/examples/optimized/halo
 
 build-hopt()(
 cd $HECATE/build
@@ -21,12 +22,12 @@ ninja
 
 hc-trace()(
 cd $HECATE/examples
-python3 $HECATE/examples/benchmarks/$1.py
+python3 $HECATE/examples/benchmarks/$1.py $2
 )
 
 hc-test()(
 cd $HECATE/examples
-python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5
+python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5 $6
 )
 
 
@@ -67,7 +68,7 @@ hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-prin
 }
 
 hc-back-opt-test(){
-hopt-lib-hw $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
+hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6
 }
 
 hc-back-opt(){

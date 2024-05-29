@@ -36,7 +36,6 @@ struct ReuseBufferPass
     auto &&bb = func.getBody().getBlocks().front();
     for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
       Operation *oop = &*iter;
-      oop->dump();
       if (auto op = dyn_cast<mlir::DestinationStyleOpInterface>(oop)) {
         for (int i = 0; i < op.getNumDpsInputs(); i++) {
           auto v = op.getDpsInputOperand(i);
@@ -44,7 +43,8 @@ struct ReuseBufferPass
             if (tt.getNumPoly() == 1)
               continue;
             if (l.isDeadAfter(v->get(), op) &&
-                (garbage.empty() || v->get() != garbage.back())) {
+                (garbage.empty() || v->get() != garbage.back()) &&
+                !isa<hecate::ckks::CopyCOp>(oop)) {
               garbage.push_back(v->get());
             }
           }
@@ -66,6 +66,7 @@ struct ReuseBufferPass
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::ckks::CKKSDialect>();
+    /* hecate::ckks::registerSCFOpInterfaceExternalModels(registry); */
   }
 };
 } // namespace

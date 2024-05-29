@@ -402,7 +402,8 @@ class WithScope(metaclass=hecateMetaBase):
             self.init_vars[k] = v 
         # self.indvar = i
         self.inputarr = (ctypes.c_size_t *len(inputarr))(*[resolveType(bb).obj for bb in inputarr])
-        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rng), self.indvars, self.inputarr, len(self.inputarr), self.filename, self.line_number)
+        rngg = (ctypes.c_size_t *3)(*[resolveType(bb).obj if isinstance(bb, Expr) else bb for bb in rng])
+        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rngg), self.indvars, self.inputarr, len(self.inputarr), self.filename, self.line_number)
         for i in range(len(inputarr)) :
             inputarr[i].obj = self.indvars[i+1] 
 

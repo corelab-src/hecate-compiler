@@ -23,6 +23,7 @@ struct ConfigBody { // All of entry is 64 bit
   uint64_t num_loops;
   uint64_t num_ctxt_buffer;
   uint64_t num_ptxt_buffer;
+  uint64_t num_int_buffer;
   uint64_t init_level;
   /* uint64_t arg_scale[arg_length]; */
   /* uint64_t arg_level[arg_length]; */
@@ -45,11 +46,10 @@ struct HEVMLoopOp : HEVMOperation {
     uint16_t lb;
     uint16_t ub;
     uint16_t step;
-    uint64_t num_operations;
-    uint64_t num_ctxt_buffer;
-    uint64_t num_ptxt_buffer;
+    uint16_t num_operations;
+    /* uint64_t num_ctxt_buffer; */
+    /* uint64_t num_ptxt_buffer; */
   } config_body;
 };
-
 } // namespace "C"
 #endif

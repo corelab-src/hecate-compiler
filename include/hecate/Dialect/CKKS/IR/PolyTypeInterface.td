@@ -55,7 +55,9 @@ def HEVMOpInterface : OpInterface<"HEVMOpInterface"> {
       }],
     /*retType=*/"HEVMOperation",
     /*methodName=*/"getHEVMOperation",
-    /*args=*/(ins "llvm::DenseMap<mlir::Value, int64_t>":$plainMap, "llvm::DenseMap<mlir::Value, int64_t>":$cipherMap)
+    /*args=*/(ins "llvm::DenseMap<mlir::Value, int64_t>":$plainMap,
+        "llvm::DenseMap<mlir::Value, int64_t>":$cipherMap,
+        "llvm::DenseMap<mlir::Value, int64_t>":$integerMap)
       >
   ];
 }

@@ -66,7 +66,9 @@ def EncodeOp : CKKS_Op<"encode",[]> {
     bool $cppClass::isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs){
       return rhs.back().dyn_cast<PolyTypeInterface>().getNumPoly() == 1;
     }
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 0;
       op.dst = plainMap[getDst()];
@@ -88,7 +90,9 @@ def EncodeOp : CKKS_Op<"encode",[]> {
 def RotateCOp : CKKS_Op<"rotatec", [SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, DenseI64ArrayAttr:$offset);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 1;
       op.dst = cipherMap[getDst()];
@@ -101,7 +105,9 @@ def RotateCOp : CKKS_Op<"rotatec", [SameOperandsAndResultType]> {
 def NegateCOp : CKKS_Op<"negatec", [SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 2;
       op.dst = cipherMap[getDst()];
@@ -117,7 +123,9 @@ def NegateCOp : CKKS_Op<"negatec", [SameOperandsAndResultType]> {
 def RescaleCOp : CKKS_Op<"rescalec", [SameOperandsAndResultShape]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 3;
       op.dst = cipherMap[getDst()];
@@ -130,7 +138,9 @@ def RescaleCOp : CKKS_Op<"rescalec", [SameOperandsAndResultShape]> {
 def ModswitchCOp : CKKS_Op<"modswitchc", [SameOperandsAndResultShape]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, I64Attr:$downFactor);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 4;
       op.dst = cipherMap[getDst()];
@@ -143,7 +153,9 @@ def ModswitchCOp : CKKS_Op<"modswitchc", [SameOperandsAndResultShape]> {
 def UpscaleCOp : CKKS_Op<"upscalec", [SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, I64Attr:$upFactor);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 5;
       op.dst = cipherMap[getDst()];
@@ -157,7 +169,9 @@ def UpscaleCOp : CKKS_Op<"upscalec", [SameOperandsAndResultType]> {
 def BootstrapCOp : CKKS_Op<"bootstrapc", [SameOperandsAndResultShape]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, I64Attr:$level);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 10;
       op.dst = cipherMap[getDst()];
@@ -173,7 +187,9 @@ def BootstrapCOp : CKKS_Op<"bootstrapc", [SameOperandsAndResultShape]> {
 def AddCCOp: CKKS_Op<"addcc", [Commutative, SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$lhs, PolyTensor:$rhs);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 6;
       op.dst = cipherMap[getDst()];
@@ -186,7 +202,9 @@ def AddCCOp: CKKS_Op<"addcc", [Commutative, SameOperandsAndResultType]> {
 def AddCPOp: CKKS_Op<"addcp", [Commutative, SameOperandsAndResultShape]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$lhs, PolyTensor:$rhs);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 7;
       op.dst = cipherMap[getDst()];
@@ -199,7 +217,9 @@ def AddCPOp: CKKS_Op<"addcp", [Commutative, SameOperandsAndResultShape]> {
 def MulCCOp: CKKS_Op<"mulcc", [Commutative, SameOperandsAndResultType]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$lhs, PolyTensor:$rhs);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 8;
       op.dst = cipherMap[getDst()];
@@ -212,7 +232,9 @@ def MulCCOp: CKKS_Op<"mulcc", [Commutative, SameOperandsAndResultType]> {
 def MulCPOp: CKKS_Op<"mulcp", [Commutative, SameOperandsAndResultShape]> {
   let arguments = (ins PolyTensor:$dst, PolyTensor:$lhs, PolyTensor:$rhs);
   code extraClassDefinition = arithClassDefinition # [{
-    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
       HEVMOperation op;
       op.opcode = 9;
       op.dst = cipherMap[getDst()];
@@ -223,7 +245,7 @@ def MulCPOp: CKKS_Op<"mulcp", [Commutative, SameOperandsAndResultShape]> {
   }];
 }
 /* def RotateCOp : CKKS_Op<"rotatec", [Commutative, SameOperandsAndResultShape]> { */
-/*   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, AnyInteger:$offset); */
+/*   let arguments = (ins PolyTensor:$dst, PolyTensor:$src, Index:$offset); */
 /*   code extraClassDefinition = arithClassDefinition # [{ */
 /*     HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap, llvm::DenseMap<mlir::Value, int64_t> cipherMap){ */
 /*       HEVMOperation op; */
@@ -238,5 +260,105 @@ def MulCPOp: CKKS_Op<"mulcp", [Commutative, SameOperandsAndResultShape]> {
 /*     } */
 /*   }]; */
 /* } */
+/* ######### Memory Management Operations ########## */
+def CopyCOp: CKKS_Op<"copyc", [SameOperandsAndResultType]> {
+  let arguments = (ins PolyTensor:$dst, PolyTensor:$lhs);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 200;
+      op.dst = cipherMap[getDst()];
+      op.lhs = cipherMap[getLhs()];
+      op.rhs = 0;
+      return op;
+    }
+  }];
+}
 
+
+/* ######### Index Arith Operations ########## */
+def EmptyIOp: CKKS_Op<"emtpyi", [Pure]> {
+  let arguments = (ins Variadic<AnyType>:$dst);
+  let results = (outs Index:$result);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 99;
+      op.dst = 0;
+      op.lhs = 0;
+      op.rhs = 0;
+      return op;
+    }
+  }];
+}
+
+def ConstIOp: CKKS_Op<"constanti", [SameOperandsAndResultType]> {
+  let arguments = (ins Index:$dst, I64Attr:$value);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 100;
+      op.dst = integerMap[getDst()];
+      op.lhs = getValue();
+      op.rhs = 0;
+      return op;
+    }
+  }];
+}
+
+
+/* ######### Index Arith Operations ########## */
+
+def AddIOp: CKKS_Op<"addi", [Commutative, SameOperandsAndResultType]> {
+  let arguments = (ins Index:$dst, Index:$lhs, Index:$rhs);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 101;
+      op.dst = integerMap[getDst()];
+      op.lhs = integerMap[getLhs()];
+      op.rhs = integerMap[getRhs()];
+      return op;
+    }
+  }];
+}
+
+def SubIOp: CKKS_Op<"subi", [Commutative, SameOperandsAndResultType]> {
+  let arguments = (ins Index:$dst, Index:$lhs, Index:$rhs);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 102;
+      op.dst = integerMap[getDst()];
+      op.lhs = integerMap[getLhs()];
+      op.rhs = integerMap[getRhs()];
+      return op;
+    }
+  }];
+}
+def RemSIOp: CKKS_Op<"remsi", [Commutative, SameOperandsAndResultType]> {
+  let arguments = (ins Index:$dst, Index:$lhs, Index:$rhs);
+  code extraClassDefinition = arithClassDefinition # [{
+    HEVMOperation $cppClass::getHEVMOperation (llvm::DenseMap<mlir::Value, int64_t> plainMap,
+        llvm::DenseMap<mlir::Value, int64_t> cipherMap,
+        llvm::DenseMap<mlir::Value, int64_t> integerMap){
+      HEVMOperation op;
+      op.opcode = 103;
+      op.dst = integerMap[getDst()];
+      op.lhs = integerMap[getLhs()];
+      op.rhs = integerMap[getRhs()];
+      return op;
+    }
+  }];
+}
 #endif

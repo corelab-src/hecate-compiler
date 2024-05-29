@@ -39,6 +39,7 @@ struct HEAAN_HEVM {
   std::vector<double> scalep;
   std::vector<uint64_t> levelp;
   std::vector<HEaaN::Message> msgs;
+  std::vector<int> integers;
   std::map<double *, int> msgMap;
   std::map<uint64_t, HEaaN::Plaintext> upscale_const;
 
@@ -189,6 +190,7 @@ struct HEAAN_HEVM {
 
     loadHeader(iff);
 
+    integers.resize(header.config_header.arg_length);
     ops.resize(config.num_operations);
     iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
 
@@ -202,6 +204,7 @@ struct HEAAN_HEVM {
                loop_insts[i].size() * sizeof(HEVMOperation));
     }
 
+    integers.resize(config.num_int_buffer);
     ciphers.resize(config.num_ctxt_buffer, HEaaN::Ciphertext(context));
     if (togpu) {
       for (auto &&cipher : ciphers)
@@ -413,14 +416,34 @@ struct HEAAN_HEVM {
     boot_cnt++;
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
   }
+
   void heloop(int16_t dst) {
     HEVMLoopOp &loop = loops[dst];
     std::vector<HEVMOperation> &loop_body = loop_insts[dst];
-    auto lb = loop.config_body.lb;
-    auto ub = loop.config_body.ub;
-    auto step = loop.config_body.step;
-    for (size_t i = lb; i < ub; i += step)
+    auto lb = integers[loop.config_body.lb];
+    auto ub = integers[loop.config_body.ub];
+    auto step = integers[loop.config_body.step];
+    if (debug)
+      std::cout << dst << " loop : " << lb << " " << ub << " " << step << '\n';
+    for (int i = lb; i < ub; i += step)
       run(loop_body);
+  }
+
+  void copyCipher(int16_t dst, int16_t lhs) {
+    ciphers[dst] = ciphers[lhs];
+    scalec[dst] = scalec[lhs];
+  }
+
+  void arithConstant(int16_t dst, int16_t lhs) { integers[dst] = lhs; }
+
+  void arithAddI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] + integers[rhs];
+  }
+  void arithSubI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] - integers[rhs];
+  }
+  void arithRemSI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] % integers[rhs];
   }
 
   void run(std::vector<HEVMOperation> &heops) {
@@ -485,13 +508,32 @@ struct HEAAN_HEVM {
         heloop(op.dst);
         break;
       }
+      case 200: {
+        copyCipher(op.dst, op.lhs);
+        break;
+      }
+      case 100: {
+        arithConstant(op.dst, op.lhs);
+        break;
+      }
+      case 101: {
+        arithAddI(op.dst, op.lhs, op.rhs);
+        break;
+      }
+      case 102: {
+        arithSubI(op.dst, op.lhs, op.rhs);
+        break;
+      }
+      case 103: {
+        arithRemSI(op.dst, op.lhs, op.rhs);
+        break;
+      }
       default: {
         break;
       }
       }
     }
     /* std::cout << "boot_time : " << boot_time << '\n'; */
-    /* std::cout << "boot_cnt : " << boot_cnt << '\n'; */
   }
 };
 
@@ -528,6 +570,12 @@ void loadClient(void *vm, void *is) {
   std::istream &iss = *static_cast<std::istream *>(is);
   hevm->loadHeader(iss);
   hevm->resetResDst();
+}
+
+// set Epoch of loop
+void setEpoch(void *vm, int64_t i, int epoch) {
+  auto hevm = static_cast<HEAAN_HEVM *>(vm);
+  hevm->integers[i] = epoch;
 }
 
 // encryption and decryption uses internal buffer id

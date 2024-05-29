@@ -64,17 +64,21 @@ struct AllocLoopBufferPass
           }
         }
       }
+
+      auto yieldOp = dyn_cast<scf::YieldOp>(fop.getBody()->getTerminator());
+      for (int i = 0; i < yieldOp.getNumOperands(); i++) {
+        Operation *yop = yieldOp.getOperand(i).getDefiningOp();
+        auto arg = fop.getRegionIterArg(i);
+        if (auto op = dyn_cast<mlir::DestinationStyleOpInterface>(yop)) {
+          op.getDpsInitOperand(0)->set(arg);
+        }
+      }
     });
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::ckks::CKKSDialect>();
     registry.insert<mlir::scf::SCFDialect>();
-    /* registry.addExtension(+[](MLIRContext *ctx, scf::SCFDialect *dialect) {
-     */
-    /*   scf::ForOp::attachInterface<mlir::DestinationStyleOpInterface>(*ctx);
-     */
-    /* }); */
   }
 };
 } // namespace
