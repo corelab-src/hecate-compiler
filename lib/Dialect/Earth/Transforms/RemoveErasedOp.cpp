@@ -26,10 +26,12 @@ struct RemoveErasedOpPass
 
     auto func = getOperation();
     mlir::OpBuilder builder(func);
+
     func.walk([&](hecate::earth::EraseTypeOp eop) {
       eop.replaceAllUsesWith(eop.getOperand());
       eop.erase();
     });
+
     func.walk([&](scf::ForOp ForOp) {
       auto inputTy = ForOp.getOperandTypes();
       mlir::Region &loop_body = ForOp.getBodyRegion();
@@ -41,14 +43,24 @@ struct RemoveErasedOpPass
         ForOp.getResult(i).setType(
             loopBodyBlock->getTerminator()->getOperand(i).getType());
       }
-      auto funcType = func.getFunctionType();
-      mlir::SmallVector<mlir::Type, 4> retTypes;
-      for (auto ret : func.getRegion().front().getTerminator()->getOperands()) {
-        retTypes.push_back(ret.getType());
-      }
-      func.setFunctionType(
-          builder.getFunctionType(funcType.getInputs(), retTypes));
     });
+    func->walk([&](hecate::earth::HEScaleOpInterface sop) {
+      if (llvm::isa<hecate::earth::BootstrapOp>(sop) ||
+          llvm::isa<hecate::earth::RotateOp>(sop) ||
+          llvm::isa<hecate::earth::NegateOp>(sop)) {
+        sop->getResult(0).setType(sop->getOperand(0).getType());
+        return;
+      }
+    });
+
+    auto funcType = func.getFunctionType();
+    mlir::SmallVector<mlir::Type, 4> retTypes;
+    for (auto ret : func.getRegion().front().getTerminator()->getOperands()) {
+      retTypes.push_back(ret.getType());
+    }
+    func.setFunctionType(
+        builder.getFunctionType(funcType.getInputs(), retTypes));
+
     /* func.dump(); */
   }
 
