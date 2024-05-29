@@ -24,5 +24,24 @@ def UpscaleToMulcpConversion : Pass<"convert-upscale-to-mulcp", "::mlir::func::F
   let options = [
   ];
 }
-
+def ArithToDpsArithConversion : Pass<"convert-arith-to-dpsarith", "::mlir::func::FuncOp"> {
+  let summary = "Convert arith operation to dps arith";
+  let description = [{
+    This pass converts arith ops to dps arith.
+  }];
+  let constructor = "::hecate::ckks::createArithToDpsArithConversionPass()";
+  let dependentDialects = ["mlir::arith::ArithDialect", "mlir::tensor::TensorDialect"];
+  let options = [
+  ];
+}
+def SCFToDpsSCFConversion : Pass<"convert-scf-to-dpsscf", "::mlir::func::FuncOp"> {
+  let summary = "Convert scf operation to dps scf";
+  let description = [{
+    This pass converts arith ops to dps arith.
+  }];
+  let constructor = "::hecate::ckks::createSCFToDpsSCFConversionPass()";
+  let dependentDialects = ["mlir::scf::SCFDialect", "mlir::tensor::TensorDialect"];
+  let options = [
+  ];
+}
 #endif

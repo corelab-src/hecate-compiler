@@ -186,7 +186,7 @@ void hecate::ckks::CKKSDialect::initialize() {
     ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
     ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
     ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
-  auto op = AddCPOpAdaptor(operands, attributes, properties, regions);
+  auto op = MulCPOpAdaptor(operands, attributes, properties, regions);
   auto dPoly = ckks::getPolyType(op.getDst());
   auto lPoly = ckks::getPolyType(op.getLhs());
   auto rPoly = ckks::getPolyType(op.getRhs());
@@ -201,6 +201,7 @@ void hecate::ckks::CKKSDialect::initialize() {
     return ::mlir::failure();
   }
 }
+
 hecate::ckks::PolyTypeInterface
 hecate::ckks::PolyType::switchLevel(unsigned level) const {
   return get(getContext(), getNumPoly(), level);

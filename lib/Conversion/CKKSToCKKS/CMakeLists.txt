@@ -1,16 +1,18 @@
 
 add_mlir_conversion_library(HecateCKKSToCKKS
-  UpscaleToMulcp.cpp
+ UpscaleToMulcp.cpp
+ SCFToDpsSCF.cpp
+ ArithToDpsArith.cpp
 
-  DEPENDS
-  HecateConversionPassIncGen
+ DEPENDS
+ HecateConversionPassIncGen
 
-  LINK_COMPONENTS
-  Core
+ LINK_COMPONENTS
+ Core
 
-  LINK_LIBS PUBLIC
-  EarthDialect
-  CKKSDialect
-  MLIRLLVMCommonConversion
-  MLIRTransforms
-  )
+ LINK_LIBS PUBLIC
+ EarthDialect
+ CKKSDialect
+ MLIRLLVMCommonConversion
+ MLIRTransforms
+ )
