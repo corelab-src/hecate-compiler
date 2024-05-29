@@ -34,7 +34,7 @@ struct BootstrapPlacementPass
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
-    auto values = hecate::earth::attachOpid(func);
+    auto values = hecate::earth::attachOpid(&func.getRegion().front());
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
     auto &&btp_target =
         func->getAttrOfType<mlir::DenseI64ArrayAttr>("btp_target").asArrayRef();

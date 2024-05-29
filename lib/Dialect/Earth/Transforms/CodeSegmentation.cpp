@@ -35,7 +35,7 @@ struct CodeSegmentationPass
     /* auto &ca = getAnalysis<hecate::CandidateAnalysis>(); */
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
-    auto values = hecate::earth::attachOpid(func);
+    auto values = hecate::earth::attachOpid(&func.getRegion().front());
     auto &&cutted_edges =
         func->getAttrOfType<mlir::DenseI64ArrayAttr>("cutted_edge")
             .asArrayRef();
