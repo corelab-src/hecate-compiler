@@ -11,6 +11,7 @@ import math
 seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
+a_epoch = int(sys.argv[5])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -36,7 +37,7 @@ w1 = [1.5,1.5,1.5]
 w2 = [2.0,2.0,2.0]
 W = [w0, w1, w2]
 
-epochs = 10
+epochs = a_epoch
 learning_rate = -0.01
 itr = [ 0, 1, 2]
 for k in range(epochs):
@@ -59,6 +60,7 @@ hevm.setInput(2, x2)
 hevm.setInput(3, y0)
 hevm.setInput(4, y1)
 hevm.setInput(5, y2)
+hevm.setEpoch(0, a_epoch)
 
 timer = time.perf_counter_ns()
 hevm.run()
@@ -72,5 +74,6 @@ for i in range(3):
 rms = math.sqrt(np.mean(rms))
 # print (rms)
 
-hevm.printer(timer/pow(10, 9), rms)
+# hevm.printer(timer/pow(10, 9), rms)
+hevm.printer(timer/pow(10,9), rms, epochs)
 

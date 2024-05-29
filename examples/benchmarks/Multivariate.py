@@ -52,9 +52,11 @@ def create_mask_9(elements):
 
     return mask
 
-@hc.func("c,c,c,c,c,c")
-def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
-    epochs = 10
+# @hc.func("c,c,c,c,c,c")
+# def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
+#     epochs = 10
+@hc.func("c,c,c,c,c,c,i")
+def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epochs) :
     step = 1
     learning_rate = hc.Plain([-0.01])
 
@@ -79,8 +81,8 @@ def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
     y2_data = y2_data * mask_9[2]
     Y = y0_data + y1_data + y2_data     # y_data
     
-    for k in range(epochs):
-    # with hc.loop(0, epochs, step, W) as k:
+    # for k in range(epochs):
+    with hc.loop(0, epochs, step, W) as k:
         wX = W * X
         y_predict = wX + wX.rotate(elements*1) + wX.rotate(elements*2)
         mY = -Y

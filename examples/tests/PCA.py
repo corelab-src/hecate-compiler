@@ -9,6 +9,7 @@ import time
 seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
+a_epoch = int(sys.argv[5])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -18,8 +19,6 @@ hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_
 
 from sklearn import datasets
 
-learning_rate = -0.0001
-epochs = 10 
 iris = datasets.load_iris()
 X, Y = iris.data, iris.target
 n_samples, n_features = X.shape
@@ -32,14 +31,15 @@ cov = np.dot(X.T, X) / (n_samples - 1)
 x = X.flatten()
 y = Y.flatten()
     
-epochs_power = 10 
-epochs_babyl = 4
+epochs = a_epoch
+epochs_power = epochs 
+epochs_babyl = epochs
 epochs_newton = 4
 # epochs_babyl = math.ceil(a_epochs / 5) 
         
 def power_iteration(cov, epoch):
     b_k = np.ones(cov.shape[1])
-    for _ in range(epoch):
+    for _ in range(epoch+1):
         b_k1 = np.dot(cov, b_k)
         b_k1_squared = np.dot(b_k1, b_k1)
         b_k1_norm = sqrt_babylonian(b_k1_squared, epochs_babyl)
@@ -60,38 +60,28 @@ def newton_raphson_inverse(n, epoch):
         x = x * (2 - n * x)
     return x
 
-    eigenvectors = []
-    for i in range(n_components):
-        eigenvector = power_iteration(cov, epochs_power)
+eigenvectors = []
+for i in range(n_components):
+    eigenvector = power_iteration(cov, epochs_power)
 
-        # Finding the largest eigenvaluei
-        inv = np.dot(eigenvector.T, eigenvector)
-        inv = newton_raphson_inverse(inv, epochs_newton)
+    # Finding the largest eigenvaluei
+    inv = np.dot(eigenvector.T, eigenvector)
+    inv = newton_raphson_inverse(inv, epochs_newton)
 
-        eigenvalue = np.dot(eigenvector.T, np.dot(cov, eigenvector)) * inv
+    eigenvalue = np.dot(eigenvector.T, np.dot(cov, eigenvector)) * inv
 
-        # Deflating cov to obtain cov_new
-        cov -= eigenvalue * np.outer(eigenvector, eigenvector)
+    # Deflating cov to obtain cov_new
+    cov -= eigenvalue * np.outer(eigenvector, eigenvector)
 
-        eigenvectors.append(eigenvector)
-
+    eigenvectors.append(eigenvector)
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.run()
-hevm.setInput(0, x)
-hevm.setInput(1, y)
+hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-print(res.shape)
-print(eigenvectors.shape)
-import math
-rms = 0
-for i in range(len(res)):
-    for j in range(n_features):
-    # rms += math.sqrt(pow(res[i][j] - eigenvectors[i][j], 2)/16)
-        rms += math.sqrt(pow(res[i][j] - eigenvectors[i][j], 2))
 
-hevm.printer(timer/pow(10,9), rms)
+rms = np.sqrt(np.mean([np.power(abs(res[0][i]-eigenvectors[0][i]), 2) for i in range(4)]))
+hevm.printer(timer/pow(10,9), rms, epochs)

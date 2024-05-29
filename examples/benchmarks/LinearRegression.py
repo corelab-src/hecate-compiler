@@ -1,7 +1,6 @@
 import hecate as hc
 import sys
 
-
 def sum_elements(data):
     for i in range(12):
     # with hc.loop(0, 12, 1, [data]) as i:
@@ -27,10 +26,12 @@ def create_mask(elements):
     
     return mask
 
+# @hc.func("c,c,i")
+# def LinearRegression(x_data, y_data, epochs) :
 @hc.func("c,c")
 def LinearRegression(x_data, y_data) :
+    epochs = 20
     
-    epochs = 10
     step = 1
     learning_rate = hc.Plain([-0.01])
     
@@ -39,7 +40,7 @@ def LinearRegression(x_data, y_data) :
     W = mask[1] 
     
     for i in range(epochs):
-    # with hc.loop(0, epochs, step, inputarr = W) as i:
+    # with hc.loop(0, epochs, 1, inputarr = W) as i:
         
         xW = x_data * W
         y_predict = W + xW.rotate(elements)

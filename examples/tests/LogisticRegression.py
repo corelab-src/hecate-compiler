@@ -9,6 +9,7 @@ import time
 seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
+a_epoch = int(sys.argv[5])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -30,13 +31,11 @@ for samples in x_data:
     samples = samples.tolist()
     x += samples + pad
 
-epochs = 10
-learning_rate = -0.01
 
 W = np.zeros(n_features)
 b = 0.0  
 learning_rate = -0.0001
-epochs = 10 
+epochs = a_epoch 
 
 def _sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -56,9 +55,7 @@ for i in range(epochs):
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.run()
-hevm.setInput(0, x)
-hevm.setInput(1, y)
+hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
@@ -74,4 +71,5 @@ for i in range(1,31):
 
 # print (timer / pow(10,9))
 # print(rms)
-hevm.printer(timer/pow(10,9), rms)
+hevm.printer(timer/pow(10,9), rms, epochs)
+# hevm.printer(timer/pow(10,9), rms)

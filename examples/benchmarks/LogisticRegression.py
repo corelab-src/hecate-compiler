@@ -33,9 +33,11 @@ def LR_y_predict(x_data, W):
         y_predict = dot.rotate(2048*i)
     return y_predict
 
-@hc.func("c,c")
-def LogisticRegression(x_data, y_data):
-    epochs = 10
+# @hc.func("c,c")
+# def LogisticRegression(x_data, y_data):
+#     epochs = 20
+@hc.func("c,c,i")
+def LogisticRegression(x_data, y_data, epochs):
     step = 1
 
     elements = 569
@@ -47,8 +49,8 @@ def LogisticRegression(x_data, y_data):
     
     mask = create_mask(elements, block)
 
-    for i in range(epochs):
-    # with hc.loop(0, epochs, step, inputarr = W) as i:
+    # for i in range(epochs):
+    with hc.loop(0, epochs, step, inputarr = W) as i:
         y_predict = LR_y_predict(x_data, W)
         y_predict = y_predict * hc.Plain([1/8])
         y_predict = poly.GenPoly()(y_predict) + hc.Plain([0.5])

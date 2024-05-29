@@ -9,6 +9,7 @@ import time
 seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
+a_epoch = int(sys.argv[5])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -27,7 +28,7 @@ y = [ a*point +b + uniform (-0.01, 0.01) for point in x]
 W = 1.0
 c = 0.0
 
-epochs = 10
+epochs = a_epoch
 learning_rate = -0.01
 
 for i in range(epochs):
@@ -44,18 +45,14 @@ for i in range(epochs):
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.run()
-hevm.setInput(0, x)
-hevm.setInput(1, y)
+hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-print("TEST RESULT")
-print (W, c)
-print(res[0], res[1])
 # rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
 rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
 # print (timer / pow(10,9))
 # print(rms)
-hevm.printer(timer/pow(10,9), rms)
+hevm.printer(timer/pow(10,9), rms, epochs)
+# hevm.printer(timer/pow(10,9), rms)

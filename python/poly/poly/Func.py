@@ -88,7 +88,14 @@ def HE_sign (x):
         out = Poly.poly1(x)
         out = hc.bootstrap(out)
         out = Poly.poly3(Poly.poly2(out))
+        return out 
+    return sign(x)
+
+def HE_sign2 (x):
+    def sign (x) :
+        out = Poly.poly2(Poly.poly1(x))
         out = hc.bootstrap(out)
+        out = Poly.poly3(out)
         return out 
     return sign(x)
 

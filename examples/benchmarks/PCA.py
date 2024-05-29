@@ -84,6 +84,7 @@ def covariance(x_data, columns, rows, bit_mask):
     
     cov = cov.rotate(1024-16)
     cov = cov * hc.Plain([1/(rows-1.0)])
+    cov = hc.bootstrap(cov)
 
     return cov
 
@@ -112,31 +113,33 @@ def power_iteration(cov, epoch, columns, mask):
     b_k1_squared = b_k1 * b_k1
     b_k1_squared = sum_elements2(b_k1_squared, 2)
       
-    b_k1_norm = sqrt_babylonian(b_k1_squared, epochs_babyl, epochs_newton1)
+    b_k1_norm = sqrt_babylonian(b_k1_squared, epoch, epochs_newton1)
+    b_k1_norm = hc.bootstrap(b_k1_norm)
     b_k1_norm_i = newton_raphson_inverse(b_k1_norm, epochs_newton2)
     b_k1_norm_i = copy(b_k1_norm_i, mask[2], 1)
         
     b_k = b_k1 * b_k1_norm_i
     
-    for _ in range(epoch-1):
-    # with hc.loop(0, epoch-1, step, inputarr = b_k) as i:
-        b_k1 = cov_dot(cov, b_k, mask, 4)
-        b_k1_squared = b_k1 * b_k1
-        b_k1_squared = sum_elements2(b_k1_squared, 2)
+    # for _ in range(epoch-1):
+    with hc.loop(0, epoch, 1, inputarr = b_k) as i:
+        b_k1_in = cov_dot(cov, b_k, mask, 4)
+        b_k1_squared_in = b_k1_in * b_k1_in
+        b_k1_squared_in = sum_elements2(b_k1_squared_in, 2)
         
-        b_k1_norm = sqrt_babylonian(b_k1_squared, epochs_babyl, epochs_newton1)
-        b_k1_norm_i = newton_raphson_inverse(b_k1_norm, epochs_newton2)
-        b_k1_norm_i = copy(b_k1_norm_i, mask[2], 1)
+        b_k1_norm_in = sqrt_babylonian(b_k1_squared_in, epoch, epochs_newton1)
+        b_k1_norm_in = hc.bootstrap(b_k1_norm_in)
+        b_k1_norm_i_in = newton_raphson_inverse(b_k1_norm_in, epochs_newton2)
+        b_k1_norm_i_in = copy(b_k1_norm_i_in, mask[2], 1)
         
-        b_k = b_k1 * b_k1_norm_i
+        b_k = b_k1_in * b_k1_norm_i_in
     
     return b_k
 
 def sqrt_babylonian(n, epoch1, epoch2):
     x = n * hc.Plain([0.5])
 
-    for _ in range(epoch1):
-    # with hc.loop(0, epoch1, step, inputarr = x) as i:
+    # for _ in range(epoch1):
+    with hc.loop(0, epoch1, step, inputarr = x) as i:
         x_i = newton_raphson_inverse(x, epoch2)
         a = n * x_i
         b = x + a 
@@ -152,20 +155,26 @@ def newton_raphson_inverse(n, epoch):
     # with hc.loop(0, epoch, step, inputarr = x) as i:
         b = n * x * hc.Plain([-1.0])
         x = x * (y + b)
+
     return x 
 
-epochs_power  = 10
-epochs_babyl  = 2 
+epochs = 10
+# epochs_power  = epochs
+# epochs_babyl  = epochs 
 
-epochs_newton1 = 2 
-epochs_newton2 = 2
-epochs_newton3 = 2
+epochs_newton1 = 4 
+epochs_newton2 = 4
+epochs_newton3 = 4 
 
-@hc.func("c,c")
-def PCA(x_data, y_data):
+@hc.func("c,c,i")
+def PCA(x_data, y_data, epochs):
+# @hc.func("c,c")
+# def PCA(x_data, y_data):
     columns = 4
     rows = 150
     
+    epochs_power = epochs
+    epochs_babyl = epochs
     mask = create_mask(columns, rows)
     bit_mask = create_bit_mask(1024)
 
@@ -182,6 +191,7 @@ def PCA(x_data, y_data):
         # eigenvectors += eigenvector.rotate(1024-4*i)
 
         # eigenvalue = np.dot(eigenvector.T, np.dot(cov, eigenvector)) / np.dot(eigenvector.T, eigenvector)
+        eigenvector = hc.bootstrap(eigenvector)
         dot1 = cov_dot(cov, eigenvector, mask, 4)    # 1 x 4 matrix
         dot2 = eigenvector * dot1
         dot2 = sum_elements2(dot2, 2)
@@ -190,6 +200,7 @@ def PCA(x_data, y_data):
         inv2 = newton_raphson_inverse(inv1, epochs_newton3)
         
         eigenvalue = dot2 * inv2
+        # eigenvalue = hc.bootstrap(eigenvalue)
         
         copy_eigenvalue  = copy(eigenvalue,  mask[2], 1)        # 1111xxxxxxxxxxxx
         copy_eigenvalue  = copy(copy_eigenvalue, mask[0], 4)    # 1111111111111111
@@ -205,9 +216,10 @@ def PCA(x_data, y_data):
         cov = cov - del_cov
         cov = cov * mask[5]
 
-    res = [eigenvector.rotate(columns*i) for i in range(4)]
+    # res = [eigenvector.rotate(columns*i) for i in range(4)]
 
-    return res
+    # return res
+    return eigenvector
 
 modName = hc.save("traced", "traced")
 print (modName)

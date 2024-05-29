@@ -32,10 +32,12 @@ def create_mask(elements):
 
     return mask
 
-@hc.func("c,c")
-def SVM(x_data, y_data) :
+# @hc.func("c,c")
+# def SVM(x_data, y_data) :
+#     epochs = 10
+@hc.func("c,c,i")
+def SVM(x_data, y_data, epochs) :
     
-    epochs = 10
     step = 1
     learning_rate = hc.Plain([-0.0001])
     lambda_param = hc.Plain([0.02])
@@ -46,8 +48,8 @@ def SVM(x_data, y_data) :
     W = hc.Plain([0.00000001 for _ in range(elements*3)])
     W = W + x_data * hc.Plain([0.00000001])
 
-    for i in range(epochs):
-    # with hc.loop(0, epochs, step, inputarr = W) as i:
+    # for i in range(epochs):
+    with hc.loop(0, epochs, step, inputarr = W) as i:
         dot = W * x_data
         dot = dot + dot.rotate(elements)    # np.dot(x_i, W)
         dot = dot - W.rotate(elements*2)    # np.dot(x_i, W) - b 
@@ -55,7 +57,9 @@ def SVM(x_data, y_data) :
         dot = dot + hc.Plain([-1.0])
         dot = dot * hc.Plain([0.01])        # normalize input for sign function
         
-        cond = HE_sign(HE_sign(dot))
+        cond = HE_sign(dot)
+        cond = hc.bootstrap(cond)
+        cond = HE_sign2(cond)
         cond = cond * mask[0]
         cond = cond + cond.rotate(elements*(16-1)) + cond.rotate(elements*(16-2))
         

@@ -9,6 +9,7 @@ import time
 seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
+a_epoch = int(sys.argv[5])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -26,7 +27,7 @@ X, y = datasets.make_blobs(n_samples=4096, n_features=2, centers=2, cluster_std=
 x1 = [item[0] for item in X]
 x2 = [item[1] for item in X]
 x = x1 + x2
-y = np.where(y == 0, -1, 1)
+y = np.where(y == 0, -0.99999, 1)
 
 lambda_param = 0.02
 W = np.zeros(2)
@@ -34,7 +35,7 @@ b = 0.0
 cond = []
 
 learning_rate = -0.0001
-epochs = 10 
+epochs = a_epoch 
 
 for i in range(epochs):
     w_update_sum = []
@@ -63,19 +64,13 @@ for i in range(epochs):
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.run()
-hevm.setInput(0, x)
-hevm.setInput(1, y)
+hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-print(res.shape)
-# rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
-# rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
 import math
-rms = math.sqrt(np.power(res[0][0] - W[0], 2)[:4096] + np.power(res[1][0] - W[1], 2)[:4096] + np.power(res[2][0] - b, 2)[:4096])
+rms = math.sqrt(np.power(res[0][0] - W[0], 2) + np.power(res[1][0] - W[1], 2) + np.power(res[2][0] - b, 2))
 
-# print (timer / pow(10,9))
-# print(rms)
-hevm.printer(timer/pow(10,9), rms)
+# hevm.printer(timer/pow(10,9), rms)
+hevm.printer(timer/pow(10,9), rms, epochs)
