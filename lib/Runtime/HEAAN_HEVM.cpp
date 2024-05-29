@@ -55,6 +55,7 @@ struct HEAAN_HEVM {
   /* std::chrono::microseconds boot_time; */
   uint64_t boot_time = 0;
   uint64_t boot_cnt = 0;
+  bool isPrinted = false;
 
   static const int N = 17;
   static const int L = 16;
@@ -110,7 +111,7 @@ struct HEAAN_HEVM {
               << "\n";
   }
   void printInfo() {
-    int encodeOnline = 2;
+    /* int encodeOnline = 2; */
     /* std::cout << "polyDegree: " << N << '\n'; */
     /* std::cout << "encodeOnline: " << encodeOnline << "\n\n"; */
   }
@@ -642,7 +643,12 @@ void preprocess(void *vm) {
 }
 void run(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
+  hevm->boot_cnt = 0;
   hevm->run(hevm->ops);
+  if (!hevm->isPrinted) {
+    std::cout << "boot_cnt: " << hevm->boot_cnt << '\n';
+    hevm->isPrinted = true;
+  }
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
@@ -660,9 +666,12 @@ void setToGPU(void *vm, bool ongpu) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
   hevm->togpu = ongpu;
 }
-void printMem(void *vm) {
+void getRunInfo(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->printCudaMemInfo();
-  hevm->printInfo();
+  /* info[0] = hevm->tttt; */
+  /* info[1] = 0.0; */
+  /* hevm->boot_cnt; */
+  /* hevm->printCudaMemInfo(); */
+  /* hevm->printInfo(); */
 }
 };
