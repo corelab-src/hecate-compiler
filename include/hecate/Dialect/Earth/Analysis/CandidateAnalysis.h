@@ -57,12 +57,17 @@ private:
 
 struct CandidateAnalysis {
 public:
+  /* CandidateAnalysis(mlir::func::FuncOp func); */
   CandidateAnalysis(mlir::Operation *op);
 
   // Default Implementation
   int64_t getOpid(mlir::Value v) const;
   int64_t getOpid(mlir::Operation *op) const;
   ValueInfo *getValueInfo(int64_t opid);
+  void build();
+  void doLiveAnalysis(mlir::Operation *op,
+                      mlir::SmallVector<int64_t, 4> &liveIn,
+                      mlir::SmallVector<int64_t, 4> &liveOut);
 
   mlir::SmallVector<int64_t, 4> getTargets(int64_t opid) const;
   mlir::SmallVector<int64_t, 4> getTargets(int64_t opid, int64_t setNum) const;
@@ -99,6 +104,7 @@ private:
   int64_t retOpid;
   mlir::Liveness _l;
   mlir::Operation *_op;
+  /* mlir::func::FuncOp _func; */
   ScaleManagementUnit smu;
 };
 } // namespace hecate

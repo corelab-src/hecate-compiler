@@ -1,29 +1,66 @@
 #include "hecate/Dialect/Earth/Analysis/CandidateAnalysis.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Support/Support.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinTypes.h"
 
 using namespace hecate;
 
 hecate::CandidateAnalysis::CandidateAnalysis(mlir::Operation *op)
     : _l(op), _op(op), smu(op) {
+  build();
+}
 
+void hecate::CandidateAnalysis::build() {
   llvm::SmallVector<int64_t, 4> liveIn, liveOut;
   smu.attach();
   values.emplace_back(0, nullptr);
   edges.push_back(0);
-  _op->walk([&](hecate::earth::HEScaleOpInterface sop) {
-    if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
-         llvm::isa<hecate::earth::RescaleOp>(sop) ||
-         llvm::isa<hecate::earth::BootstrapOp>(sop) ||
-         llvm::isa<hecate::earth::ModswitchOp>(sop))) {
+  auto &&func = dyn_cast<mlir::func::FuncOp>(_op);
+  auto &&bb = func.getBody().getBlocks().front();
+  for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
+    mlir::Operation *op = &*iter;
+    /* _op->walk([&](hecate::earth::HEScaleOpInterface sop) { */
+    if ((llvm::isa<hecate::earth::UpscaleOp>(op) ||
+         llvm::isa<hecate::earth::RescaleOp>(op) ||
+         llvm::isa<hecate::earth::BootstrapOp>(op) ||
+         llvm::isa<hecate::earth::ModswitchOp>(op))) {
       assert(0 && "Currently not supported");
     }
-    int64_t opid = values.size();
-    for (auto &&val : sop.getOperation()->getResults()) {
-      values.emplace_back(opid, val);
-      hecate::setIntegerAttr("opid", val, opid);
+    doLiveAnalysis(op, liveIn, liveOut);
+  }
+  retOpid = values.size();
+  values.emplace_back(retOpid, nullptr);
+  toFromMap[0] = {};
+  /* llvm::errs() << "LIVEOUT SIZE: " << liveOut.size() << '\n'; */
+  /* int cnt = 0; */
+  /* for (auto tt : values) { */
+  /*   llvm::errs() << cnt++ << " : "; */
+  /*   tt.getValue().dump(); */
+  /* } */
+}
+
+void hecate::CandidateAnalysis::doLiveAnalysis(
+    mlir::Operation *op, mlir::SmallVector<int64_t, 4> &liveIn,
+    mlir::SmallVector<int64_t, 4> &liveOut) {
+  int64_t opid = values.size();
+  for (auto &&val : op->getResults()) {
+    values.emplace_back(opid, val);
+    hecate::setIntegerAttr("opid", val, opid);
+    /* llvm::errs() << opid << " : "; */
+    /* val.dump(); */
+  }
+
+  if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+    /* values[opid].setLiveOuts(liveOut); */
+    /* values[opid].setLiveIns(liveIn); */
+    /* edges.push_back(opid); */
+    /* liveIn = liveOut; */
+    auto &&bb = forOp.getBody();
+    for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
+      doLiveAnalysis(&*iter, liveIn, liveOut);
     }
+  } else if (auto sop = dyn_cast<hecate::earth::HEScaleOpInterface>(op)) {
     if (!sop.isCipher())
       return;
     for (auto &&oper : sop->getOperands()) {
@@ -49,10 +86,8 @@ hecate::CandidateAnalysis::CandidateAnalysis(mlir::Operation *op)
       }
     }
     liveIn = liveOut;
-  });
-  retOpid = values.size();
-  values.emplace_back(retOpid, nullptr);
-  toFromMap[0] = {};
+  }
+  return;
 }
 
 size_t hecate::CandidateAnalysis::getNumValues() const { return values.size(); }
