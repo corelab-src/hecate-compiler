@@ -36,8 +36,14 @@ namespace {
 struct ApplyDaCapoToLoopPass
     : public hecate::earth::impl::ApplyDaCapoToLoopBase<ApplyDaCapoToLoopPass> {
   ApplyDaCapoToLoopPass() {}
+  ApplyDaCapoToLoopPass(hecate::earth::ApplyDaCapoToLoopOptions ops) {
+    this->waterline = ops.waterline;
+    this->output_val = ops.output_val;
+  }
 
   mlir::SmallVector<scf::ForOp, 4> scfForQueue;
+
+  // reverse-dfs scheduling
   void scheduleDaCapoForOp(mlir::scf::ForOp &op) {
     auto &&bb = op.getBody();
     for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
