@@ -2,7 +2,6 @@
 import hecate as hc
 from random import *
 import numpy as np
-import simfhe as sf
 import sys
 from pathlib import Path
 import time
