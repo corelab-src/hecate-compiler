@@ -39,9 +39,9 @@ struct HEAAN_HEVM {
   std::vector<HEaaN::Plaintext> plains;
   std::vector<double> scalep;
   std::vector<uint64_t> levelp;
-  std::vector<HEaaN::Message> msgs;
+  std::vector<HEaaN::Message *> msgs;
+  std::map<uint16_t, HEaaN::Message> msgMap;
   std::vector<int> integers;
-  std::map<double *, int> msgMap;
   std::map<uint64_t, HEaaN::Plaintext> upscale_const;
 
   HEaaN::Context context;
@@ -228,7 +228,8 @@ struct HEAAN_HEVM {
 
     HEaaN::u64 log_slot = N - 1;
     HEaaN::Message datas(log_slot, 0.0);
-    msgs.resize(config.num_ptxt_buffer, datas);
+    /* msgs.resize(config.num_ptxt_buffer, datas); */
+    msgs.resize(config.num_ptxt_buffer);
     if (preencode) {
       plains.resize(config.num_ptxt_buffer, HEaaN::Plaintext(context));
       if (togpu) {
@@ -284,8 +285,7 @@ struct HEAAN_HEVM {
                                                          : buffer[op.lhs],
                           op.rhs >> 10, op.rhs & 0x3FF);
         } else {
-          to_msg(op.dst,
-                 op.lhs == ((unsigned short)-1) ? identity : buffer[op.lhs]);
+          to_msg(op.dst, op.lhs);
         }
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
@@ -297,21 +297,32 @@ struct HEAAN_HEVM {
     }
   }
 
-  void to_msg(int16_t dst, std::vector<double> src) {
-    auto &msg = msgs[dst];
-    for (size_t i = 0; i < msg.getSize(); i++) {
-      msg[i].real(src[i % src.size()]);
-      msg[i].imag(0);
+  void to_msg(int16_t dst, uint16_t lhs) {
+    HEaaN::u64 log_slot = N - 1;
+    std::vector<double> identity(1LL << (N - 1), 1.0);
+
+    if (!msgMap.count(lhs)) {
+      msgMap[lhs] = HEaaN::Message(log_slot, 0.0);
+      auto &msg = msgMap[lhs];
+      auto &src = lhs == ((unsigned short)-1) ? identity : buffer[lhs];
+      for (size_t i = 0; i < msg.getSize(); i++) {
+        msg[i].real(src[i % src.size()]);
+        msg[i].imag(0);
+      }
+
+      if (togpu)
+        msgMap[lhs].to(HEaaN::getCurrentCudaDevice());
     }
-    if (togpu)
-      msg.to(HEaaN::getCurrentCudaDevice());
+    msgs[dst] = &msgMap[lhs];
+
     return;
   }
+
   void encode_online(int16_t dst) {
     /* if (togpu) */
     /*   msgs[dst].to(HEaaN::getCurrentCudaDevice()); */
     plains[0] =
-        endecoder->encode(msgs[dst], levelp[dst], std::pow(2.0, scalep[dst]));
+        endecoder->encode(*msgs[dst], levelp[dst], std::pow(2.0, scalep[dst]));
   }
 
   void encode_internal(HEaaN::Plaintext &dst, std::vector<double> src,
@@ -647,6 +658,7 @@ void run(void *vm) {
   hevm->run(hevm->ops);
   if (!hevm->isPrinted) {
     std::cout << "boot_cnt: " << hevm->boot_cnt << '\n';
+    std::cout << "boot_time: " << hevm->boot_time << '\n';
     hevm->isPrinted = true;
   }
 }
