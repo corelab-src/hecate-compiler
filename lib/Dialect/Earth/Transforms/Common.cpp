@@ -65,13 +65,15 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
   auto rop = dyn_cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
   if (func->hasAttr("is_mid_segment") &&
       func->getAttrOfType<mlir::BoolAttr>("is_mid_segment").getValue()) {
-    auto &&bypassTypes = func->getAttr("segment_returnBypasses")
-                             .dyn_cast<mlir::ArrayAttr>()
-                             .getValue();
-    for (size_t i = 0; i < rop->getNumOperands(); i++) {
-      auto v = rop->getOperand(i);
-      bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
-      hecate::setIntegerAttr("is_bypassed", v, isBypass);
+    if (func->hasAttr("segment_returnBypasses")) {
+      auto &&bypassTypes = func->getAttr("segment_returnBypasses")
+                               .dyn_cast<mlir::ArrayAttr>()
+                               .getValue();
+      for (size_t i = 0; i < rop->getNumOperands(); i++) {
+        auto v = rop->getOperand(i);
+        bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
+        hecate::setIntegerAttr("is_bypassed", v, isBypass);
+      }
     }
     hecate::earth::refineLevel(
         builder, rop, waterline, 0,
@@ -111,7 +113,7 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
                                       int64_t waterline, int64_t output_val) {
   // Set function argument types
   if (!func->hasAttr("segment_inputType")) {
-    for (auto argval : func.getArguments()) {
+    for (auto &&argval : func.getArguments()) {
       if (auto tt = argval.getType().dyn_cast<RankedTensorType>()) {
         argval.setType(RankedTensorType::get(
             tt.getShape(), tt.getElementType()
@@ -125,7 +127,7 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
                                  .dyn_cast<mlir::ArrayAttr>()
                                  .getValue();
     for (size_t i = 0; i < func.getNumArguments(); i++) {
-      auto argval = func.getArgument(i);
+      auto &&argval = func.getArgument(i);
       if (auto input_type =
               inputType_attrs[i]
                   .dyn_cast<mlir::TypeAttr>()
@@ -173,17 +175,37 @@ llvm::SmallVector<mlir::Value, 4> hecate::earth::attachOpid(mlir::Block *bb) {
   llvm::SmallVector<mlir::Value, 4> values;
   // attach the opid to operation
   values.push_back(NULL);
-  bb->walk([&](hecate::earth::HEScaleOpInterface sop) {
-    if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
-         llvm::isa<hecate::earth::RescaleOp>(sop) ||
-         llvm::isa<hecate::earth::BootstrapOp>(sop) ||
-         llvm::isa<hecate::earth::ModswitchOp>(sop))) {
+  /* bb->walk([&](hecate::earth::HEScaleOpInterface sop) { */
+  for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
+    mlir::Operation *op = &*iter;
+    if ((llvm::isa<hecate::earth::UpscaleOp>(op) ||
+         llvm::isa<hecate::earth::RescaleOp>(op) ||
+         llvm::isa<hecate::earth::BootstrapOp>(op) ||
+         llvm::isa<hecate::earth::ModswitchOp>(op))) {
       /* assert(0 && "Currently not supported"); */
-      return;
+      continue;
     }
-    for (auto &&val : sop.getOperation()->getResults()) {
+    for (auto &&val : op->getResults()) {
       values.push_back(val);
     }
-  });
+    if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+      auto &&bb = forOp.getBody();
+      auto &&v = attachOpid(bb);
+      values.append(v.begin() + 1, v.end());
+    }
+  }
+  /* }); */
+  /* for (auto iter = bb.begin(); iter != bb.end(); ++iter) { */
+  /*   mlir::Operation *op = &*iter; */
+  /*   /1* _op->walk([&](hecate::earth::HEScaleOpInterface sop) { *1/ */
+  /*   if ((llvm::isa<hecate::earth::UpscaleOp>(op) || */
+  /*        llvm::isa<hecate::earth::RescaleOp>(op) || */
+  /*        llvm::isa<hecate::earth::BootstrapOp>(op) || */
+  /*        llvm::isa<hecate::earth::ModswitchOp>(op))) { */
+  /*     assert(0 && "Currently not supported"); */
+  /*   } */
+  /*   doLiveAnalysis(op, liveIn, liveOut); */
+  /* } */
+
   return values;
 }

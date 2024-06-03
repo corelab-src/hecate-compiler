@@ -85,22 +85,14 @@ struct BypassDetectionPass
     mlir::OpBuilder builder(dup);
     dup->setAttr("btp_target", builder.getDenseI64ArrayAttr(
                                    ca.getValueInfo(from)->getLiveOuts()));
-    /* builder.getDenseI64ArrayAttr(ca.getTargets(from))); */
-    /* dup->setAttr("segment_return", builder.getDenseI64ArrayAttr({})); */
     mod.push_back(dup);
 
     if (pm.run(mod).failed()) {
       llvm::errs() << "bootstrap placement failed" << '\n';
     }
 
-    for (auto argval : dup.getArguments()) {
-      auto tt = argval.getType().dyn_cast<RankedTensorType>();
-      argval.setType(RankedTensorType::get(
-          tt.getShape(), tt.getElementType()
-                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                             .switchScale(waterline)));
-    }
-
+    SmallVector<mlir::Type, 4> inputTypes;
+    hecate::earth::refineInputValues(dup, builder, inputTypes, waterline, 0);
     for (auto &&op : operations) {
       if (auto sop = dyn_cast<hecate::earth::ForwardMgmtInterface>(op)) {
         auto opid = hecate::getIntegerAttr("opid", sop->getResult(0));
