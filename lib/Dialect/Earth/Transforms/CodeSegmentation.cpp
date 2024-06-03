@@ -78,6 +78,9 @@ struct CodeSegmentationPass
     for (uint64_t i = 0; i < inputs.size(); i++) {
       auto &&target = values[inputs[i]];
       auto arg = func.front().addArgument(target.getType(), func.getLoc());
+      auto &&v = hecate::getIntegerAttr("smu", target);
+      if (v != -1)
+        hecate::setIntegerAttr("smu", arg, v);
       rewriter.replaceAllUsesWith(target, arg);
       inputTypes.push_back(arg.getType());
     }
