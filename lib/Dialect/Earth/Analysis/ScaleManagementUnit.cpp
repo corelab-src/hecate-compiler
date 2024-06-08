@@ -61,6 +61,7 @@ void SMUBuilder::build() {
     if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
          llvm::isa<hecate::earth::RescaleOp>(sop) ||
          llvm::isa<hecate::earth::BootstrapOp>(sop) ||
+         llvm::isa<hecate::earth::DummyOp>(sop) ||
          llvm::isa<hecate::earth::ModswitchOp>(sop))) {
       assert(0 && "Currently not supported");
     }
@@ -240,6 +241,7 @@ hecate::ScaleManagementUnit::ScaleManagementUnit(mlir::Operation *op)
     if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
          llvm::isa<hecate::earth::RescaleOp>(sop) ||
          llvm::isa<hecate::earth::BootstrapOp>(sop) ||
+         llvm::isa<hecate::earth::DummyOp>(sop) ||
          llvm::isa<hecate::earth::ModswitchOp>(sop))) {
       assert(0 && "Currently not supported");
     }
@@ -388,6 +390,7 @@ bool hecate::ScaleManagementUnit::verify() const {
     if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
          llvm::isa<hecate::earth::RescaleOp>(sop) ||
          llvm::isa<hecate::earth::BootstrapOp>(sop) ||
+         llvm::isa<hecate::earth::DummyOp>(sop) ||
          llvm::isa<hecate::earth::ModswitchOp>(sop))) {
       /* assert(0 && "Currently not supported"); */
       checker = false;

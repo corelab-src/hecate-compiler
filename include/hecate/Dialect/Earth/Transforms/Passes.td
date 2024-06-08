@@ -230,6 +230,18 @@ def PromoteLoopBody : Pass<"promote-loop-body", "::mlir::func::FuncOp"> {
     "The maximum result value bits of return value">,
   ];
 }
+def WrapUpLoopBody : Pass<"wrapup-loop-body", "::mlir::func::FuncOp"> {
+  let summary = "Wrap Loop body operations into the loop";
+  let description = [{
+    This pass applies DaCapo scheme on loop body to optimize.
+  }];
+  let options = [
+    Option<"waterline", "waterline", "int64_t", /*default=*/"40",
+    "The minimal result scale of rescaling">,
+    Option<"output_val", "output_val", "int64_t", /*default=*/"10",
+    "The maximum result value bits of return value">,
+  ];
+}
 def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
   let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
   let description = [{

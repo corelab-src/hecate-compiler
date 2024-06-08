@@ -20,8 +20,14 @@ void refineReturnValues(mlir::func::FuncOp func, mlir::OpBuilder builder,
                         llvm::SmallVector<mlir::Type, 4> inputTypes,
                         int64_t waterline, int64_t output_val);
 void inferTypeForward(hecate::earth::ForwardMgmtInterface sop);
+mlir::SmallVector<mlir::Type, 4> getInputValueTypes(mlir::func::FuncOp func,
+                                                    mlir::OpBuilder builder,
+                                                    int64_t waterline,
+                                                    int64_t output_val);
 
 llvm::SmallVector<mlir::Value, 4> attachOpid(mlir::Block *bb);
+
+llvm::DenseMap<int64_t, mlir::Value> getOpidToValueMap(mlir::Block *bb);
 } // namespace earth
 } // namespace hecate
 

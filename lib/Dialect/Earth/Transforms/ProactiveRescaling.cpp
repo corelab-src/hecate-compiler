@@ -1,5 +1,7 @@
 
+#include "hecate/Dialect/Earth/Analysis/CandidateAnalysis.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
+#include "hecate/Dialect/Earth/IR/ForwardManagementInterface.h"
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "hecate/Dialect/Earth/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -34,7 +36,9 @@ struct ProactiveRescalingPass
 
     auto func = getOperation();
 
+    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     markAnalysesPreserved<hecate::ScaleManagementUnit>();
+    markAnalysesPreserved<hecate::CandidateAnalysis>();
 
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
@@ -42,13 +46,18 @@ struct ProactiveRescalingPass
 
     hecate::earth::refineInputValues(func, builder, inputTypes, waterline,
                                      output_val);
+
     // Apply waterline rescaling for the operations
     func.walk([&](hecate::earth::ForwardMgmtInterface sop) {
+      sop.dump();
       builder.setInsertionPointAfter(sop.getOperation());
       sop.processOperandsPARS(waterline);
       inferTypeForward(sop);
       sop.processResultsPARS(waterline);
+      sop.dump();
+      llvm::errs() << '\n';
     });
+
     hecate::earth::refineReturnValues(func, builder, inputTypes, waterline,
                                       output_val);
   }

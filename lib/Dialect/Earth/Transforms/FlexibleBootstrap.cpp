@@ -34,6 +34,7 @@ struct FlexibleBootstrapPass
   FlexibleBootstrapPass() {}
 
   void runOnOperation() override {
+    /* llvm::errs() << __FILE__ << '\n'; */
     auto func = getOperation();
     mlir::OpBuilder builder(func.getOperation());
     func.walk([&](hecate::earth::BootstrapOp bop) {
@@ -58,6 +59,8 @@ struct FlexibleBootstrapPass
         }
       }
     });
+
+    /* llvm::errs() << __FILE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

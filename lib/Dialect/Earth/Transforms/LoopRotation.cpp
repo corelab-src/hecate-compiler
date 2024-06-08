@@ -91,12 +91,40 @@ struct LoopRotationPass
           llvm::errs() << "failed to peel the first iteration\n";
       }
       mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
+
       /* (void)mlir::loopUnrollByFactor(forOp, 2); */
+      /* mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern); */
     }
     if (failed(pm.run(mod))) {
       llvm::errs() << "loop transform failed" << '\n';
       func.dump();
     }
+
+    // Set Loop Body Operations as Type 0
+    /* for (auto forOp : scfForQueue) { */
+    /*   auto &&loopOp =
+     * dyn_cast<mlir::LoopLikeOpInterface>(forOp.getOperation()); */
+    /*   auto &&bb = forOp.getBody(); */
+    /* bb->clone(); */
+    /* for (auto iter = bb->begin(); iter != bb->end(); ++iter) { */
+    /*   Operation *op = &*iter; */
+    /*   for (size_t i = 0; i < op->getNumOperands(); i++) { */
+    /*     auto &&oper = op->getOperand(i); */
+    /* if (loopOp.isDefinedOutsideOfLoop(oper) || */
+    /*     llvm::isa<mlir::BlockArgument>(oper)) { */
+    /*   builder.setInsertionPoint(op); */
+    /*   op->setOperand(i, builder.create<hecate::earth::EraseTypeOp>( */
+    /*                         op->getLoc(), oper)); */
+    /*   if (llvm::isa<hecate::earth::NegateOp>(op) || */
+    /*       llvm::isa<hecate::earth::RotateOp>(op)) { */
+    /*     op->getResult(0).setType(op->getOperand(0).getType()); */
+    /*   } */
+    /* } */
+    /* } */
+    /* } */
+
+    /* mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern); */
+    /* } */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

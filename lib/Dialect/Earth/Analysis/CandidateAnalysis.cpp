@@ -3,6 +3,9 @@
 #include "hecate/Support/Support.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include <cstddef>
+#include <optional>
+#include <type_traits>
 
 using namespace hecate;
 
@@ -24,6 +27,7 @@ void hecate::CandidateAnalysis::build() {
     if ((llvm::isa<hecate::earth::UpscaleOp>(op) ||
          llvm::isa<hecate::earth::RescaleOp>(op) ||
          llvm::isa<hecate::earth::BootstrapOp>(op) ||
+         llvm::isa<hecate::earth::DummyOp>(op) ||
          llvm::isa<hecate::earth::ModswitchOp>(op))) {
       assert(0 && "Currently not supported");
     }
@@ -31,12 +35,16 @@ void hecate::CandidateAnalysis::build() {
   }
   retOpid = values.size();
   values.emplace_back(retOpid, nullptr);
+  /* values[retOpid] = ValueInfo(retOpid, NULL); */
   toFromMap[0] = {};
-  /* llvm::errs() << "LIVEOUT SIZE: " << liveOut.size() << '\n'; */
-  /* int cnt = 0; */
-  /* for (auto tt : values) { */
-  /*   llvm::errs() << cnt++ << " : "; */
-  /*   tt.getValue().dump(); */
+  /* llvm::errs() << "LIVEOUT \n"; */
+  /* for (int i = 0; i < values.size(); i++) { */
+  /*   llvm::errs() << i << " : "; */
+
+  /*   for (auto tt : values[i].getLiveOuts()) { */
+  /*     llvm::errs() << tt << " "; */
+  /*   } */
+  /*   llvm::errs() << '\n'; */
   /* } */
 }
 
@@ -45,20 +53,69 @@ void hecate::CandidateAnalysis::doLiveAnalysis(
     mlir::SmallVector<int64_t, 4> &liveOut) {
   int64_t opid = values.size();
   for (auto &&val : op->getResults()) {
-    values.emplace_back(opid, val);
+    auto &&v = hecate::getIntegerAttr("opid", val);
+    if (v != -1) {
+      idToIdMap[opid] = v;
+    }
     hecate::setIntegerAttr("opid", val, opid);
+    /* opid = v; */
+    values.emplace_back(opid, val);
+    /* values[opid] = {opid, val}; */
     /* llvm::errs() << opid << " : "; */
     /* val.dump(); */
+    /* for (auto ttt : values[opid].getLiveOuts()) */
+    /*   llvm::errs() << ttt << '\n'; */
+    /* llvm::errs() << '\n'; */
   }
 
   if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     /* values[opid].setLiveOuts(liveOut); */
     /* values[opid].setLiveIns(liveIn); */
     /* edges.push_back(opid); */
     /* liveIn = liveOut; */
+    for (auto &&oper : forOp.getInitArgs()) {
+      if (!isa<hecate::earth::HEScaleTypeInterface>(oper.getType()))
+        continue;
+      if (_l.isDeadAfter(oper, forOp)) {
+        auto operID = hecate::getIntegerAttr("opid", oper);
+        auto dead = std::find(liveOut.begin(), liveOut.end(), operID);
+        if (dead != liveOut.end()) {
+          liveOut.erase(dead);
+          values[operID].setDeadOpid(opid);
+        }
+      }
+    }
+    for (auto &&val : op->getResults()) {
+      auto &&v = hecate::getIntegerAttr("opid", val);
+      liveOut.push_back(v);
+    }
+
+    /* std::map<std::pair<int64_t, int64_t>, mlir::OpOperand *> edgeMap; */
+    /* for (auto &&user : forOp->getUsers()) { */
+    /*   if (smu.getID(user) != smu.getID(forOp) && opid > 5) { */
+    for (auto &&val : op->getResults()) {
+      values[opid].setLiveOuts(liveOut);
+      values[opid].setLiveIns(liveIn);
+      edges.push_back(opid);
+    }
+    /* llvm::errs() << "HERE SCF \n"; */
+    /* } */
+    /* } */
+    liveIn = liveOut;
+
     auto &&bb = forOp.getBody();
     for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
       doLiveAnalysis(&*iter, liveIn, liveOut);
+    }
+    auto yieldOp =
+        dyn_cast<mlir::scf::YieldOp>(forOp.getBody()->getTerminator());
+    for (auto oper : yieldOp.getOperands()) {
+      auto operID = hecate::getIntegerAttr("opid", oper);
+      auto dead = std::find(liveOut.begin(), liveOut.end(), operID);
+      if (dead != liveOut.end()) {
+        liveOut.erase(dead);
+      }
     }
   } else if (auto sop = dyn_cast<hecate::earth::HEScaleOpInterface>(op)) {
     if (!sop.isCipher())
@@ -76,9 +133,9 @@ void hecate::CandidateAnalysis::doLiveAnalysis(
       }
     }
     liveOut.push_back(opid);
-    std::map<std::pair<int64_t, int64_t>, mlir::OpOperand *> edgeMap;
+    /* std::map<std::pair<int64_t, int64_t>, mlir::OpOperand *> edgeMap; */
     for (auto &&user : sop->getUsers()) {
-      if (smu.getID(user) != smu.getID(sop) && opid > 10) {
+      if (smu.getID(user) != smu.getID(sop)) {
         values[opid].setLiveOuts(liveOut);
         values[opid].setLiveIns(liveIn);
         edges.push_back(opid);
@@ -178,6 +235,9 @@ ValueInfo *hecate::CandidateAnalysis::getValueInfo(int64_t opid) {
   return &values[opid];
 }
 
+/* std::map<int64_t, ValueInfo> hecate::CandidateAnalysis::getValueMap() { */
+/*   return values; */
+/* } */
 void hecate::CandidateAnalysis::sortValidCandidates(int64_t opid) {
   auto v = values[opid];
   candidateSet[v.getValidLiveOuts().size()].push_back(opid);
@@ -232,7 +292,8 @@ void hecate::CandidateAnalysis::finalizeCandidates(int64_t setNum) {
 }
 
 void hecate::CandidateAnalysis::pushFromCoverage(
-    int64_t from, mlir::SmallVector<int64_t, 2> coverages) {
+    int64_t from, mlir::SmallVector<int64_t, 2> coverages,
+    bool is_mid_section) {
   auto c = coverages.front();
   auto bc = coverages.back();
   getValueInfo(from)->setCoverage(c);
@@ -244,10 +305,13 @@ void hecate::CandidateAnalysis::pushFromCoverage(
   for (auto to : candidates) {
     if (to < bc && from < to) {
       toFromMap[to].push_back(from);
-    } else if (to == getRetOpid() && c == getRetOpid()) {
+    } else if (is_mid_section && bc == getRetOpid() && c == getRetOpid()) {
+      toFromMap[to].push_back(from);
+    } else if (!is_mid_section && to == getRetOpid() && c == getRetOpid()) {
       toFromMap[to].push_back(from);
     }
   }
+
   return;
 }
 
@@ -259,7 +323,9 @@ void hecate::CandidateAnalysis::setBypassEdges(int64_t from, int64_t overThr) {
   }
   return;
 }
-
+mlir::DenseMap<int64_t, int64_t> hecate::CandidateAnalysis::getIdMap() {
+  return idToIdMap;
+}
 hecate::ValueInfo::ValueInfo(int64_t opid, mlir::Value v) : opid(opid), v(v) {}
 void hecate::ValueInfo::setLiveOuts(mlir::SmallVector<int64_t, 4> outs) {
   liveOuts = outs;

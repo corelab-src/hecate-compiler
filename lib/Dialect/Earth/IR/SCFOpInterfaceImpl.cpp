@@ -1,7 +1,10 @@
 
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Dialect/Earth/IR/ForwardManagementInterface.h"
+#include "hecate/Dialect/Earth/Transforms/Common.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Support/LogicalResult.h"
 
 using namespace mlir;
 //===----------------------------------------------------------------------===//
@@ -19,7 +22,7 @@ struct ForOpInterface
     for (size_t i = forOp.getNumControlOperands(); i < forOp.getNumOperands();
          i++) {
       builder.setInsertionPoint(forOp);
-      auto oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
+      auto &&oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
           forOp.getOperand(i).getType());
       if (oper.getScale() +
               hecate::earth::EarthDialect::rescalingFactor * oper.getLevel() <
@@ -45,6 +48,14 @@ struct ForOpInterface
           }
         }
       }
+      /* auto level_diff = */
+      /*     hecate::earth::EarthDialect::bootstrapLevelUpperBound - */
+      /*     hecate::earth::EarthDialect::bootstrapLevelLowerBound - */
+      /*     hecate::earth::getScaleType(forOp.getOperand(i)).getLevel(); */
+      /* auto mop = builder.create<hecate::earth::ModswitchOp>( */
+      /*     forOp.getLoc(), forOp.getOperand(i), level_diff); */
+      /* forOp.setOperand(i, mop); */
+
       forOp.getRegionIterArg(i - forOp.getNumControlOperands())
           .setType(op->getOperand(i).getType());
     }
@@ -69,30 +80,29 @@ struct ForOpInterface
           forOp.getOperand(initArgIdx).getType());
       auto yop = dyn_cast<hecate::earth::HEScaleTypeInterface>(
           yieldOp.getOperand(yieldIdx).getType());
-      auto level_diff = hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-                        hecate::earth::EarthDialect::bootstrapLevelLowerBound -
-                        yop.getLevel();
-
-      builder.setInsertionPoint(yieldOp);
-      yieldOp.setOperand(
-          yieldIdx,
-          builder.create<hecate::earth::ModswitchOp>(
-              yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
-      level_diff = hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-                   hecate::earth::EarthDialect::bootstrapLevelLowerBound -
-                   aop.getLevel();
-
-      builder.setInsertionPoint(forOp);
-      forOp.setOperand(
-          initArgIdx,
-          builder.create<hecate::earth::ModswitchOp>(
-              forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
-      forOp.getRegionIterArg(yieldIdx).setType(
-          op->getOperand(initArgIdx).getType());
+      if (aop.getLevel() > yop.getLevel()) {
+        auto level_diff = aop.getLevel() - yop.getLevel();
+        builder.setInsertionPoint(yieldOp);
+        yieldOp.setOperand(
+            yieldIdx,
+            builder.create<hecate::earth::ModswitchOp>(
+                yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
+      } else if (aop.getLevel() < yop.getLevel()) {
+        auto level_diff = yop.getLevel() - aop.getLevel();
+        builder.setInsertionPoint(forOp);
+        forOp.setOperand(
+            initArgIdx,
+            builder.create<hecate::earth::ModswitchOp>(
+                forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
+        forOp.getRegionIterArg(yieldIdx).setType(
+            op->getOperand(initArgIdx).getType());
+      }
     }
     for (size_t i = 0; i < forOp.getNumResults(); i++) {
+      /* forOp.getResult(i).setType( */
+      /*     forOp.getBody()->getTerminator()->getOperand(i).getType()); */
       forOp.getResult(i).setType(
-          forOp.getBody()->getTerminator()->getOperand(i).getType());
+          forOp.getOperand(forOp.getNumControlOperands() + i).getType());
     }
 
     return;
@@ -111,8 +121,58 @@ struct ForOpInterface
   void processResultsSNR(Operation *op, int64_t param) const { return; }
 
   bool overThreshold(Operation *op, float thr) const { return false; }
-  bool isBootstrappable(Operation *op) const { return false; }
-  bool isValidated(Operation *op) const { return false; }
+  bool isBootstrappable(Operation *op) const { return true; }
+  bool isValidated(Operation *op) const {
+    auto forOp = dyn_cast<mlir::scf::ForOp>(op);
+    return llvm::all_of(forOp.getInitArgs(), [](mlir::Value arg) {
+      auto lScale = hecate::earth::getScaleType(arg);
+      auto rf = hecate::earth::EarthDialect::rescalingFactor;
+      return lScale.getLevel() * rf + lScale.getScale() <=
+             (hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+              hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) *
+                 rf;
+    });
+  }
+};
+
+struct ForOpTypeInferInterface
+    : public mlir::InferTypeOpInterface::ExternalModel<ForOpTypeInferInterface,
+                                                       mlir::scf::ForOp> {
+  static bool isCompatibleReturnTypes(::mlir::TypeRange lhs,
+                                      ::mlir::TypeRange rhs) {
+    return !rhs.back()
+                .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                .isCipher();
+  }
+
+  static ::mlir::LogicalResult inferReturnTypes(
+      ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+      ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+      ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+      ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+    auto forOp =
+        mlir::scf::ForOpAdaptor(operands, attributes, properties, regions);
+    auto yieldOp = dyn_cast<mlir::scf::YieldOp>(
+        forOp.getRegion().getBlocks().front().getTerminator());
+    for (auto arg : forOp.getInitArgs()) {
+      auto lScale = hecate::earth::getScaleType(arg);
+      if (lScale.getLevel() <=
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+              hecate::earth::EarthDialect::bootstrapLevelLowerBound) {
+        inferredReturnTypes.push_back(arg.getType());
+      } else
+        return ::mlir::failure();
+    }
+    return ::mlir::success();
+  }
+
+  static ::mlir::LogicalResult refineReturnTypes(
+      ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+      ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+      ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+      ::llvm::SmallVectorImpl<::mlir::Type> &returnTypes) {
+    return ::mlir::failure();
+  }
 };
 
 //===----------------------------------------------------------------------===//
@@ -126,7 +186,7 @@ struct YieldOpInterface
     OpBuilder builder(op);
     auto yieldOp = dyn_cast<mlir::scf::YieldOp>(op);
     for (size_t i = 0; i < yieldOp.getNumOperands(); i++) {
-      auto oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
+      auto &&oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
           yieldOp.getOperand(i).getType());
       if (oper.getScale() +
               hecate::earth::EarthDialect::rescalingFactor * oper.getLevel() <
@@ -180,6 +240,7 @@ void hecate::earth::registerSCFOpInterfaceExternalModels(
   registry.insert<scf::SCFDialect>();
   registry.addExtension(+[](MLIRContext *ctx, scf::SCFDialect *dialect) {
     scf::ForOp::attachInterface<ForOpInterface>(*ctx);
+    /* scf::ForOp::attachInterface<ForOpTypeInferInterface>(*ctx); */
     scf::YieldOp::attachInterface<YieldOpInterface>(*ctx);
   });
 }

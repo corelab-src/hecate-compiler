@@ -5,6 +5,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
 #include "hecate/Dialect/Earth/Transforms/Common.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include <random>
@@ -32,8 +33,10 @@ struct CoverageRecorderPass
 
   void runOnOperation() override {
 
+    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     auto func = getOperation();
     auto dup = func.clone();
+    func.dump();
     auto &&from = dup->getAttrOfType<mlir::DenseI64ArrayAttr>("cutted_edge")
                       .asArrayRef()
                       .front();
@@ -42,6 +45,7 @@ struct CoverageRecorderPass
     auto &&operations = block.getOperations();
     mlir::OpBuilder builder(dup);
 
+    /* dup.dump(); */
     // Set function argument types
     auto &&inputType_attrs = dup->getAttr("segment_inputType")
                                  .dyn_cast<mlir::ArrayAttr>()
@@ -63,19 +67,26 @@ struct CoverageRecorderPass
         if (!isa<hecate::earth::BootstrapOp>(sop) && opid < from)
           continue;
 
+        if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+          if (!sop.isValidated()) {
+            coverage = bootCoverage;
+            break;
+          }
+        }
         // PARS Scale Management
+        /* sop.dump(); */
         builder.setInsertionPointAfter(sop.getOperation());
         sop.processOperandsPARS(waterline);
         inferTypeForward(sop);
         sop.processResultsPARS(waterline);
+        /* sop.dump(); */
+        /* llvm::errs() << '\n'; */
         /////////////////////////////////////////
-
         // Find Bootstrapping Coverage
         if (bootCoverage < 0 && !sop.isBootstrappable()) {
           bootCoverage = opid;
           continue;
         }
-
         // Find Coverage
         if (!sop.isValidated()) {
           coverage = opid;
@@ -86,6 +97,9 @@ struct CoverageRecorderPass
     dup.erase();
     func->setAttr("coverages",
                   builder.getDenseI64ArrayAttr({coverage, bootCoverage}));
+
+    llvm::errs() << "from " << from << "coverage " << coverage << " "
+                 << bootCoverage << '\n';
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

@@ -32,16 +32,19 @@ struct CandidateSelectionPass
 
   void runOnOperation() override {
 
+    LLVM_DEBUG(llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';);
     auto func = getOperation();
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
 
+    mlir::OpBuilder builder(func);
     auto mod = mlir::ModuleOp::create(func.getLoc());
     PassManager pm(mod.getContext());
     pm.addNestedPass<func::FuncOp>(hecate::earth::createBootstrapPlacement());
     pm.addNestedPass<func::FuncOp>(
         hecate::earth::createProactiveRescaling({waterline, output_val}));
 
-    for (size_t i = 1; i < ca.getMaxNumOuts(); i++) {
+    llvm::errs() << "MaxOut : " << ca.getMaxNumOuts() << '\n';
+    for (size_t i = 1; i <= ca.getMaxNumOuts(); i++) {
       auto dup = func.clone();
       mlir::OpBuilder builder(dup);
       dup->setAttr("btp_target",
@@ -49,14 +52,13 @@ struct CandidateSelectionPass
       mod.push_back(dup);
       if (pm.run(mod).succeeded()) {
         func->setAttr("selected_set", builder.getI64IntegerAttr(i));
-        LLVM_DEBUG(llvm::dbgs() << "selected _set : " << i << '\n';);
         ca.finalizeCandidates(i);
+        llvm::errs() << "selected _set : " << i << '\n';
         dup.erase();
         break;
       }
       dup.erase();
     }
-
     markAnalysesPreserved<hecate::CandidateAnalysis>();
   }
 

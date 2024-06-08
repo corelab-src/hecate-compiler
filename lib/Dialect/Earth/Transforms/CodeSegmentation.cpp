@@ -31,15 +31,18 @@ struct CodeSegmentationPass
   CodeSegmentationPass() {}
 
   void runOnOperation() override {
+    /* llvm::errs() << __FILE__ << '\n'; */
     auto func = getOperation();
     /* auto &ca = getAnalysis<hecate::CandidateAnalysis>(); */
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
-    auto values = hecate::earth::attachOpid(&func.getRegion().front());
+    /* auto values = hecate::earth::attachOpid(&func.getRegion().front()); */
+    auto values = hecate::earth::getOpidToValueMap(&func.getRegion().front());
+    /* auto values = ca.getValueMap(); */
     auto &&cutted_edges =
         func->getAttrOfType<mlir::DenseI64ArrayAttr>("cutted_edge")
             .asArrayRef();
-    /* auto &&from = cutted_edges.front(); */
+    auto &&from = cutted_edges.front();
     auto &&to = cutted_edges.back();
 
     // set liveout operations of end-edge as return operands
@@ -60,6 +63,9 @@ struct CodeSegmentationPass
         if (rets.size() == i)
           rets.push_back(values[ret[i]]);
       }
+      /* llvm::errs() << "RETURN VALUE\n"; */
+      /* for (auto tt : rets) */
+      /*   tt.dump(); */
       auto ter = func.front().getTerminator();
       ter->erase();
       builder.setInsertionPointToEnd(&func.front());
@@ -100,6 +106,7 @@ struct CodeSegmentationPass
     if (pm.run(mod).failed()) {
       assert(0 && "Pass Failed inside CodeSegmentation");
     }
+    /* llvm::errs() << __FILE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

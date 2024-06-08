@@ -334,10 +334,15 @@ def BootstrapOp : Unary_Earth_Op<"bootstrap"> {
 }
 
 /* ######## Scale Management Operations ####### */
-def EraseTypeOp : Unary_Earth_Op<"erase", [SameOperandsAndResultShape]> {
+def EraseTypeOp : Unary_Earth_Op<"erase"> {
   let arguments = (ins HETensor:$value);
-  let results = (outs ErasedTensor);
+  let results = (outs HETensor);
   let hasCanonicalizer = 1;
+}
+
+def DummyOp : Unary_Earth_Op<"dummy", [SameOperandsAndResultType]> {
+  let arguments = (ins HETensor:$value);
+  let hasCanonicalizer  = 1;
 }
 
 def RescaleOp : Unary_Earth_Op<"rescale"> {
@@ -594,12 +599,16 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
     bool $cppClass::isValidated() {
       auto target = getResult().getType().dyn_cast<HEScaleTypeInterface>() ;
       auto Rf = hecate::earth::EarthDialect::rescalingFactor;
+      /* auto accm = getOperandScale(0) + +getOperandScale(1) + getOperandLevel(0) * Rf; */
+      /* return accm < hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf; */
       return target.getScale() + target.getLevel() * Rf < hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf;
     }
     bool $cppClass::isBootstrappable() {
       auto target = getResult().getType().dyn_cast<HEScaleTypeInterface>() ;
       auto Rf = hecate::earth::EarthDialect::rescalingFactor;
       return target.getScale() + target.getLevel() * Rf < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf;
+      /* auto accm = getOperandScale(0) + +getOperandScale(1) + getOperandLevel(0) * Rf; */
+      /* return accm < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf; */
     }
 
     bool $cppClass::isConsume() {
