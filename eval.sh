@@ -10,16 +10,16 @@ build-hopt
 # bench_name=(HarrisCornerDetection MLP LinearRegression SobelFilter PolynomialRegression Multivariate ResNet AlexNet VGG16 MobileNet SqueezeNet)
 # bench_name=(SobelFilter HarrisCornerDetection MLP LinearRegression PolynomialRegression Multivariate)
 # bench_name=(ResNet SqueezeNet MobileNet AlexNet VGG16)
-bench_name=(LinearRegression PolynomialRegression Multivariate LogisticRegression SVM)
-# bench_name=(PCA Kmeans)
+bench_name=(LinearRegression PolynomialRegression Mutivariate Kmeans)
+# bench_name=(PCA)
 
 waterline=(40)
 # waterline=($(seq 30 40))
 # compile_opt=(eva)
-compile_opt=(halo halo_nonflex)
+compile_opt=(dacapo)
 library=(HEAAN)
 backend=(GPU)
-epochs=(10 20)
+epochs=(10 20 30 40)
 # params=(FVa)
 
 conf_name="ASPLOS25"
@@ -45,18 +45,18 @@ do
  for hw in ${backend[@]}
  do
   # filename=${name}-${compile_opt}.txt
-  hc-trace $name
-  for wtr in ${waterline[@]}
+  for ep in ${epochs[@]}
   do
-   for opt in ${compile_opt[@]}
+   hc-trace $name $ep
+   for wtr in ${waterline[@]}
    do
-    for ep in ${epochs[@]}
+    for opt in ${compile_opt[@]}
     do
      filename=${name}-${opt}-${wtr}-${ep}.txt
-     for (( i = 0; i < 1; i++ ))
+     for (( i = 0; i < 5; i++ ))
      do
-      echo "Start compilation of ${name} ( waterline: ${wtr}, opt: ${opt})"
-      compile $opt $wtr $name $filename $library $hw
+      echo "Start compilation of ${name} ( waterline: ${wtr}, opt: ${opt}, ep: ${ep})"
+      compile $opt $wtr $name $filename $library $hw $ep
       if [ $? -ne 0 ]; then
        echo "compile failed"
        continue
