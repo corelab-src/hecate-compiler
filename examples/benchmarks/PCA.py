@@ -6,6 +6,8 @@ from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 step = 1
 def sum_elements1(data, length):
     for i in range(length):
@@ -120,7 +122,7 @@ def power_iteration(cov, epoch, columns, mask):
         
     b_k = b_k1 * b_k1_norm_i
     
-    # for _ in range(epoch-1):
+    # for _ in range(epoch):
     with hc.loop(0, epoch, 1, inputarr = b_k) as i:
         b_k1_in = cov_dot(cov, b_k, mask, 4)
         b_k1_squared_in = b_k1_in * b_k1_in
@@ -152,15 +154,13 @@ def newton_raphson_inverse(n, epoch):
     x = hc.Plain([0.1])
     y = hc.Plain([2.0])
     for _ in range(epoch):
-    # with hc.loop(0, epoch, step, inputarr = x) as i:
         b = n * x * hc.Plain([-1.0])
         x = x * (y + b)
 
     return x 
 
-epochs = 10
 # epochs_power  = epochs
-# epochs_babyl  = epochs 
+# epochs_babyl  = 4 
 
 epochs_newton1 = 4 
 epochs_newton2 = 4
@@ -168,6 +168,7 @@ epochs_newton3 = 4
 
 @hc.func("c,c,i")
 def PCA(x_data, y_data, epochs):
+# epochs = a_epochs
 # @hc.func("c,c")
 # def PCA(x_data, y_data):
     columns = 4
@@ -180,7 +181,6 @@ def PCA(x_data, y_data, epochs):
 
     x_data = x_data * mask[1]
     cov = covariance(x_data, columns, rows, bit_mask)
-      
     
     eigenvectors = [[] for i in range(4)]
     # eigenvectors = [0.0 for _ in range(16)]

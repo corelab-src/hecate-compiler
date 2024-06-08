@@ -69,7 +69,8 @@ res = hevm.getOutput()
 rms = 0
 for i in range(3):
     for j in range(3) : 
-        rms = rms + pow(res[3*i+j][:4096] - W[i][j], 2)
+        # rms = rms + pow(res[3*i+j][:4096] - W[i][j], 2)
+        rms = rms + pow(res[3*i+j] - W[i][j], 2)
 rms = math.sqrt(np.mean(rms))
 # print (rms)
 

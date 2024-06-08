@@ -5,6 +5,8 @@ import poly
 from poly.MPCB import *
 from poly.Func import *
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 def sum_elements(data):
     for i in range(10):
         rot = data.rotate(1<<i)
@@ -35,7 +37,7 @@ def LR_y_predict(x_data, W):
 
 # @hc.func("c,c")
 # def LogisticRegression(x_data, y_data):
-#     epochs = 20
+#     epochs = a_epochs
 @hc.func("c,c,i")
 def LogisticRegression(x_data, y_data, epochs):
     step = 1

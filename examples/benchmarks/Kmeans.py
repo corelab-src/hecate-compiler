@@ -6,6 +6,8 @@ from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 def sum_elements(data):
     for i in range(1, 9):
         rot  = data.rotate(2**i)
@@ -49,10 +51,7 @@ def newton_inverse(n, epoch):
 
 @hc.func("c,c,i")
 def Kmeans(x_data, y_data, epochs):
-# @hc.func("c,c")
-# def Kmeans(x_data, y_data):
 
-    # epochs = 20         # this dataset saturates after 5+ epochs
     epochs_newton = 5   # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
@@ -100,6 +99,60 @@ def Kmeans(x_data, y_data, epochs):
 
     centroid_0 = centroid_
     centroid_1 = centroid_.rotate(elements)
+    return centroid_0, centroid_1
+
+
+# @hc.func("c,c")
+def Kmeans(x_data, y_data):
+
+    epochs = a_epochs         # this dataset saturates after 5+ epochs
+    epochs_newton = 5   # can be set bigger for more accuracy
+    elements = 512
+    mask = create_mask(elements)
+
+    centroid_0 = copy(x_data, mask[0])
+    centroid_1 = copy(x_data.rotate(2), mask[0])
+
+    for _ in range(epochs):
+        # calculate the distance difference from centroid to data point
+        distance_0 = x_data - centroid_0
+        distance_0 = distance_0 * distance_0
+        distance_1 = x_data - centroid_1
+        distance_1 = distance_1 * distance_1
+
+        # accumulated the distance difference of data points
+        dist_diff = distance_0 - distance_1
+        dist_diff = dist_diff + dist_diff.rotate(1)
+
+        # shrink dist_diff to fit in HE_sign range
+        dist_diff = hc.Plain([0.01]) * dist_diff
+
+        # assign labels depending on the difference
+        # sign_diff = hc.Plain([0.5]) + HE_sign(dist_diff)          # has some noise
+        sign_diff = hc.Plain([0.5]) + HE_sign(HE_sign(dist_diff))   # more accurate
+
+        label = sign_diff * mask[2]     # only the even indexes are valid
+
+        # calculate the label for each data point
+        label_1 = label + label.rotate(elements - 1)
+        label_0 = hc.Plain([1.0]) - label_1
+
+        # get data points belonging to each label
+        centroid_0 = x_data * label_0
+        centroid_1 = x_data * label_1
+
+        # gather number of elements to calculate mean
+        sum_0 = sum_elements(label_0)
+        sum_1 = sum_elements(label_1)
+
+        # inverse the number of elements
+        isum_0 = newton_inverse(sum_0, epochs_newton)
+        isum_1 = newton_inverse(sum_1, epochs_newton)
+
+        # calculate mean by sum(data_points) * (1 / num_points)
+        centroid_0 = sum_elements(centroid_0) * isum_0
+        centroid_1 = sum_elements(centroid_1) * isum_1
+
     return centroid_0, centroid_1
 
 modName = hc.save("traced", "traced")

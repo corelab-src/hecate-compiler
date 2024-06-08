@@ -1,6 +1,8 @@
 import hecate as hc 
 import sys
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 def sum_elements(data):
     for i in range(12):
         rot = data.rotate(1<<i)
@@ -42,10 +44,7 @@ def create_mask(elements):
 
 @hc.func("c,c,i")
 def PolynomialRegression(x_data, y_data, epochs) :
-# @hc.func("c,c")
-# def PolynomialRegression(x_data, y_data) :
-#     epochs = 10
-    
+   
     W_num = 3
     elements = 4096 
     learning_rate = hc.Plain([-0.0001])
@@ -87,15 +86,16 @@ def PolynomialRegression(x_data, y_data, epochs) :
 
 
 
-
-def PolynomialRegression_old(x_data, y_data) :
+# @hc.func("c,c")
+def PolynomialRegression(x_data, y_data) :
+    epochs = a_epochs
     W = [hc.Plain([1.0]) , hc.Plain([1.0]), hc.Plain([1.0])]
     
     step = 1
     learning_rate = hc.Plain([-0.0001])
 
-    # for i in range(epochs):
-    with hc.loop(0, epochs, step, inputarr = W) as i:
+    for i in range(epochs):
+    # with hc.loop(0, epochs, step, inputarr = W) as i:
      
         y_predict = poly_y_predict(x_data, W)
         mY = -y_data

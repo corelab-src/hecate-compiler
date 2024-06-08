@@ -67,9 +67,11 @@ timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-res_ = np.concatenate((res[0][:2], res[1][:2]), axis=0)
-cen_ = np.concatenate((centroids[0][:2], centroids[1][:2]), axis=0)
+# res_ = np.concatenate((res[0][:2], res[1][:2]), axis=0)
+# cen_ = np.concatenate((centroids[0][:2], centroids[1][:2]), axis=0)
 
-rms = np.sqrt(np.mean(np.power((res_[:4] - cen_), 2)))
+# rms = np.sqrt(np.mean(np.power((res_[:4] - cen_), 2)))
+rms = np.sqrt(np.mean(np.power(res[0][:2] - centroids[0], 2) + np.power(res[1][:2] - centroids[1], 2)))
 
-hevm.printer(timer/pow(10,9), rms)
+# hevm.printer(timer/pow(10,9), rms)
+hevm.printer(timer/pow(10,9), rms, epochs)

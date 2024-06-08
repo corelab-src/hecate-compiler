@@ -1,6 +1,9 @@
 import hecate as hc
 import sys
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
+
 def sum_elements(data):
     for i in range(12):
     # with hc.loop(0, 12, 1, [data]) as i:
@@ -26,12 +29,9 @@ def create_mask(elements):
     
     return mask
 
-# @hc.func("c,c,i")
-# def LinearRegression(x_data, y_data, epochs) :
-@hc.func("c,c")
-def LinearRegression(x_data, y_data) :
-    epochs = 20
-    
+@hc.func("c,c,i")
+def LinearRegression(x_data, y_data, epochs) :
+   
     step = 1
     learning_rate = hc.Plain([-0.01])
     
@@ -39,8 +39,8 @@ def LinearRegression(x_data, y_data) :
     mask = create_mask(elements)
     W = mask[1] 
     
-    for i in range(epochs):
-    # with hc.loop(0, epochs, 1, inputarr = W) as i:
+    # for i in range(epochs):
+    with hc.loop(0, epochs, 1, inputarr = W) as i:
         
         xW = x_data * W
         y_predict = W + xW.rotate(elements)
@@ -69,19 +69,17 @@ def LinearRegression(x_data, y_data) :
 
     return res[1], res[0]
 
-def LinearRegression_old(x_data, y_data) :
+# @hc.func("c,c")
+def LinearRegression(x_data, y_data) :
+    epochs = a_epochs
     W = hc.Plain([1.0])
     b = hc.Plain([0.0])
     
-    epochs = 1
     learning_rate = hc.Plain([-0.01])
 
     # inputarr = [hc.bootstrap(W), hc.bootstrap(b)]
-    step = 1
-    # with hc.loop(0, epochs, step,  init_vars = (inputarr, W, b)) as loop:
-    with hc.loop(0, epochs, step, inputarr = [W,b]) as i:
-    # for k in range(epochs):
-        # t = x_data +i 
+    # with hc.loop(0, epochs, step, inputarr = [W,b]) as i:
+    for k in range(epochs):
         xW = x_data*W
         xWb = xW + b
         error = xWb - y_data

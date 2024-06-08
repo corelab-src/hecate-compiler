@@ -1,6 +1,8 @@
 import hecate as hc 
 import sys
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 def sum_elements(data):
     for i in range(12):
         rot = data.rotate(1<<i)
@@ -52,9 +54,6 @@ def create_mask_9(elements):
 
     return mask
 
-# @hc.func("c,c,c,c,c,c")
-# def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
-#     epochs = 10
 @hc.func("c,c,c,c,c,c,i")
 def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epochs) :
     step = 1
@@ -111,21 +110,21 @@ def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epochs) 
      
     return res[0], res[1], res[2], res[3], res[4], res[5], res[6], res[7], res[8]
 
-
-def Multivariate_old (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
+# @hc.func("c,c,c,c,c,c")
+def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
     W0 = [hc.Plain([1.0]) for i in range(3)]
     W1 = [hc.Plain([1.5]) for i in range(3)]
     W2 = [hc.Plain([2.0]) for i in range(3)]
     W = [W0, W1, W2]
     X = [x0_data, x1_data, x2_data]
     Y = [y0_data, y1_data, y2_data]
-    epochs = 10
+    epochs = a_epochs
+    # epochs = 10
     step = 1
     learning_rate = hc.Plain([-0.01])
     inputarr= [W[0][0], W[0][1], W[0][2],W[1][0], W[1][1], W[1][2],W[2][0], W[2][1], W[2][2]]
 
     for k in range(epochs):
-    # with hc.loop(0, epochs, step, W) as k:
         for j in range(3):
             wX = [ X[i] * W[j][i] for i in range(3)]
 
@@ -141,6 +140,40 @@ def Multivariate_old (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data) :
                 W[j][i] += Wup[i]
     
     return W[0][0], W[0][1], W[0][2],W[1][0], W[1][1], W[1][2],W[2][0], W[2][1], W[2][2],
+
+# @hc.func("c,c,c,c,c,c,i")
+def Multivariate (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epochs) :
+    W0 = [hc.Plain([1.0]) for i in range(3)]
+    W1 = [hc.Plain([1.5]) for i in range(3)]
+    W2 = [hc.Plain([2.0]) for i in range(3)]
+    W = [W0, W1, W2]
+    X = [x0_data, x1_data, x2_data]
+    Y = [y0_data, y1_data, y2_data]
+    # epochs = 10
+    step = 1
+    learning_rate = hc.Plain([-0.01])
+    inputarr= [W[0][0], W[0][1], W[0][2],W[1][0], W[1][1], W[1][2],W[2][0], W[2][1], W[2][2]]
+
+    # for k in range(epochs):
+    with hc.loop(0, epochs, step, inputarr) as k:
+        for j in range(3):
+            wX = [ X[i] * W[j][i] for i in range(3)]
+
+            y_predict = wX[0] + wX[1] + wX[2]
+            mY = -Y[j]
+            error0 = y_predict + mY
+            error = [ error0 * X[i] for i in range(3)]
+            sumerror = [sum_elements(error[i]) for i in range(3)]
+
+            gradW = [sumerror[i] * hc.Plain([1/2048]) for i in range(3)]
+            Wup = [gradW[i] * learning_rate for i in range(3)]
+            for i in range(3) :
+                W[j][i] += Wup[i]
+    
+    return W[0][0], W[0][1], W[0][2],W[1][0], W[1][1], W[1][2],W[2][0], W[2][1], W[2][2],
+
+
+
 
 modName = hc.save("traced", "traced")
 print (modName)

@@ -6,6 +6,8 @@ from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
 
+if(len(sys.argv) != 1):
+    a_epochs = int(sys.argv[1])
 def sum_elements(data):
     for i in range(12):
         rot = data.rotate(1<<i)
@@ -34,7 +36,7 @@ def create_mask(elements):
 
 # @hc.func("c,c")
 # def SVM(x_data, y_data) :
-#     epochs = 10
+#     epochs = a_epochs
 @hc.func("c,c,i")
 def SVM(x_data, y_data, epochs) :
     
