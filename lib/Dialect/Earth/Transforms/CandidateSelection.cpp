@@ -32,9 +32,33 @@ struct CandidateSelectionPass
 
   void runOnOperation() override {
 
-    LLVM_DEBUG(llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';);
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
+
+    // Organize the validLiveOuts
+    for (auto a : ca.getEdges()) {
+      auto v = ca.getValueInfo(a);
+      mlir::SmallVector<int64_t, 4> validTargets;
+      for (auto bp : v->getLiveOuts()) {
+        auto vp = ca.getValueInfo(bp);
+        if (!vp->isBypassEdge(a)) {
+          validTargets.push_back(bp);
+        }
+      }
+      v->setValidLiveOuts(validTargets);
+      ca.sortValidCandidates(a);
+    }
+    /*
+    for (auto a : ca.getEdges()) {
+      auto v = ca.getValueInfo(a);
+      llvm::errs() << a << " : ";
+      for (auto vl : v->getValidLiveOuts()) {
+        llvm::errs() << vl << " ";
+      }
+      llvm::errs() << '\n';
+    }
+    */
 
     mlir::OpBuilder builder(func);
     auto mod = mlir::ModuleOp::create(func.getLoc());
@@ -43,7 +67,6 @@ struct CandidateSelectionPass
     pm.addNestedPass<func::FuncOp>(
         hecate::earth::createProactiveRescaling({waterline, output_val}));
 
-    llvm::errs() << "MaxOut : " << ca.getMaxNumOuts() << '\n';
     for (size_t i = 1; i <= ca.getMaxNumOuts(); i++) {
       auto dup = func.clone();
       mlir::OpBuilder builder(dup);
@@ -53,7 +76,7 @@ struct CandidateSelectionPass
       if (pm.run(mod).succeeded()) {
         func->setAttr("selected_set", builder.getI64IntegerAttr(i));
         ca.finalizeCandidates(i);
-        llvm::errs() << "selected _set : " << i << '\n';
+        /* llvm::errs() << "selected _set : " << i << '\n'; */
         dup.erase();
         break;
       }

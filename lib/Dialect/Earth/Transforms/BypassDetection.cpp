@@ -36,56 +36,26 @@ struct BypassDetectionPass
 
   void runOnOperation() override {
 
-    /* llvm::errs() << __FILE__ << '\n'; */
     auto func = getOperation();
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
 
     // Applying multi-threading to find bypass edges
     auto maxThreads = std::thread::hardware_concurrency();
     std::vector<std::thread> thres;
-    /* llvm::errs() << "EDGE SIZE: " << ca.getEdges().size() << '\n'; */
     for (auto from : ca.getEdges()) {
       auto threadFunc =
           std::bind(&BypassDetectionPass::findBypassEdge, this, func, from);
       thres.emplace_back(threadFunc);
-      /* if (thres.size() >= maxThreads) { */
-      for (std::thread &th : thres) {
-        th.join();
+      if (thres.size() >= maxThreads) {
+        for (std::thread &th : thres) {
+          th.join();
+        }
+        thres.clear();
       }
-      thres.clear();
-      /* } */
     }
     for (std::thread &th : thres) {
       th.join();
     }
-    // Organize the validLiveOuts
-    for (auto a : ca.getEdges()) {
-      auto v = ca.getValueInfo(a);
-      mlir::SmallVector<int64_t, 4> validTargets;
-      /* llvm::errs() << a << " : "; */
-      for (auto bp : v->getLiveOuts()) {
-        /* llvm::errs() << bp << " "; */
-        auto vp = ca.getValueInfo(bp);
-        if (!vp->isBypassEdge(a)) {
-          /* llvm::errs() << "[  " << bp << " ] "; */
-          validTargets.push_back(bp);
-        }
-      }
-      v->setValidLiveOuts(validTargets);
-      ca.sortValidCandidates(a);
-    }
-    /*
-    for (auto a : ca.getEdges()) {
-      auto v = ca.getValueInfo(a);
-      llvm::errs() << a << " : ";
-      for (auto vl : v->getValidLiveOuts()) {
-        llvm::errs() << vl << " ";
-      }
-      llvm::errs() << '\n';
-    }
-    */
     markAnalysesPreserved<hecate::CandidateAnalysis>();
   }
 
@@ -101,7 +71,6 @@ struct BypassDetectionPass
     mlir::OpBuilder builder(dup);
     dup->setAttr("btp_target", builder.getDenseI64ArrayAttr(
                                    ca.getValueInfo(from)->getLiveOuts()));
-    /* dup.dump(); */
     mod.push_back(dup);
 
     if (pm.run(mod).failed()) {
@@ -118,12 +87,9 @@ struct BypassDetectionPass
 
         // PARS Scale Management
         builder.setInsertionPointAfter(sop.getOperation());
-        /* sop.dump(); */
         sop.processOperandsPARS(waterline);
         inferTypeForward(sop);
         sop.processResultsPARS(waterline);
-        /* sop.dump(); */
-        /* llvm::errs() << "\n\n"; */
         /////////////////////////////////////////
 
         // check over threshold and set bypass
