@@ -46,7 +46,7 @@ struct WrapUpLoopBodyPass
   }
 
   void runOnOperation() override {
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     markAnalysesPreserved<hecate::CandidateAnalysis>();
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
@@ -62,7 +62,6 @@ struct WrapUpLoopBodyPass
       auto &&val = values[oldId];
       hecate::setIntegerAttr("opid", val, newId);
     }
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

@@ -39,7 +39,7 @@ struct DaCapoPlannerPass
 
   void runOnOperation() override {
 
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
@@ -261,17 +261,18 @@ struct DaCapoPlannerPass
     /* for (auto tt : retTypes) { */
     /*   llvm::errs() << tt << '\n'; */
     /* } */
-    if (ca.getIdMap().size()) {
-      auto idMap = ca.getIdMap();
-      SmallVector<int64_t, 2> convertedTarget;
-      for (auto tt : targets) {
-        convertedTarget.push_back(idMap[tt]);
-      }
-      func->setAttr("btp_target",
-                    builder.getDenseI64ArrayAttr(convertedTarget));
-    }
+    /* if (ca.getIdMap().size()) { */
+    /*   auto idMap = ca.getIdMap(); */
+    /*   SmallVector<int64_t, 2> convertedTarget; */
+    /*   for (auto tt : targets) { */
+    /*     convertedTarget.push_back(idMap[tt]); */
+    /*   } */
+    /*   func->setAttr("btp_target", */
+    /*                 builder.getDenseI64ArrayAttr(convertedTarget)); */
+    /* } */
 
     markAnalysesPreserved<hecate::CandidateAnalysis>();
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

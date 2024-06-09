@@ -35,8 +35,8 @@ struct ProactiveRescalingPass
   void runOnOperation() override {
 
     auto func = getOperation();
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
 
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     markAnalysesPreserved<hecate::ScaleManagementUnit>();
     markAnalysesPreserved<hecate::CandidateAnalysis>();
 
@@ -49,13 +49,10 @@ struct ProactiveRescalingPass
 
     // Apply waterline rescaling for the operations
     func.walk([&](hecate::earth::ForwardMgmtInterface sop) {
-      sop.dump();
       builder.setInsertionPointAfter(sop.getOperation());
       sop.processOperandsPARS(waterline);
       inferTypeForward(sop);
       sop.processResultsPARS(waterline);
-      sop.dump();
-      llvm::errs() << '\n';
     });
 
     hecate::earth::refineReturnValues(func, builder, inputTypes, waterline,

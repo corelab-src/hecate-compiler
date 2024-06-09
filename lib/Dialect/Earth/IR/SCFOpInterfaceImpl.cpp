@@ -48,13 +48,13 @@ struct ForOpInterface
           }
         }
       }
-      /* auto level_diff = */
-      /*     hecate::earth::EarthDialect::bootstrapLevelUpperBound - */
-      /*     hecate::earth::EarthDialect::bootstrapLevelLowerBound - */
-      /*     hecate::earth::getScaleType(forOp.getOperand(i)).getLevel(); */
-      /* auto mop = builder.create<hecate::earth::ModswitchOp>( */
-      /*     forOp.getLoc(), forOp.getOperand(i), level_diff); */
-      /* forOp.setOperand(i, mop); */
+      auto level_diff =
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+          hecate::earth::getScaleType(forOp.getOperand(i)).getLevel();
+      auto mop = builder.create<hecate::earth::ModswitchOp>(
+          forOp.getLoc(), forOp.getOperand(i), level_diff);
+      forOp.setOperand(i, mop);
 
       forOp.getRegionIterArg(i - forOp.getNumControlOperands())
           .setType(op->getOperand(i).getType());
@@ -74,30 +74,33 @@ struct ForOpInterface
     auto yieldOp =
         dyn_cast<mlir::scf::YieldOp>(forOp.getBody()->getTerminator());
 
-    for (size_t yieldIdx = 0; yieldIdx < forOp.getNumResults(); yieldIdx++) {
-      size_t initArgIdx = yieldIdx + forOp.getNumControlOperands();
-      auto aop = dyn_cast<hecate::earth::HEScaleTypeInterface>(
-          forOp.getOperand(initArgIdx).getType());
-      auto yop = dyn_cast<hecate::earth::HEScaleTypeInterface>(
-          yieldOp.getOperand(yieldIdx).getType());
-      if (aop.getLevel() > yop.getLevel()) {
-        auto level_diff = aop.getLevel() - yop.getLevel();
-        builder.setInsertionPoint(yieldOp);
-        yieldOp.setOperand(
-            yieldIdx,
-            builder.create<hecate::earth::ModswitchOp>(
-                yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
-      } else if (aop.getLevel() < yop.getLevel()) {
-        auto level_diff = yop.getLevel() - aop.getLevel();
-        builder.setInsertionPoint(forOp);
-        forOp.setOperand(
-            initArgIdx,
-            builder.create<hecate::earth::ModswitchOp>(
-                forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
-        forOp.getRegionIterArg(yieldIdx).setType(
-            op->getOperand(initArgIdx).getType());
-      }
-    }
+    /* for (size_t yieldIdx = 0; yieldIdx < forOp.getNumResults(); yieldIdx++) {
+     */
+    /*   size_t initArgIdx = yieldIdx + forOp.getNumControlOperands(); */
+    /*   auto aop = dyn_cast<hecate::earth::HEScaleTypeInterface>( */
+    /*       forOp.getOperand(initArgIdx).getType()); */
+    /*   auto yop = dyn_cast<hecate::earth::HEScaleTypeInterface>( */
+    /*       yieldOp.getOperand(yieldIdx).getType()); */
+    /*   if (aop.getLevel() > yop.getLevel()) { */
+    /*     auto level_diff = aop.getLevel() - yop.getLevel(); */
+    /*     builder.setInsertionPoint(yieldOp); */
+    /*     yieldOp.setOperand( */
+    /*         yieldIdx, */
+    /*         builder.create<hecate::earth::ModswitchOp>( */
+    /*             yieldOp.getLoc(), yieldOp.getOperand(yieldIdx), level_diff));
+     */
+    /*   } else if (aop.getLevel() < yop.getLevel()) { */
+    /*     auto level_diff = yop.getLevel() - aop.getLevel(); */
+    /*     builder.setInsertionPoint(forOp); */
+    /*     forOp.setOperand( */
+    /*         initArgIdx, */
+    /*         builder.create<hecate::earth::ModswitchOp>( */
+    /*             forOp.getLoc(), forOp.getOperand(initArgIdx), level_diff));
+     */
+    /*     forOp.getRegionIterArg(yieldIdx).setType( */
+    /*         op->getOperand(initArgIdx).getType()); */
+    /*   } */
+    /* } */
     for (size_t i = 0; i < forOp.getNumResults(); i++) {
       /* forOp.getResult(i).setType( */
       /*     forOp.getBody()->getTerminator()->getOperand(i).getType()); */
@@ -212,6 +215,13 @@ struct YieldOpInterface
           }
         }
       }
+      auto level_diff =
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+          hecate::earth::getScaleType(yieldOp.getOperand(i)).getLevel();
+      auto mop = builder.create<hecate::earth::ModswitchOp>(
+          yieldOp.getLoc(), yieldOp.getOperand(i), level_diff);
+      yieldOp.setOperand(i, mop);
     }
 
     return;

@@ -33,10 +33,9 @@ struct CoverageRecorderPass
 
   void runOnOperation() override {
 
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     auto dup = func.clone();
-    func.dump();
     auto &&from = dup->getAttrOfType<mlir::DenseI64ArrayAttr>("cutted_edge")
                       .asArrayRef()
                       .front();
@@ -45,7 +44,6 @@ struct CoverageRecorderPass
     auto &&operations = block.getOperations();
     mlir::OpBuilder builder(dup);
 
-    /* dup.dump(); */
     // Set function argument types
     auto &&inputType_attrs = dup->getAttr("segment_inputType")
                                  .dyn_cast<mlir::ArrayAttr>()
@@ -74,13 +72,10 @@ struct CoverageRecorderPass
           }
         }
         // PARS Scale Management
-        /* sop.dump(); */
         builder.setInsertionPointAfter(sop.getOperation());
         sop.processOperandsPARS(waterline);
         inferTypeForward(sop);
         sop.processResultsPARS(waterline);
-        /* sop.dump(); */
-        /* llvm::errs() << '\n'; */
         /////////////////////////////////////////
         // Find Bootstrapping Coverage
         if (bootCoverage < 0 && !sop.isBootstrappable()) {
@@ -98,8 +93,8 @@ struct CoverageRecorderPass
     func->setAttr("coverages",
                   builder.getDenseI64ArrayAttr({coverage, bootCoverage}));
 
-    llvm::errs() << "from " << from << "coverage " << coverage << " "
-                 << bootCoverage << '\n';
+    /* llvm::errs() << "from " << from << "coverage " << coverage << " " */
+    /*              << bootCoverage << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

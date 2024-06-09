@@ -31,7 +31,6 @@ struct BootstrapPlacementPass
           BootstrapPlacementPass> {
   BootstrapPlacementPass() {}
   void runOnOperation() override {
-    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
