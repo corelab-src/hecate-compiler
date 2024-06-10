@@ -122,7 +122,8 @@ def power_iteration(cov, epoch, columns, mask):
         
     b_k = b_k1 * b_k1_norm_i
     
-    for _ in range(epoch):
+    # for _ in range(epoch):
+    with hc.loop(0, epoch, 1, inputarr = [b_k]) as i:
         b_k1_in = cov_dot(cov, b_k, mask, 4)
         b_k1_squared_in = b_k1_in * b_k1_in
         b_k1_squared_in = sum_elements2(b_k1_squared_in, 2)
@@ -139,7 +140,8 @@ def power_iteration(cov, epoch, columns, mask):
 def sqrt_babylonian(n, epoch1, epoch2):
     x = n * hc.Plain([0.5])
 
-    for _ in range(epoch1):
+    # for _ in range(epoch1):
+    with hc.loop(0, epoch1, step, inputarr = [x]) as i:
         x_i = newton_raphson_inverse(x, epoch2)
         a = n * x_i
         b = x + a 
@@ -164,9 +166,8 @@ epochs_newton1 = 4
 epochs_newton2 = 4
 epochs_newton3 = 4 
 
-epochs = a_epochs
-@hc.func("c,c")
-def PCA(x_data, y_data):
+@hc.func("c,c,i")
+def PCA_Loop(x_data, y_data, epochs):
     columns = 4
     rows = 150
     

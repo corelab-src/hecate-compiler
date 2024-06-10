@@ -26,13 +26,12 @@ def create_mask(elements):
 
     return mask
 
-@hc.func("c,c,c")
-def SVM(X0, X1, Y):
+@hc.func("c,c,c,i")
+def SVM_Loop(X0, X1, Y, epochs):
 
     step = 1
     lambda_ = hc.Plain([0.02])
     learning_rate = hc.Plain([-0.001])
-    epochs = a_epochs
     # lr_lambda = hc.Plain([-0.00002])
 
     n_samples = 1024
@@ -51,17 +50,18 @@ def SVM(X0, X1, Y):
 
     mask = create_mask(n_samples)
 
-    for _ in range(epochs):
+    with hc.loop(0, epochs, step, inputarr = [W0, W1, b0], num_elements = n_samples) as i:
+        # with hc.loop(0, epochs, step, inputarr = W) as i:
         # calculate the function value
         func = X0 * W0 + X1 * W1 - b0
         func = Y * func + minus_one
 
         # label the result based on function
+        # func = hc.bootstrap(func)
         func = func * hc.Plain([0.1])
-        y_predict = hc.bootstrap(HE_sign(func))
-        y_predict = HE_sign(y_predict)
+        y_predict = HE_sign(HE_sign(func))
 
-        y_predict = hc.bootstrap(y_predict)
+        # y_predict = hc.bootstrap(y_predict)
         cond0 =  y_predict + hc.Plain([0.5])
         cond1 = -y_predict + hc.Plain([0.5])
 
@@ -90,10 +90,8 @@ def SVM(X0, X1, Y):
     # return gradW0, gradW1, gradb0
     return W0, W1, b0
 
-
-# @hc.func("c,c")
-def SVM(x_data, y_data) :
-    epochs = a_epochs
+# @hc.func("c,c,i")
+def SVM_Loop(x_data, y_data, epochs) :
     
     step = 1
     learning_rate = hc.Plain([-0.0001])
@@ -105,7 +103,8 @@ def SVM(x_data, y_data) :
     W = hc.Plain([0.00000001 for _ in range(elements*3)])
     W = W + x_data * hc.Plain([0.00000001])
 
-    for i in range(epochs):
+    # for i in range(epochs):
+    with hc.loop(0, epochs, step, inputarr = W) as i:
         dot = W * x_data
         dot = dot + dot.rotate(elements)    # np.dot(x_i, W)
         dot = dot - W.rotate(elements*2)    # np.dot(x_i, W) - b 

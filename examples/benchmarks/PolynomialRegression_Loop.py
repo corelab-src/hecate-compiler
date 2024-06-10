@@ -42,15 +42,16 @@ def create_mask(elements):
 
     return mask
 
-@hc.func("c,c")
-def PolynomialRegression(x_data, y_data) :
-    epochs = a_epochs
+@hc.func("c,c,i")
+def PolynomialRegression_Loop(x_data, y_data, epochs) :
+    # epochs = a_epochs
     W = [hc.Plain([1.0]) , hc.Plain([1.0]), hc.Plain([1.0])]
     
     step = 1
     learning_rate = hc.Plain([-0.0001])
 
-    for i in range(epochs):
+    # for i in range(epochs):
+    with hc.loop(0, epochs, step, inputarr = W) as i:
      
         y_predict = poly_y_predict(x_data, W)
         mY = -y_data
@@ -66,9 +67,8 @@ def PolynomialRegression(x_data, y_data) :
     return W[0], W[1], W[2]
 
 
-# @hc.func("c,c")
-def PolynomialRegression(x_data, y_data) :
-    epochs = a_epochs
+# @hc.func("c,c,i")
+def PolynomialRegression_Loop(x_data, y_data, epochs) :
    
     W_num = 3
     elements = 4096 
@@ -77,7 +77,8 @@ def PolynomialRegression(x_data, y_data) :
     W = hc.Plain([1.0 for i in range(elements*3)])
     mask = create_mask(elements)     # returns mask in  Plaintext size 4096*3
     
-    for i in range(epochs):
+    # for i in range(epochs):
+    with hc.loop(0, epochs, 1, inputarr = W) as i:
         
         y_predict = poly_y_predict_concat(x_data, W, elements)
         mY = -y_data

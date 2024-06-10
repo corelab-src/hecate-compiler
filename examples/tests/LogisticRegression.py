@@ -60,13 +60,17 @@ timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-resW = [res[i][0] for i in range(31)]
+# resW = [res[i][0] for i in range(31)]
 # rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
 # rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
 import math
-rms = math.sqrt(np.power(resW[0] - b, 2))
+# rms = math.sqrt(np.power(resW[0] - b, 2))
+# for i in range(1,31):
+#     rms += math.sqrt(np.power(W[i-1] - resW[i], 2))
+rms = math.sqrt(np.power(res[0][0] - b[0][0][0], 2))
 for i in range(1,31):
-    rms += math.sqrt(np.power(W[i-1] - resW[i], 2))
+    rms += math.sqrt(np.power(res[i][0] - W[i-1][0][0], 2))
+
 
 
 # print (timer / pow(10,9))

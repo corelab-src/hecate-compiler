@@ -8,7 +8,11 @@ mkdir -p $HECATE/examples/optimized/eva
 mkdir -p $HECATE/examples/optimized/elasm
 mkdir -p $HECATE/examples/optimized/dacapo
 mkdir -p $HECATE/examples/optimized/pars
-mkdir -p $HECATE/examples/optimized/halo
+mkdir -p $HECATE/examples/optimized/simple_loop
+mkdir -p $HECATE/examples/optimized/packed_loop
+mkdir -p $HECATE/examples/optimized/packed_unroll_loop
+mkdir -p $HECATE/examples/optimized/packed_unroll_flex_loop
+mkdir -p $HECATE/examples/optimized/dacapo_flex
 
 build-hopt()(
 cd $HECATE/build

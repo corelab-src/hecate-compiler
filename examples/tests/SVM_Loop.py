@@ -105,6 +105,7 @@ Y = Y.astype(np.float64)
 hevm.setInput(0, X0)
 hevm.setInput(1, X1)
 hevm.setInput(2, Y)
+hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer

@@ -49,10 +49,10 @@ def newton_inverse(n, epoch):
 
     return x
 
-@hc.func("c,c")
-def Kmeans(x_data, y_data):
+@hc.func("c,c,i")
+def Kmeans_Loop(x_data, y_data, epochs):
 
-    epochs = a_epochs         # this dataset saturates after 5+ epochs
+    # epochs = a_epochs         # this dataset saturates after 5+ epochs
     epochs_newton = 5   # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
@@ -60,7 +60,8 @@ def Kmeans(x_data, y_data):
     centroid_0 = copy(x_data, mask[0])
     centroid_1 = copy(x_data.rotate(2), mask[0])
 
-    for _ in range(epochs):
+    # for _ in range(epochs):
+    with hc.loop(0, epochs, 1, inputarr = [centroid_0, centroid_1]) as i:
         # calculate the distance difference from centroid to data point
         distance_0 = x_data - centroid_0
         distance_0 = distance_0 * distance_0
@@ -104,9 +105,8 @@ def Kmeans(x_data, y_data):
 
 
 # @hc.func("c,c,i")
-def Kmeans(x_data, y_data):
+def Kmeans_Loop(x_data, y_data, epochs):
 
-    epochs = a_epochs         # this dataset saturates after 5+ epochs
     epochs_newton = 5   # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
@@ -115,7 +115,8 @@ def Kmeans(x_data, y_data):
     centroid_1 = copy(x_data.rotate(2), mask[0])
     centroid_  = centroid_0 + centroid_1.rotate(elements)
 
-    for _ in range(epochs):
+    # for _ in range(epochs):
+    with hc.loop(0, epochs, 1, inputarr = [centroid_]) as i:
         # calculate the distance difference from centroid to data point
         distance_ = x_data - centroid_
         distance_ = distance_ * distance_
