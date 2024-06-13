@@ -108,7 +108,7 @@ Op<Earth_Dialect, mnemonic, !listconcat(traits, [Pure, DeclareOpInterfaceMethods
     // - ScaleOpInterface Non-default methods
     // - isSingle, isConsume is remaining methods
 
-    ::hecate::earth::HEScaleTypeInterface $cppClass::getScaleType(){return getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>();}
+    ::hecate::earth::HEScaleTypeInterface $cppClass::getScaleType(){return getResult().getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>();}
     ::hecate::earth::HEScaleTypeInterface $cppClass::getOperandScaleType(unsigned idx){return getOperation()->getOperand(idx).getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>();}
 
     // - HEProfInterface Non-default methods
@@ -627,6 +627,187 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
   }];
   let hasCanonicalizer = 1;
 }
+class Layout_Earth_Op<string mnemonic, list<Trait> traits = []> :
+Earth_Op<mnemonic, !listconcat(traits, [])> {
+  string layoutClassDefinition =[{
 
 
+    bool $cppClass::isConsume() {
+      return false;
+    }
+    bool $cppClass::isSingle() {
+      return true;
+    }
+    ::llvm::SmallVector<double, 2> $cppClass::differentiate(::llvm::ArrayRef<double> gradient,
+        ::llvm::ArrayRef<double> estimation){
+      return {gradient[0]};
+    }
+    ::llvm::SmallVector<double, 1> $cppClass::estimateValue(::llvm::ArrayRef<double> estimation){
+      return {estimation[0]};
+    }
+    ::hecate::earth::HEScaleTypeInterface $cppClass::getScaleType(){return getResult(0).getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>();}
+    ::hecate::earth::HEScaleTypeInterface $cppClass::getOperandScaleType(unsigned idx){return getOperation()->getOperand(idx).getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>();}
+
+
+    // - HEProfInterface Non-default methods
+    unsigned $cppClass::getLatencyOf(unsigned level) {
+      return 0;
+    }
+    unsigned $cppClass::getNoiseScale() {
+      return 0;
+    }
+
+    double $cppClass::getNoiseOf(unsigned level) {
+      return 0;
+    }
+    unsigned $cppClass::getCipherLevel() {
+      return 0;
+    }
+
+  }];
+  code extraClassDefinition = layoutClassDefinition;
+}
+
+def PackOp: Layout_Earth_Op<"pack"> {
+  let arguments = (ins Variadic<HETensor>:$inputs, I64Attr:$num_elements, I64Attr:$num_inputs);
+  let results = (outs Variadic<HETensor>:$results);
+  /* let arguments = (ins HETensor:$lhs,  HETensor:$rhs); */
+  code extraClassDeclaration = [{
+    void processOperandsEVA(int64_t param);
+    void processResultsEVA(int64_t param);
+    bool isValidated();
+    bool isBootstrappable();
+    bool overThreshold(float thr);
+  }];
+  code extraClassDefinition = layoutClassDefinition # [{
+
+    void $cppClass::processOperandsEVA(int64_t param){
+      int maxLevel = 0;
+      for(int i = 0; i < getNumOperands(); i++){
+        if (getOperandScale(i) + hecate::earth::EarthDialect::rescalingFactor * getOperandLevel(i) < (hecate::earth::EarthDialect::bootstrapLevelUpperBound + 1) * hecate::earth::EarthDialect::rescalingFactor ){
+          OpBuilder builder(getOperation());
+          if (getOperandScale(i) < hecate::earth::EarthDialect::rescalingFactor ){
+            getOperation()->setOperand(i, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(i), hecate::earth::EarthDialect::rescalingFactor - getOperandScale(i)));
+          }
+          else if(getOperandScale(i) > hecate::earth::EarthDialect::rescalingFactor){
+            int overLevel = (getOperandScale(i) - 1)/hecate::earth::EarthDialect::rescalingFactor;
+            getOperation()->setOperand(i, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(i), (hecate::earth::EarthDialect::rescalingFactor * (overLevel + 1) - getOperandScale(i))));
+            for(int j = overLevel; j >0; j--){
+              getOperation()->setOperand(i, builder.create<hecate::earth::RescaleOp>( getLoc(), getOperand(i)));
+
+            }
+          }
+        }
+        maxLevel = maxLevel < getOperandLevel(i)? getOperandLevel(i) : maxLevel;
+      }
+
+      for(int i = 0; i < getNumOperands(); i++){
+        OpBuilder builder(getOperation());
+        getOperation()->setOperand(i, builder.create<hecate::earth::ModswitchOp>( getLoc(), getOperand(i), maxLevel - getOperandLevel(i)));
+      }
+    }
+    void $cppClass::processResultsEVA(int64_t param){
+      for(int i = 0; i < getNumResults(); i++){
+        getResult(i).setType(
+            mlir::RankedTensorType::get(
+              llvm::SmallVector<int64_t, 1>{1},
+              CipherType::get(this->getContext(), getOperandScale(0), getOperandLevel(0) + 1)));
+      }
+    }
+
+
+    bool $cppClass::overThreshold(float thr) {
+      auto target = getResult(0).getType().dyn_cast<HEScaleTypeInterface>() ;
+      auto Rf = hecate::earth::EarthDialect::rescalingFactor;
+      return target.getScale() + target.getLevel() * Rf > hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf * thr;
+    }
+    bool $cppClass::isValidated() {
+      auto lScale = hecate::earth::getScaleType(getOperand(0));
+      return lScale.getLevel() < hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+
+    }
+
+    bool $cppClass::isBootstrappable() {
+      auto target = getResult(0).getType().dyn_cast<HEScaleTypeInterface>() ;
+      auto Rf = hecate::earth::EarthDialect::rescalingFactor;
+      return target.getScale() + target.getLevel() * Rf < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf;
+    }
+
+  }];
+  let hasCanonicalizer = 1;
+}
+
+def UnPackOp: Layout_Earth_Op<"unpack"> {
+  let arguments = (ins Variadic<HETensor>:$inputs, I64Attr:$num_elements, I64Attr:$num_outputs);
+  let results = (outs Variadic<HETensor>:$results);
+  /* let arguments = (ins HETensor:$lhs,  HETensor:$rhs); */
+  code extraClassDeclaration = [{
+    void processOperandsEVA(int64_t param);
+    void processResultsEVA(int64_t param);
+    bool isValidated();
+    bool isBootstrappable();
+    bool overThreshold(float thr);
+  }];
+  code extraClassDefinition = layoutClassDefinition # [{
+    void $cppClass::processOperandsEVA(int64_t param){
+      int maxLevel = 0;
+      for(int i = 0; i < getNumOperands(); i++){
+        maxLevel = maxLevel < getOperandLevel(i)? getOperandLevel(i) : maxLevel;
+        if (getOperandScale(i) + hecate::earth::EarthDialect::rescalingFactor * getOperandLevel(i) < (hecate::earth::EarthDialect::bootstrapLevelUpperBound + 1) * hecate::earth::EarthDialect::rescalingFactor ){
+          OpBuilder builder(getOperation());
+          if (getOperandScale(i) < hecate::earth::EarthDialect::rescalingFactor ){
+            getOperation()->setOperand(i, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(i), hecate::earth::EarthDialect::rescalingFactor - getOperandScale(i)));
+          }
+          else if(getOperandScale(i) > hecate::earth::EarthDialect::rescalingFactor){
+            int overLevel = (getOperandScale(i) - 1)/hecate::earth::EarthDialect::rescalingFactor;
+            getOperation()->setOperand(i, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(i), (hecate::earth::EarthDialect::rescalingFactor * (overLevel + 1) - getOperandScale(i))));
+            for(int j = overLevel; j >0; j--){
+              getOperation()->setOperand(i, builder.create<hecate::earth::RescaleOp>( getLoc(), getOperand(i)));
+
+            }
+          }
+        }
+      }
+
+      for(int i = 0; i < getNumOperands(); i++){
+        OpBuilder builder(getOperation());
+        getOperation()->setOperand(i, builder.create<hecate::earth::ModswitchOp>( getLoc(), getOperand(i), maxLevel - getOperandLevel(i)));
+      }
+    }
+
+    void $cppClass::processResultsEVA(int64_t param){
+      for(int i = 0; i < getNumResults(); i++){
+        getResult(i).setType(
+            mlir::RankedTensorType::get(
+              llvm::SmallVector<int64_t, 1>{1},
+              CipherType::get(this->getContext(), getOperandScale(0), getOperandLevel(0) + 1)));
+      }
+    }
+
+    bool $cppClass::overThreshold(float thr) {
+      auto target = getResult(0).getType().dyn_cast<HEScaleTypeInterface>() ;
+      auto Rf = hecate::earth::EarthDialect::rescalingFactor;
+      return target.getScale() + target.getLevel() * Rf > hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf * thr;
+    }
+    bool $cppClass::isValidated() {
+
+      auto lScale = hecate::earth::getScaleType(getOperand(0));
+      /* auto rf = hecate::earth::EarthDialect::rescalingFactor; */
+      /* return lScale.getLevel() * rf + lScale.getScale() <= */
+      /*   (hecate::earth::EarthDialect::bootstrapLevelUpperBound - */
+      /*    hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * */
+      /*   rf; */
+      return lScale.getLevel() < hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+
+
+    }
+    bool $cppClass::isBootstrappable() {
+      auto target = getResult(0).getType().dyn_cast<HEScaleTypeInterface>() ;
+      auto Rf = hecate::earth::EarthDialect::rescalingFactor;
+      return target.getScale() + target.getLevel() * Rf < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf;
+    }
+
+  }];
+  let hasCanonicalizer = 1;
+}
 #endif

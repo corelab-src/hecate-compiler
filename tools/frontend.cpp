@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
+#include "hecate/Support/Support.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -167,8 +168,9 @@ char *save(Context *c, char *const_name, char *mlir_name) {
   mlir::PassManager pm(&c->ctxt);
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(
-      earth::createElideConstant({s_const_name + "/"}));
+  pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
+  /* pm.addNestedPass<func::FuncOp>( */
+  /*     earth::createElideConstant({s_const_name + "/"})); */
   pm.addNestedPass<func::FuncOp>(earth::createPrivatizeConstant());
   pm.addPass(createCanonicalizerPass());
 
@@ -271,7 +273,8 @@ valueID createRotation(Context *ctxt, size_t valueID, int offset,
 }
 
 loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
-                  size_t len, char *filename, size_t line) {
+                  size_t len, size_t num_elements, char *filename,
+                  size_t line) {
   auto &&builder = *ctxt->builder;
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
@@ -294,6 +297,12 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
   auto step = builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]);
   auto loop = builder.create<mlir::scf::ForOp>(location, lowerBound, upperBound,
                                                step, inputarr);
+  for (auto res : loop.getResults()) {
+    hecate::setIntegerAttr("num_elements", res, num_elements);
+  }
+
+  loop->setAttr("is_packed", builder.getBoolAttr(false));
+  /* loop->setAttr("num_elements", builder.getI64IntegerAttr(num_elements)); */
   ctxt->loopMap.push_back(loop);
 
   builder.setInsertionPointToStart(loop.getBody());

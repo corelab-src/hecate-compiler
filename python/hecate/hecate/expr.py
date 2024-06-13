@@ -46,7 +46,7 @@ lt.createConstant.restype = ctypes.c_size_t
 lt.createFunc.restype = ctypes.c_size_t
 lt.createLoop.argtypes = [
         ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t),
-        ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
+        ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t, ctypes.c_size_t,ctypes.c_char_p, ctypes.c_size_t
         ]
 lt.setYield.argtypes = [
         ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t), 
@@ -385,8 +385,10 @@ class Func(metaclass=hecateMetaBase):
 class WithScope(metaclass=hecateMetaBase):
 # class WithScope(object):
     # def __init__(self, rng, inputarr):
-    def __init__(self, rng, inputarr, name):
+    
+    def __init__(self, rng, inputarr, num_elements,name):
         (frame, filename, line_number, function_name, lines, index) = getProperFrame()
+        
         self.frame = frame;
         # self.inputarr = inputarr
         self.filename = filename.encode('utf-8')
@@ -403,7 +405,7 @@ class WithScope(metaclass=hecateMetaBase):
         # self.indvar = i
         self.inputarr = (ctypes.c_size_t *len(inputarr))(*[resolveType(bb).obj for bb in inputarr])
         rngg = (ctypes.c_size_t *3)(*[resolveType(bb).obj if isinstance(bb, Expr) else bb for bb in rng])
-        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rngg), self.indvars, self.inputarr, len(self.inputarr), self.filename, self.line_number)
+        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rngg), self.indvars, self.inputarr, len(self.inputarr), num_elements, self.filename, self.line_number)
         for i in range(len(inputarr)) :
             inputarr[i].obj = self.indvars[i+1] 
 
@@ -429,10 +431,19 @@ class WithScope(metaclass=hecateMetaBase):
             self.ret[i].obj = rets[i]
         return
 
-def loop(lower_bound, upper_bound, step, inputarr = [], name='i') :
-    arr = np.array(inputarr).reshape(-1).tolist()
+def loop(lower_bound, upper_bound, step, inputarr = [], num_elements = 1, name='i') :
+    # def recusive_flatten_list():
+    def flatten(arr):
+        flat_list = []
+        for item in arr:
+            if isinstance(item, list):
+                flat_list.extend(flatten(item))
+            else:
+                flat_list.append(item)
+        return flat_list
+    arr = flatten(inputarr) 
     # arr = [resolveType(tt) for tt in arrt]
-    return WithScope([lower_bound, upper_bound, step], arr, name)
+    return WithScope([lower_bound, upper_bound, step], arr, num_elements, name)
 
 def removeCtxt() :
     lt.removeCtxt()

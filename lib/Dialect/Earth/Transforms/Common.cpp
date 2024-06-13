@@ -63,20 +63,13 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
   /* }); */
 
   auto rop = dyn_cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
-  if (func->hasAttr("is_mid_section") &&
-      func->getAttrOfType<mlir::BoolAttr>("is_mid_section").getValue()) {
-    /* if (func->hasAttr("section_returnBypasses")) { */
-    /*   auto &&bypassTypes = func->getAttr("section_returnBypasses") */
-    /*                            .dyn_cast<mlir::ArrayAttr>() */
-    /*                            .getValue(); */
-    /*   for (size_t i = 0; i < rop->getNumOperands(); i++) { */
-    /*     auto v = rop->getOperand(i); */
-    /*     bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
-     */
-    /*     hecate::setIntegerAttr("is_bypassed", v, isBypass); */
-    /*   } */
-    /* } */
-
+  if (func->hasAttr("is_packed") &&
+      func->getAttrOfType<mlir::BoolAttr>("is_packed")) {
+    hecate::earth::refineLevel(
+        builder, rop, waterline, 0,
+        hecate::earth::EarthDialect::bootstrapLevelLowerBound);
+  } else if (func->hasAttr("is_mid_section") &&
+             func->getAttrOfType<mlir::BoolAttr>("is_mid_section").getValue()) {
     hecate::earth::refineLevel(
         builder, rop, waterline, 0,
         hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);

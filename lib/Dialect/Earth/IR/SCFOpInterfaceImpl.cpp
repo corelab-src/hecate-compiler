@@ -2,7 +2,9 @@
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Dialect/Earth/IR/ForwardManagementInterface.h"
 #include "hecate/Dialect/Earth/Transforms/Common.h"
+#include "hecate/Support/Support.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Support/LogicalResult.h"
 
@@ -19,38 +21,36 @@ struct ForOpInterface
     mlir::IRRewriter rewriter(builder);
 
     auto forOp = dyn_cast<mlir::scf::ForOp>(op);
+    auto lowerBound =
+        forOp->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()
+            ? hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1
+            : hecate::earth::EarthDialect::bootstrapLevelLowerBound;
     for (size_t i = forOp.getNumControlOperands(); i < forOp.getNumOperands();
          i++) {
       builder.setInsertionPoint(forOp);
       auto &&oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
           forOp.getOperand(i).getType());
-      if (oper.getScale() +
-              hecate::earth::EarthDialect::rescalingFactor * oper.getLevel() <
-          (hecate::earth::EarthDialect::bootstrapLevelUpperBound + 1) *
-              hecate::earth::EarthDialect::rescalingFactor) {
-        if (oper.getScale() < hecate::earth::EarthDialect::rescalingFactor) {
-          op->setOperand(i, builder.create<hecate::earth::UpscaleOp>(
-                                op->getLoc(), forOp.getOperand(i),
-                                hecate::earth::EarthDialect::rescalingFactor -
-                                    oper.getScale()));
-        } else if (oper.getScale() >
-                   hecate::earth::EarthDialect::rescalingFactor) {
-          int overLevel = (oper.getScale() - 1) /
-                          hecate::earth::EarthDialect::rescalingFactor;
-          op->setOperand(i, builder.create<hecate::earth::UpscaleOp>(
-                                op->getLoc(), forOp.getOperand(i),
-                                (hecate::earth::EarthDialect::rescalingFactor *
-                                     (overLevel + 1) -
-                                 oper.getScale())));
-          for (int j = overLevel; j > 0; j--) {
-            op->setOperand(i, builder.create<hecate::earth::RescaleOp>(
-                                  op->getLoc(), forOp.getOperand(i)));
-          }
+      if (oper.getScale() < hecate::earth::EarthDialect::rescalingFactor) {
+        op->setOperand(i, builder.create<hecate::earth::UpscaleOp>(
+                              op->getLoc(), forOp.getOperand(i),
+                              hecate::earth::EarthDialect::rescalingFactor -
+                                  oper.getScale()));
+      } else if (oper.getScale() >
+                 hecate::earth::EarthDialect::rescalingFactor) {
+        int overLevel = (oper.getScale() - 1) /
+                        hecate::earth::EarthDialect::rescalingFactor;
+        op->setOperand(i, builder.create<hecate::earth::UpscaleOp>(
+                              op->getLoc(), forOp.getOperand(i),
+                              (hecate::earth::EarthDialect::rescalingFactor *
+                                   (overLevel + 1) -
+                               oper.getScale())));
+        for (int j = overLevel; j > 0; j--) {
+          op->setOperand(i, builder.create<hecate::earth::RescaleOp>(
+                                op->getLoc(), forOp.getOperand(i)));
         }
       }
       auto level_diff =
-          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-          hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound - lowerBound -
           hecate::earth::getScaleType(forOp.getOperand(i)).getLevel();
       auto mop = builder.create<hecate::earth::ModswitchOp>(
           forOp.getLoc(), forOp.getOperand(i), level_diff);
@@ -127,12 +127,17 @@ struct ForOpInterface
   bool isBootstrappable(Operation *op) const { return true; }
   bool isValidated(Operation *op) const {
     auto forOp = dyn_cast<mlir::scf::ForOp>(op);
-    return llvm::all_of(forOp.getInitArgs(), [](mlir::Value arg) {
+    auto lowerBound =
+        op->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()
+            ? hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1
+            : hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+
+    return llvm::all_of(forOp.getInitArgs(), [lowerBound](mlir::Value arg) {
       auto lScale = hecate::earth::getScaleType(arg);
       auto rf = hecate::earth::EarthDialect::rescalingFactor;
       return lScale.getLevel() * rf + lScale.getScale() <=
              (hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-              hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) *
+              lowerBound + 1) *
                  rf;
     });
   }
@@ -155,13 +160,21 @@ struct ForOpTypeInferInterface
       ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
     auto forOp =
         mlir::scf::ForOpAdaptor(operands, attributes, properties, regions);
+
+    auto &&is_packed = forOp.getAttributes()
+                           .get("is_packed")
+                           .dyn_cast<mlir::IntegerAttr>()
+                           .getInt();
+    auto lowerBound =
+        is_packed ? hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1
+                  : hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+
     auto yieldOp = dyn_cast<mlir::scf::YieldOp>(
         forOp.getRegion().getBlocks().front().getTerminator());
     for (auto arg : forOp.getInitArgs()) {
       auto lScale = hecate::earth::getScaleType(arg);
       if (lScale.getLevel() <=
-          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-              hecate::earth::EarthDialect::bootstrapLevelLowerBound) {
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound - lowerBound) {
         inferredReturnTypes.push_back(arg.getType());
       } else
         return ::mlir::failure();
@@ -188,6 +201,12 @@ struct YieldOpInterface
   void processOperandsEVA(Operation *op, int64_t param) const {
     OpBuilder builder(op);
     auto yieldOp = dyn_cast<mlir::scf::YieldOp>(op);
+    auto forOp = dyn_cast<mlir::scf::ForOp>(yieldOp->getParentOp());
+    auto lowerBound =
+        forOp->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()
+            ? hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1
+            : hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+
     for (size_t i = 0; i < yieldOp.getNumOperands(); i++) {
       auto &&oper = dyn_cast<hecate::earth::HEScaleTypeInterface>(
           yieldOp.getOperand(i).getType());
@@ -216,8 +235,7 @@ struct YieldOpInterface
         }
       }
       auto level_diff =
-          hecate::earth::EarthDialect::bootstrapLevelUpperBound -
-          hecate::earth::EarthDialect::bootstrapLevelLowerBound -
+          hecate::earth::EarthDialect::bootstrapLevelUpperBound - lowerBound -
           hecate::earth::getScaleType(yieldOp.getOperand(i)).getLevel();
       auto mop = builder.create<hecate::earth::ModswitchOp>(
           yieldOp.getLoc(), yieldOp.getOperand(i), level_diff);

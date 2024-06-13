@@ -387,6 +387,70 @@ void hecate::earth::MulOp::getCanonicalizationPatterns(
   }
 }
 
+void hecate::earth::PackOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<AddZeroPattern>(context); */
+}
+
+::mlir::LogicalResult hecate::earth::PackOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = PackOpAdaptor(operands, attributes, properties, regions);
+
+  int64_t cnt = 0;
+  auto &&lScale = earth::getScaleType(op.getInputs().front());
+
+  size_t initialScale = lScale.getScale();
+  for (auto tt : op.getInputs()) {
+    auto iScale = earth::getScaleType(tt);
+    if (iScale.getScale() != initialScale)
+      return ::mlir::failure();
+  }
+  auto level = lScale.getLevel() == 0 && lScale.getScale() == 0
+                   ? 0
+                   : lScale.getLevel() + 1;
+  inferredReturnTypes.push_back(mlir::RankedTensorType::get(
+      llvm::SmallVector<int64_t, 1>{1},
+      CipherType::get(context, initialScale, level)));
+
+  return ::mlir::success();
+}
+
+void hecate::earth::UnPackOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<AddZeroPattern>(context); */
+}
+
+::mlir::LogicalResult hecate::earth::UnPackOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = UnPackOpAdaptor(operands, attributes, properties, regions);
+
+  int64_t cnt = 0;
+  auto &&lScale = earth::getScaleType(op.getInputs().front());
+  size_t initialScale = lScale.getScale();
+  for (auto tt : op.getInputs()) {
+    auto iScale = earth::getScaleType(tt);
+    if (iScale.getScale() != initialScale)
+      return ::mlir::failure();
+    auto iTensor = earth::getTensorType(tt);
+    cnt += iTensor.getShape()[0];
+  }
+  auto level = lScale.getLevel() == 0 && lScale.getScale() == 0
+                   ? 0
+                   : lScale.getLevel() + 1;
+
+  for (size_t i = 0; i < op.getNumOutputs(); i++)
+    inferredReturnTypes.push_back(mlir::RankedTensorType::get(
+        llvm::SmallVector<int64_t, 1>{1},
+        CipherType::get(context, initialScale, level)));
+  return ::mlir::success();
+  /*     return ::mlir::failure(); */
+}
 mlir::RankedTensorType hecate::earth::getTensorType(mlir::Value v) {
   return v.getType().dyn_cast<mlir::RankedTensorType>();
 }

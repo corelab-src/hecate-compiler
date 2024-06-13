@@ -65,7 +65,8 @@ struct CoverageRecorderPass
         if (!isa<hecate::earth::BootstrapOp>(sop) && opid < from)
           continue;
 
-        if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+        if (isa<mlir::scf::ForOp>(op) || isa<hecate::earth::PackOp>(op) ||
+            isa<hecate::earth::UnPackOp>(op)) {
           if (!sop.isValidated()) {
             coverage = bootCoverage;
             break;

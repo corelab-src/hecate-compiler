@@ -74,8 +74,9 @@ struct EarlyModswitchPass
     }
 
     // Gather the users and finds the minimum "downFactor"
+    /* for (auto res : op->getResults()) { */
+    uint64_t minModFactor = -1;
     for (auto res : op->getResults()) {
-      uint64_t minModFactor = -1;
       for (auto &&oper : res.getUses()) {
         if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper.getOwner())) {
           minModFactor = std::min(minModFactor, oop.getDownFactor());
@@ -88,31 +89,35 @@ struct EarlyModswitchPass
       if (!minModFactor) {
         continue; // Go to next operation
       }
+    }
 
-      // Move the modswitch
-      if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(op.getOperation())) {
-        // Modswitch movement can be absorbed into modswitch
-        oop.setDownFactor(oop.getDownFactor() + minModFactor);
-        auto tt = oop.getType().dyn_cast<RankedTensorType>();
-        oop.getResult().setType(RankedTensorType::get(
-            tt.getShape(),
-            tt.getElementType()
-                .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                .switchLevel(op.getRescaleLevel() + minModFactor)));
-      } else {
-        // Modswitch is moved to the operands
-        for (int i = 0; i < op->getNumOperands(); i++) {
-          auto oper = op->getOperand(i);
-          builder.setInsertionPoint(op);
-          auto newOper = builder.create<hecate::earth::ModswitchOp>(
-              op->getLoc(), oper, minModFactor);
-          op->setOperand(i, newOper);
-        }
-        res.setType(
-            op.getScaleType().switchLevel(op.getRescaleLevel() + minModFactor));
+    // Move the modswitch
+    if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(op.getOperation())) {
+      // Modswitch movement can be absorbed into modswitch
+      oop.setDownFactor(oop.getDownFactor() + minModFactor);
+      auto tt = oop.getType().dyn_cast<RankedTensorType>();
+      oop.getResult().setType(RankedTensorType::get(
+          tt.getShape(),
+          tt.getElementType()
+              .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+              .switchLevel(op.getRescaleLevel() + minModFactor)));
+    } else {
+      // Modswitch is moved to the operands
+      for (int i = 0; i < op->getNumOperands(); i++) {
+        auto oper = op->getOperand(i);
+        builder.setInsertionPoint(op);
+        auto newOper = builder.create<hecate::earth::ModswitchOp>(
+            op->getLoc(), oper, minModFactor);
+        op->setOperand(i, newOper);
       }
+      for (auto res : op->getResults()) {
+        res.setType(hecate::earth::getScaleType(res).switchLevel(
+            hecate::earth::getScaleType(res).getLevel() + minModFactor));
+      }
+    }
 
-      // Change the user modswitch downFactors
+    // Change the user modswitch downFactors
+    for (auto res : op->getResults()) {
       for (auto &&oper : res.getUsers()) {
         if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper)) {
           oop.setDownFactor(oop.getDownFactor() - minModFactor);

@@ -46,7 +46,6 @@ struct PromoteLoopBodyPass
   }
 
   void runOnOperation() override {
-    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     auto mod = func->getParentOfType<mlir::ModuleOp>();
     auto rescalingFactor = hecate::earth::EarthDialect::rescalingFactor;
@@ -64,15 +63,13 @@ struct PromoteLoopBodyPass
 
     SmallVector<mlir::Type, 4> modified_inputTypes;
     SmallVector<int64_t, 4> additional_btp_target;
-    auto tp = mlir::RankedTensorType::get(
-        llvm::SmallVector<int64_t, 1>{1},
-        builder.getType<hecate::earth::CipherType>(rescalingFactor, 0));
-
     for (auto tt : inputType_attrs)
       modified_inputTypes.push_back(tt.dyn_cast<mlir::TypeAttr>().getValue());
 
     for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
       if (auto fop = dyn_cast<mlir::scf::ForOp>(&*iter)) {
+        auto is_packed =
+            fop->getAttrOfType<mlir::BoolAttr>("is_packed").getValue();
         auto &&loopOp = dyn_cast<mlir::LoopLikeOpInterface>(fop.getOperation());
         for (size_t i = 0; i < inputs.size(); i++) {
           auto arg =
@@ -83,7 +80,10 @@ struct PromoteLoopBodyPass
           auto initArg = fop.getOperand(i + fop.getNumControlOperands());
           auto initArgNumber =
               dyn_cast<mlir::BlockArgument>(initArg).getArgNumber();
-          modified_inputTypes[initArgNumber] = tp;
+          modified_inputTypes[initArgNumber]
+              .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+              .switchLevel(0)
+              .switchScale(rescalingFactor);
           fop.getRegionIterArg(i).replaceAllUsesWith(initArg);
         }
 
@@ -99,8 +99,7 @@ struct PromoteLoopBodyPass
             func->setAttr("segment_inputType",
                           builder.getTypeArrayAttr(modified_inputTypes));
 
-            func->setAttr("additional_btp_target",
-                          builder.getDenseI64ArrayAttr(additional_btp_target));
+            func->setAttr("is_packed", builder.getBoolAttr(is_packed));
             return;
           }
           loopOp.moveOutOfLoop(op);
