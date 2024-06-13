@@ -49,9 +49,10 @@ def PolynomialRegression_Loop(x_data, y_data, epochs) :
     
     step = 1
     learning_rate = hc.Plain([-0.0001])
+    elements = 4096
 
     # for i in range(epochs):
-    with hc.loop(0, epochs, step, inputarr = W) as i:
+    with hc.loop(0, epochs, step, inputarr = W, num_elements = elements) as i:
      
         y_predict = poly_y_predict(x_data, W)
         mY = -y_data

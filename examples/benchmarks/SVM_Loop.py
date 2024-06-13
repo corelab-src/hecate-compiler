@@ -98,7 +98,7 @@ def SVM_Loop(x_data, y_data, epochs) :
     lambda_param = hc.Plain([0.02])
     lr_lambda = hc.Plain([-0.00002])
 
-    elements = 4096
+    elements = 1024
     mask = create_mask(elements)
     W = hc.Plain([0.00000001 for _ in range(elements*3)])
     W = W + x_data * hc.Plain([0.00000001])

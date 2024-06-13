@@ -63,9 +63,10 @@ def Multivariate_Loop (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epo
     W1 = [hc.Plain([1.5]) for i in range(3)]
     W2 = [hc.Plain([2.0]) for i in range(3)]
     W = W0 + W1 +W2
+    elements = 4096
  
     # for _ in range(epochs):
-    with hc.loop(0, epochs, 1, W) as k:
+    with hc.loop(0, epochs, 1, W, num_elements = elements) as k:
         # wX = [ X[i] * W[j][i] for i in range(3)]
 
         y_predict0 = W[0]*x0_data + W[1]*x1_data + W[2]*x2_data
@@ -122,7 +123,7 @@ def Multivariate_Loop (x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epo
     Y = y0_data + y1_data + y2_data     # y_data
     
     # for k in range(epochs):
-    with hc.loop(0, epochs, step, W) as k:
+    with hc.loop(0, epochs, step, W, num_elements = elements) as k:
         wX = W * X
         y_predict = wX + wX.rotate(elements*1) + wX.rotate(elements*2)
         mY = -Y

@@ -60,7 +60,7 @@ def LogisticRegression_Loop(x_data_0 , x_data_1 , x_data_2 , x_data_3 , x_data_4
     Y = Y * mask[0]
 
     # for _ in range(epochs):
-    with hc.loop(0, epochs, 1, [W, b]) as k:
+    with hc.loop(0, epochs, 1, [W, b], num_elements = block) as k:
         linear_model = hc.Plain([zero])
         for i in range(n_features):
             linear_model = linear_model + X[i] * W[i]

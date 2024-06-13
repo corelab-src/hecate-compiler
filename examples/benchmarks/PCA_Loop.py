@@ -106,7 +106,7 @@ def cov_dot(cov, x, mask, n):
     
     return x
 
-def power_iteration(cov, epoch, columns, mask):
+def power_iteration(cov, epoch, sqrt_epoch, columns, mask):
     
     b_k = mask[0] 
     cov_sum = sum_elements1(cov, 2) 
@@ -115,7 +115,7 @@ def power_iteration(cov, epoch, columns, mask):
     b_k1_squared = b_k1 * b_k1
     b_k1_squared = sum_elements2(b_k1_squared, 2)
       
-    b_k1_norm = sqrt_babylonian(b_k1_squared, epoch, epochs_newton1)
+    b_k1_norm = sqrt_babylonian(b_k1_squared, sqrt_epoch, epochs_newton1)
     b_k1_norm = hc.bootstrap(b_k1_norm)
     b_k1_norm_i = newton_raphson_inverse(b_k1_norm, epochs_newton2)
     b_k1_norm_i = copy(b_k1_norm_i, mask[2], 1)
@@ -128,7 +128,7 @@ def power_iteration(cov, epoch, columns, mask):
         b_k1_squared_in = b_k1_in * b_k1_in
         b_k1_squared_in = sum_elements2(b_k1_squared_in, 2)
         
-        b_k1_norm_in = sqrt_babylonian(b_k1_squared_in, epoch, epochs_newton1)
+        b_k1_norm_in = sqrt_babylonian(b_k1_squared_in, sqrt_epoch, epochs_newton1)
         b_k1_norm_in = hc.bootstrap(b_k1_norm_in)
         b_k1_norm_i_in = newton_raphson_inverse(b_k1_norm_in, epochs_newton2)
         b_k1_norm_i_in = copy(b_k1_norm_i_in, mask[2], 1)
@@ -166,13 +166,13 @@ epochs_newton1 = 4
 epochs_newton2 = 4
 epochs_newton3 = 4 
 
-@hc.func("c,c,i")
-def PCA_Loop(x_data, y_data, epochs):
+@hc.func("c,c,i,i")
+def PCA_Loop(x_data, y_data, epoch1, epoch2):
     columns = 4
     rows = 150
     
-    epochs_power = epochs
-    epochs_babyl = epochs
+    epochs_power = epoch1
+    epochs_babyl = epoch2
     mask = create_mask(columns, rows)
     bit_mask = create_bit_mask(1024)
 
@@ -183,7 +183,7 @@ def PCA_Loop(x_data, y_data, epochs):
     # eigenvectors = [0.0 for _ in range(16)]
     for i in range(1):
         
-        eigenvector = power_iteration(cov, epochs_power, columns, mask)
+        eigenvector = power_iteration(cov, epochs_power, epochs_babyl, columns, mask)
         # eigenvectors[i] = eigenvector
         # eigenvectors += eigenvector.rotate(1024-4*i)
 
