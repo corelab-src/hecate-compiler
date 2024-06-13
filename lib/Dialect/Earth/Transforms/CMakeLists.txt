@@ -5,6 +5,7 @@ add_mlir_dialect_library(EarthTransforms
  WaterlineRescaling.cpp
  ElideConstant.cpp
  PrivatizeConstant.cpp
+ PackLoopVariables.cpp
  BootstrapPlacement.cpp
  CodeSegmentation.cpp
  Common.cpp
@@ -18,6 +19,7 @@ add_mlir_dialect_library(EarthTransforms
  BypassDetection.cpp
  CandidateSelection.cpp
  LoopRotation.cpp
+ LoopUnroll.cpp
  SMUChecker.cpp
  SNRRescaling.cpp
  ProactiveRescaling.cpp

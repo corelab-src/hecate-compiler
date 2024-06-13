@@ -206,6 +206,18 @@ def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
     This pass changes the loop structure through rotation and removes EraseOp.
   }];
 }
+def LoopUnroll : Pass<"loop-unrolling", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
+def PackLoopVariables: Pass<"packing-loop-carried-variables", "::mlir::func::FuncOp"> {
+  let summary = "Pack the loop carried variables";
+  let description = [{
+    All of the constant op should have a single use after this pass.
+  }];
+}
 def ApplyDaCapoToLoop : Pass<"dacapo-loop", "::mlir::func::FuncOp"> {
   let summary = "Apply DaCapo scheme to loop body";
   let description = [{
