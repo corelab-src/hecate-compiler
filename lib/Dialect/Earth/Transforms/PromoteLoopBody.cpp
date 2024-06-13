@@ -65,6 +65,9 @@ struct PromoteLoopBodyPass
     SmallVector<int64_t, 4> additional_btp_target;
     for (auto tt : inputType_attrs)
       modified_inputTypes.push_back(tt.dyn_cast<mlir::TypeAttr>().getValue());
+    auto tp = mlir::RankedTensorType::get(
+        llvm::SmallVector<int64_t, 1>{1},
+        builder.getType<hecate::earth::CipherType>(rescalingFactor, 0));
 
     for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
       if (auto fop = dyn_cast<mlir::scf::ForOp>(&*iter)) {
@@ -80,10 +83,7 @@ struct PromoteLoopBodyPass
           auto initArg = fop.getOperand(i + fop.getNumControlOperands());
           auto initArgNumber =
               dyn_cast<mlir::BlockArgument>(initArg).getArgNumber();
-          modified_inputTypes[initArgNumber]
-              .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-              .switchLevel(0)
-              .switchScale(rescalingFactor);
+          modified_inputTypes[initArgNumber] = tp;
           fop.getRegionIterArg(i).replaceAllUsesWith(initArg);
         }
 
@@ -98,7 +98,6 @@ struct PromoteLoopBodyPass
             fop->erase();
             func->setAttr("segment_inputType",
                           builder.getTypeArrayAttr(modified_inputTypes));
-
             func->setAttr("is_packed", builder.getBoolAttr(is_packed));
             return;
           }
