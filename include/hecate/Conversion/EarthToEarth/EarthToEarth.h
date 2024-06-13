@@ -1,10 +1,11 @@
 
-#ifndef HECATE_CONVERSION_EARTHTOCKKS_EARTHTOCKKS_H
-#define HECATE_CONVERSION_EARTHTOCKKS_EARTHTOCKKS_H
+#ifndef HECATE_CONVERSION_EARTHTOEARTH_EARTHTOEARTH_H
+#define HECATE_CONVERSION_EARTHTOEARTH_EARTHTOEARTH_H
 
 #include <memory>
 
 #include "hecate/Conversion/CKKSCommon/PolyTypeConverter.h"
+#include "hecate/Dialect/Earth/IR/EarthOps.h"
 
 namespace mlir {
 namespace func {
@@ -21,12 +22,10 @@ namespace hecate {
 
 namespace earth {
 std::unique_ptr<::mlir::OperationPass<::mlir::func::FuncOp>>
-createEarthToCKKSConversionPass();
+createEarthToEarthConversionPass();
 
-void populateEarthToCKKSConversionPatterns(mlir::MLIRContext *ctxt,
-                                           mlir::TypeConverter &converter,
-                                           mlir::RewritePatternSet &patterns,
-                                           int64_t init_level);
+void populateEarthToEarthConversionPatterns(mlir::MLIRContext *ctxt,
+                                            mlir::RewritePatternSet &patterns);
 
 } // namespace earth
 

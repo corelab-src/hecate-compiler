@@ -1,3 +1,4 @@
 add_subdirectory(CKKSCommon)
 add_subdirectory(EarthToCKKS)
+add_subdirectory(EarthToEarth)
 add_subdirectory(CKKSToCKKS)

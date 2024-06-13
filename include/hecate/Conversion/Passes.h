@@ -6,6 +6,7 @@
 #include "hecate/Conversion/CKKSToCKKS/SCFToDpsSCF.h"
 #include "hecate/Conversion/CKKSToCKKS/UpscaleToMulcp.h"
 #include "hecate/Conversion/EarthToCKKS/EarthToCKKS.h"
+#include "hecate/Conversion/EarthToEarth/EarthToEarth.h"
 
 namespace hecate {
 
