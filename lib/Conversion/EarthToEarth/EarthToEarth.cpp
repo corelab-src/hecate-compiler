@@ -136,7 +136,8 @@ UnPackOpLowering::matchAndRewrite(hecate::earth::UnPackOp op, OpAdaptor adaptor,
           rewriter.create<hecate::earth::RescaleOp>(op.getLoc(), mul);
       auto res = extractedResult;
       size_t offset = 1;
-      for (size_t offset = 1; offset < log_slot; offset = offset << 1) {
+      for (size_t offset = 1; offset < (num_slot / num_elements);
+           offset = offset << 1) {
         auto rot = rewriter.create<hecate::earth::RotateOp>(
             op.getLoc(), res, offset * num_elements);
         res = rewriter.create<hecate::earth::AddOp>(op.getLoc(), res, rot);
