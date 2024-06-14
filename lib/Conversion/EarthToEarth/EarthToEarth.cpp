@@ -118,7 +118,6 @@ UnPackOpLowering::matchAndRewrite(hecate::earth::UnPackOp op, OpAdaptor adaptor,
       padArray.resize(num_elements * adaptor.getNumOutputs(), 0.0);
       std::copy(oneArray.begin(), oneArray.end(),
                 padArray.begin() + i * num_elements);
-      /* rewriter.setInsertionPoint(op); */
       Value padConst = rewriter.create<hecate::earth::ConstantOp>(
           op.getLoc(), llvm::ArrayRef(padArray));
       padConst.setType(
@@ -133,13 +132,19 @@ UnPackOpLowering::matchAndRewrite(hecate::earth::UnPackOp op, OpAdaptor adaptor,
       Value &&extractedResult =
           rewriter.create<hecate::earth::RescaleOp>(op.getLoc(), mul);
       auto res = extractedResult;
-      for (size_t offset = 1; offset < adaptor.getNumOutputs();
-           offset = offset << 1) {
-        /* rewriter.setInsertionPoint(op); */
+      size_t offset = 1;
+      for (; offset * 2 < adaptor.getNumOutputs(); offset = offset << 1) {
         auto rot = rewriter.create<hecate::earth::RotateOp>(
-            op.getLoc(), extractedResult, offset * num_elements);
+            op.getLoc(), res, offset * num_elements);
         res = rewriter.create<hecate::earth::AddOp>(op.getLoc(), res, rot);
       }
+      for (; offset < adaptor.getNumOutputs(); offset = offset + 1) {
+        auto rot = rewriter.create<hecate::earth::RotateOp>(
+            op.getLoc(), extractedResult,
+            (adaptor.getNumOutputs() - offset) * num_elements);
+        res = rewriter.create<hecate::earth::AddOp>(op.getLoc(), res, rot);
+      }
+
       unPackedRes.push_back(res);
     }
   } else
