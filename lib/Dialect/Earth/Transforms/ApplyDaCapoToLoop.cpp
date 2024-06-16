@@ -43,6 +43,7 @@ struct ApplyDaCapoToLoopPass
   ApplyDaCapoToLoopPass(hecate::earth::ApplyDaCapoToLoopOptions ops) {
     this->waterline = ops.waterline;
     this->output_val = ops.output_val;
+    this->be_unroll = ops.be_unroll;
   }
 
   void runOnOperation() override {
@@ -58,6 +59,8 @@ struct ApplyDaCapoToLoopPass
     auto mod = mlir::ModuleOp::create(func.getLoc());
     PassManager pm_dacapo(mod.getContext()), pm_nested(mod.getContext());
     pm_dacapo.addNestedPass<func::FuncOp>(
+        hecate::earth::createBypassDetection());
+    pm_dacapo.addNestedPass<func::FuncOp>(
         hecate::earth::createCandidateSelection({waterline, output_val}));
     pm_dacapo.addNestedPass<func::FuncOp>(
         hecate::earth::createDaCapoPlanner({waterline, output_val}));
@@ -67,13 +70,17 @@ struct ApplyDaCapoToLoopPass
         hecate::earth::createProactiveRescaling({waterline, output_val}));
     pm_dacapo.addNestedPass<func::FuncOp>(
         hecate::earth::createWrapUpLoopBody());
+    if (be_unroll)
+      pm_dacapo.addNestedPass<func::FuncOp>(
+          hecate::earth::createUnrollFactorAnalysis());
 
     pm_nested.addNestedPass<func::FuncOp>(
         hecate::earth::createCodeSegmentation());
     pm_nested.addNestedPass<func::FuncOp>(
         hecate::earth::createPromoteLoopBody());
     pm_nested.addNestedPass<func::FuncOp>(
-        hecate::earth::createApplyDaCapoToLoop());
+        hecate::earth::createApplyDaCapoToLoop(
+            {waterline, output_val, be_unroll}));
 
     PassManager pm_boot(mod_func.getContext());
     pm_boot.addNestedPass<func::FuncOp>(
@@ -81,8 +88,9 @@ struct ApplyDaCapoToLoopPass
 
     // {from, to}, {inputType, returnType, bypassTypes}
     SmallVector<int64_t, 2> btp_target;
-    // opid, {offset,  inputType}
-    DenseMap<int64_t, std::tuple<uint64_t, SmallVector<Type, 4>>> forOpTable;
+    // opid, {is_packed,  inputType}
+    DenseMap<int64_t, std::tuple<uint64_t, SmallVector<Type, 4>, scf::ForOp>>
+        forOpTable;
 
     SmallVector<Type, 4> initialTypes;
     initialTypes =
@@ -96,7 +104,9 @@ struct ApplyDaCapoToLoopPass
         // record the erased ForOp
         auto &&forOpid = hecate::getIntegerAttr("opid", forOp.getResult(0));
 
-        forOpTable[forOpid] = {loop_offset, {}};
+        bool is_packed =
+            forOp->getAttrOfType<mlir::BoolAttr>("is_packed").getValue();
+        forOpTable[forOpid] = {is_packed, {}, forOp};
         loop_offset += forOp.getBody()->getOperations().size();
         forOp.getBody()->clear();
         // generate the YieldOp for ForOp Type Checking
@@ -107,6 +117,7 @@ struct ApplyDaCapoToLoopPass
       }
     }
 
+    dup->setAttr("is_mid_segment", builder.getBoolAttr(false));
     /* llvm::errs() << "BEFORE DACAPO PROCESS \n"; */
     /* dup.dump(); */
 
@@ -121,6 +132,11 @@ struct ApplyDaCapoToLoopPass
         dup->getAttrOfType<mlir::DenseI64ArrayAttr>("btp_target").asArrayRef();
     btp_target.append(segment_btp_target.begin(), segment_btp_target.end());
 
+    if (dup->hasAttr("unroll_factor")) {
+      auto &&unroll_factor =
+          dup->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getInt();
+      func->setAttr("unroll_factor", builder.getI64IntegerAttr(unroll_factor));
+    }
     for (auto targetForOp : forOpTable) {
       auto forOpid = targetForOp.getFirst();
       auto values = hecate::earth::getOpidToValueMap(&dup.getRegion().front());
@@ -130,15 +146,17 @@ struct ApplyDaCapoToLoopPass
         /* values[inputId].dump(); */
         inputTypes.push_back(values[inputId].getType());
       }
-      forOpTable[forOpid] = {0, inputTypes};
+      forOpTable[forOpid] = {std::get<0>(targetForOp.getSecond()), inputTypes,
+                             std::get<2>(targetForOp.getSecond())};
     }
 
     dup.erase();
     for (auto targetForOp : forOpTable) {
       auto ddup = func.clone();
       auto forOpid = targetForOp.getFirst();
-      auto &&forOp = std::get<0>(targetForOp.getSecond());
+      auto is_packed = std::get<0>(targetForOp.getSecond());
       auto &&inputType = std::get<1>(targetForOp.getSecond());
+      /* auto &&forOp = std::get<2>(targetForOp.getSecond()); */
 
       ddup->setAttr("cutted_edge",
                     builder.getDenseI64ArrayAttr({forOpid - 1, forOpid}));
@@ -147,6 +165,7 @@ struct ApplyDaCapoToLoopPass
                         ca.getValueInfo(forOpid - 1)->getLiveOuts()));
       ddup->setAttr("segment_inputType", builder.getTypeArrayAttr(inputType));
       ddup->setAttr("is_mid_section", builder.getBoolAttr(true));
+      ddup->setAttr("be_unroll", builder.getBoolAttr(be_unroll));
 
       ddup->setAttr("segment_return",
                     builder.getDenseI64ArrayAttr(
@@ -161,10 +180,25 @@ struct ApplyDaCapoToLoopPass
       }
 
       /* llvm::errs() << "AFTER PROCESS FOROP : " << forOpid << '\n'; */
+      /* ddup.dump(); */
       segment_btp_target =
           ddup->getAttrOfType<mlir::DenseI64ArrayAttr>("btp_target")
               .asArrayRef();
       btp_target.append(segment_btp_target.begin(), segment_btp_target.end());
+
+      if (ddup->hasAttr("unroll_factor")) {
+        auto &&unroll_factor =
+            ddup->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getInt();
+        llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+        auto forOp = dyn_cast<mlir::scf::ForOp>(
+            ca.getValueInfo(forOpid)->getValue().getDefiningOp());
+        forOp->setAttr("unroll_factor",
+                       builder.getI64IntegerAttr(unroll_factor));
+        llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+      }
+
+      /* forOp->setAttr("unroll_factor",
+       * builder.getI64IntegerAttr(unroll_factor)); */
 
       ddup.erase();
     }

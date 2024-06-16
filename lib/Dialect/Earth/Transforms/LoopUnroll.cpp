@@ -70,10 +70,27 @@ struct LoopUnrollPass
       }
     }
     for (auto forOp : scfForQueue) {
-      (void)mlir::loopUnrollByFactor(forOp, 2);
+      auto &&unroll_factor =
+          forOp->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getUInt();
+      llvm::errs() << "Unroll Factor : " << unroll_factor << '\n';
+      (void)mlir::loopUnrollByFactor(forOp, unroll_factor);
       mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
     }
-    func.dump();
+    func.walk([&](hecate::earth::UnPackOp pop) {
+      if (llvm::all_of(pop->getOperands(), [](mlir::Value use) {
+            return !isa<mlir::BlockArgument>(use) &&
+                   isa<hecate::earth::PackOp>(use.getDefiningOp());
+          })) {
+        for (auto &&oper : pop->getOperands()) {
+          auto packOp = oper.getDefiningOp();
+          pop.replaceAllUsesWith(packOp->getOperands());
+          /* packOp->erase(); */
+        }
+        pop.erase();
+      }
+    });
+    /* llvm::errs() << "AFTER UNROLL\n"; */
+    /* func.dump(); */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

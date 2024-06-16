@@ -6,6 +6,7 @@ add_mlir_dialect_library(EarthTransforms
  ElideConstant.cpp
  PrivatizeConstant.cpp
  PackLoopVariables.cpp
+ UnrollFactorAnalysis.cpp
  BootstrapPlacement.cpp
  CodeSegmentation.cpp
  Common.cpp
