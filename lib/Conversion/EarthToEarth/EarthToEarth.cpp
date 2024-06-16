@@ -65,7 +65,7 @@ PackOpLowering::matchAndRewrite(hecate::earth::PackOp op, OpAdaptor adaptor,
                                 ConversionPatternRewriter &rewriter) const {
   auto &&num_elements = adaptor.getNumElements();
 
-  Value packedRes = adaptor.getOperands().front();
+  Value packedRes = adaptor.getOperands()[0];
   SmallVector<mlir::Value, 4> bePacked;
   if (adaptor.getNumInputs() > 1) {
     for (size_t i = 0; i < adaptor.getNumInputs(); i++) {

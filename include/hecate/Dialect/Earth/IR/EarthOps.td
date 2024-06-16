@@ -599,16 +599,18 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
     bool $cppClass::isValidated() {
       auto target = getResult().getType().dyn_cast<HEScaleTypeInterface>() ;
       auto Rf = hecate::earth::EarthDialect::rescalingFactor;
-      /* auto accm = getOperandScale(0) + +getOperandScale(1) + getOperandLevel(0) * Rf; */
-      /* return accm < hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf; */
-      return target.getScale() + target.getLevel() * Rf < hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf;
+      auto &&func = getOperation()->getParentOfType<::mlir::func::FuncOp>();
+      auto upperBound = hecate::earth::EarthDialect::bootstrapLevelUpperBound * Rf;
+      if(func->hasAttr("is_packed")&&func->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()){
+        upperBound = (hecate::earth::EarthDialect::bootstrapLevelUpperBound
+            - hecate::earth::EarthDialect::bootstrapLevelLowerBound  -1 ) * Rf;
+      }
+      return target.getScale() + target.getLevel() * Rf < upperBound;
     }
     bool $cppClass::isBootstrappable() {
       auto target = getResult().getType().dyn_cast<HEScaleTypeInterface>() ;
       auto Rf = hecate::earth::EarthDialect::rescalingFactor;
       return target.getScale() + target.getLevel() * Rf < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf;
-      /* auto accm = getOperandScale(0) + +getOperandScale(1) + getOperandLevel(0) * Rf; */
-      /* return accm < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1) * Rf; */
     }
 
     bool $cppClass::isConsume() {
@@ -723,7 +725,8 @@ def PackOp: Layout_Earth_Op<"pack"> {
     }
     bool $cppClass::isValidated() {
       auto lScale = hecate::earth::getScaleType(getOperand(0));
-      return lScale.getLevel() < hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound;
+      auto rf = hecate::earth::EarthDialect::rescalingFactor;
+      return lScale.getScale() + lScale.getLevel() * rf < (hecate::earth::EarthDialect::bootstrapLevelUpperBound - hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1) * rf;
 
     }
 

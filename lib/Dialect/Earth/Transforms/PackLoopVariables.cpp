@@ -44,7 +44,6 @@ struct PackLoopVariablesPass
     auto func = getOperation();
     OpBuilder builder(func);
     IRRewriter rewriter(builder);
-    hecate::earth::EarthDialect::bootstrapLevelLowerBound += 1;
 
     auto &&bb = func.getBody().getBlocks().front();
     for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
@@ -53,7 +52,6 @@ struct PackLoopVariablesPass
       }
     }
 
-    /* func.walk([&](mlir::scf::ForOp fop) { */
     for (auto fop : scfForQueue) {
       auto num_elements =
           hecate::getIntegerAttr("num_elements", fop.getResult(0));
@@ -123,8 +121,6 @@ struct PackLoopVariablesPass
 
       // mark packing forOp
       packedLoop->setAttr("is_packed", builder.getBoolAttr(true));
-      /* for (auto res : packedLoop.getResults()) */
-      /*   hecate::setIntegerAttr("num_elements", res, num_elements); */
     }
   }
   void getDependentDialects(DialectRegistry &registry) const override {
