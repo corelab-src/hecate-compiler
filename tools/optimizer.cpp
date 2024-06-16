@@ -633,10 +633,8 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 
-        pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-         */
+        pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
 
@@ -690,20 +688,23 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         }
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-        pm.addNestedPass<func::FuncOp>(
-            earth::createElideConstant({dir + "/../../traced" + "/"}));
 
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-        pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createApplyDaCapoToLoop(
+            {waterline, output_val, true}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopUnroll());
+        pm.addPass(mlir::createSymbolDCEPass());
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));
-        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopUnroll()); */
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
         pm.addPass(mlir::createCSEPass());
         pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToEarthConversionPass());
+        pm.addNestedPass<func::FuncOp>(
+            earth::createElideConstant({dir + "/../../traced" + "/"}));
 
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
@@ -734,7 +735,7 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
       });
 
   PassPipelineRegistration<>(
-      "packed_loop", "Perform Loop Optimization on HE programs",
+      "packed_flex_loop", "Perform Loop Optimization on HE programs",
       [&](OpPassManager &pm) {
         std::string dir;
         std::string stem;
@@ -747,17 +748,139 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
           pm.addPass(hecate::earth::createSMUChecker());
 
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
+        pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
-        /* pm.addNestedPass<func::FuncOp>( */
-        /*     hecate::earth::createFlexibleBootstrap()); */
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createFlexibleBootstrap());
         pm.addPass(mlir::createCSEPass());
         pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToEarthConversionPass());
+        pm.addNestedPass<func::FuncOp>(
+            earth::createElideConstant({dir + "/../../traced" + "/"}));
+
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".earth.mlir", "earth"));
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToCKKSConversionPass());
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createUpscaleToMulcpConversionPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createSCFToDpsSCFConversionPass());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".ckks.mlir", "ckks"));
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createRemoveLevel());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createReuseBuffer());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createAllocLoopBuffer());
+        pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createEmitHEVM({dir + "/" + stem}));
+      });
+
+  PassPipelineRegistration<>(
+      "packed_unroll_flex_loop", "Perform Loop Optimization on HE programs",
+      [&](OpPassManager &pm) {
+        std::string dir;
+        std::string stem;
+        if (outputFilename != "-") {
+          std::filesystem::path outputName(outputFilename.getValue());
+          stem = outputName.stem();
+          dir = outputName.parent_path();
+        }
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
+        pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createApplyDaCapoToLoop(
+            {waterline, output_val, true}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopUnroll());
+        pm.addPass(mlir::createSymbolDCEPass());
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createProactiveRescaling({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createFlexibleBootstrap());
+        pm.addPass(mlir::createCSEPass());
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToEarthConversionPass());
+        pm.addNestedPass<func::FuncOp>(
+            earth::createElideConstant({dir + "/../../traced" + "/"}));
+
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".earth.mlir", "earth"));
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createEarthToCKKSConversionPass());
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createUpscaleToMulcpConversionPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createSCFToDpsSCFConversionPass());
+
+        if (enable_printer)
+          pm.addPass(createLocationSnapshotPass(
+              OpPrintingFlags().enableDebugInfo(false, false),
+              dir + "/" + stem + ".ckks.mlir", "ckks"));
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createRemoveLevel());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createReuseBuffer());
+        pm.addNestedPass<func::FuncOp>(hecate::ckks::createAllocLoopBuffer());
+        pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::ckks::createEmitHEVM({dir + "/" + stem}));
+      });
+  PassPipelineRegistration<>(
+      "flex_loop", "Perform Loop Optimization on HE programs",
+      [&](OpPassManager &pm) {
+        std::string dir;
+        std::string stem;
+        if (outputFilename != "-") {
+          std::filesystem::path outputName(outputFilename.getValue());
+          stem = outputName.stem();
+          dir = outputName.parent_path();
+        }
+        if (enable_check_smu)
+          pm.addPass(hecate::earth::createSMUChecker());
+
+        pm.addNestedPass<func::FuncOp>(
+            earth::createElideConstant({dir + "/../../traced" + "/"}));
+
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
+        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
+         */
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
+
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createProactiveRescaling({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createFlexibleBootstrap());
+        pm.addPass(mlir::createCSEPass());
+        pm.addPass(mlir::createCanonicalizerPass());
+
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 
