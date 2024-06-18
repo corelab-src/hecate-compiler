@@ -9,8 +9,13 @@ mkdir -p $HECATE/examples/optimized/elasm
 mkdir -p $HECATE/examples/optimized/dacapo
 mkdir -p $HECATE/examples/optimized/pars
 mkdir -p $HECATE/examples/optimized/simple_loop
+mkdir -p $HECATE/examples/optimized/flex_loop
 mkdir -p $HECATE/examples/optimized/packed_loop
+mkdir -p $HECATE/examples/optimized/unroll_loop
+mkdir -p $HECATE/examples/optimized/packed_flex_loop
 mkdir -p $HECATE/examples/optimized/packed_unroll_loop
+mkdir -p $HECATE/examples/optimized/unroll_flex_loop
+mkdir -p $HECATE/examples/optimized/unroll_packed_loop
 mkdir -p $HECATE/examples/optimized/packed_unroll_flex_loop
 mkdir -p $HECATE/examples/optimized/dacapo_flex
 
@@ -26,12 +31,12 @@ ninja
 
 hc-trace()(
 cd $HECATE/examples
-python3 $HECATE/examples/benchmarks/$1.py $2
+python3 $HECATE/examples/benchmarks/$1.py $2 $3
 )
 
 hc-test()(
 cd $HECATE/examples
-python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5 $6
+python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5 $6 $7
 )
 
 
@@ -72,7 +77,7 @@ hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-prin
 }
 
 hc-back-opt-test(){
-hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6
+hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6 $7
 }
 
 hc-back-opt(){
