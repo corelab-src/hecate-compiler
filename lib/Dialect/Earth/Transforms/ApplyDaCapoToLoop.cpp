@@ -52,7 +52,9 @@ struct ApplyDaCapoToLoopPass
     /* llvm::errs() << "enter APPLY DACAPO \n"; */
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
     /* func.dump(); */
+    /* func.dump(); */
 
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
 
@@ -151,6 +153,7 @@ struct ApplyDaCapoToLoopPass
     }
 
     dup.erase();
+
     for (auto targetForOp : forOpTable) {
       auto ddup = func.clone();
       auto forOpid = targetForOp.getFirst();
@@ -189,12 +192,22 @@ struct ApplyDaCapoToLoopPass
       if (ddup->hasAttr("unroll_factor")) {
         auto &&unroll_factor =
             ddup->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getInt();
-        llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
         auto forOp = dyn_cast<mlir::scf::ForOp>(
             ca.getValueInfo(forOpid)->getValue().getDefiningOp());
         forOp->setAttr("unroll_factor",
                        builder.getI64IntegerAttr(unroll_factor));
-        llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
+        SmallVector<int64_t, 2> innerLoopUnrollFactor;
+        ddup.walk([&](mlir::scf::ForOp fop) {
+          auto &&inner_unroll_factor =
+              fop->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getInt();
+          innerLoopUnrollFactor.push_back(inner_unroll_factor);
+        });
+        int cnt = 0;
+        forOp.getBody()->walk([&](mlir::scf::ForOp fop) {
+          auto &&inner_unroll_factor = innerLoopUnrollFactor[cnt++];
+          fop->setAttr("unroll_factor",
+                       builder.getI64IntegerAttr(inner_unroll_factor));
+        });
       }
 
       /* forOp->setAttr("unroll_factor",
@@ -223,6 +236,7 @@ struct ApplyDaCapoToLoopPass
     }
 
     /* llvm::errs() << "END APPLY DACAPO \n"; */
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

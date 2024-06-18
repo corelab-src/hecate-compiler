@@ -72,7 +72,6 @@ struct LoopUnrollPass
     for (auto forOp : scfForQueue) {
       auto &&unroll_factor =
           forOp->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getUInt();
-      llvm::errs() << "Unroll Factor : " << unroll_factor << '\n';
       (void)mlir::loopUnrollByFactor(forOp, unroll_factor);
       mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
     }
@@ -89,8 +88,6 @@ struct LoopUnrollPass
         pop.erase();
       }
     });
-    /* llvm::errs() << "AFTER UNROLL\n"; */
-    /* func.dump(); */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

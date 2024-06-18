@@ -19,6 +19,7 @@
 #include "mlir/Dialect/Transform/Transforms/Passes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IRMapping.h"
+#include "mlir/IR/Value.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -46,56 +47,78 @@ struct UnrollFactorAnalysisPass
   mlir::SmallVector<scf::ForOp, 4> scfForQueue;
 
   // start operation : {end operations, depth, accmDepth}
-  DenseMap<mlir::Operation *,
+  DenseMap<mlir::Value,
            SmallVector<std::tuple<mlir::Operation *, uint64_t, uint64_t>, 4>>
       depthMap;
   // start operation,accmDepth
-  std::queue<std::tuple<Operation *, uint64_t>> startOps;
+  std::queue<std::tuple<Value, uint64_t>> startVals;
 
-  mlir::SmallVector<Operation *> visited;
-  std::stack<mlir::Operation *> st;
+  mlir::SmallVector<mlir::Value> visited;
+  std::stack<mlir::Value> st;
   uint64_t max_depth = 0;
 
-  void dfsLevelDepth(mlir::Operation *startOp, mlir::Operation *curOp,
-                     uint64_t startDepth, uint64_t accmDepth) {
-    if (std::find(visited.begin(), visited.end(), curOp) != visited.end())
+  void dfsLevelDepth(mlir::Value startVal, mlir::Operation *curOp,
+                     mlir::Value curVal, uint64_t startDepth,
+                     uint64_t accmDepth) {
+    if (std::find(visited.begin(), visited.end(), curVal) != visited.end())
       return;
-    visited.push_back(curOp);
-    if (auto btp = dyn_cast<hecate::earth::BootstrapOp>(curOp)) {
-      auto depth = hecate::earth::getScaleType(btp.getOperand()).getLevel();
-      auto gap = depth - startDepth;
-      depthMap[startOp].push_back({curOp, gap, accmDepth + gap});
-      startOps.push({btp, accmDepth + gap});
-      return;
-    } else if (auto pack = dyn_cast<hecate::earth::PackOp>(curOp)) {
-      auto depth = hecate::earth::getScaleType(pack.getOperand(0)).getLevel();
-      auto gap = depth - startDepth;
-      depthMap[startOp].push_back({curOp, gap, accmDepth + gap});
-      return;
-    } else if (auto pack = dyn_cast<mlir::scf::YieldOp>(curOp)) {
-      auto depth = hecate::earth::getScaleType(pack.getOperand(0)).getLevel();
-      auto gap = depth - startDepth;
-      depthMap[startOp].push_back({curOp, gap, accmDepth + gap});
-      return;
+    visited.push_back(curVal);
+    /* curOp->dump(); */
+    uint64_t wastedDownfactor = 0;
+    if (!isa<mlir::BlockArgument>(curVal)) {
+      if (auto mop =
+              dyn_cast<hecate::earth::ModswitchOp>(curVal.getDefiningOp())) {
+        wastedDownfactor += mop.getDownFactor();
+      }
     }
 
-    for (auto &&use : curOp->getUsers()) {
-      dfsLevelDepth(startOp, use, startDepth, accmDepth);
+    if (auto btp = dyn_cast<hecate::earth::BootstrapOp>(curOp)) {
+      auto depth = hecate::earth::getScaleType(btp.getOperand()).getLevel();
+      startDepth += wastedDownfactor;
+      auto gap = depth - startDepth;
+      depthMap[startVal].push_back({curOp, gap, accmDepth + gap});
+      startVals.push({btp, accmDepth + gap});
+      return;
+    } else if (auto pack = dyn_cast<hecate::earth::PackOp>(curOp)) {
+      auto depth = hecate::earth::getScaleType(pack->getResult(0)).getLevel();
+      startDepth += wastedDownfactor;
+      auto gap = depth - startDepth;
+      depthMap[startVal].push_back({curOp, gap, accmDepth + gap});
+      for (auto &&res : pack->getResults()) {
+        startVals.push({res, accmDepth + gap});
+      }
+      return;
+    } else if (auto rop = dyn_cast<func::ReturnOp>(curOp)) {
+      auto depth = hecate::earth::getScaleType(curVal).getLevel();
+      startDepth += wastedDownfactor;
+      auto gap = depth - startDepth;
+      depthMap[startVal].push_back({curOp, gap, accmDepth + gap});
+      return;
+    } else if (auto unpack = dyn_cast<hecate::earth::UnPackOp>(curOp)) {
+      startDepth += wastedDownfactor;
+    }
+
+    for (auto &&res : curOp->getResults()) {
+      for (auto &&use : res.getUses()) {
+        dfsLevelDepth(startVal, use.getOwner(), use.get(), startDepth,
+                      accmDepth);
+      }
     }
     return;
   }
 
-  void findMaxDepth(mlir::Operation *edgeOp, uint64_t accmDepth) {
+  void findMaxDepth(mlir::Operation *curOp, mlir::Value curVal,
+                    uint64_t accmDepth) {
 
-    if (isa<hecate::earth::PackOp>(edgeOp)) {
+    if (!isa<mlir::BlockArgument>(curVal) && isa<func::ReturnOp>(curOp)) {
       max_depth = max_depth < accmDepth ? accmDepth : max_depth;
       return;
     }
-    for (auto &&opInfo : depthMap[edgeOp]) {
+    for (auto &&opInfo : depthMap[curVal]) {
       mlir::Operation *destOp = std::get<0>(opInfo);
       auto &&dist = std::get<1>(opInfo);
       accmDepth += dist;
-      findMaxDepth(destOp, accmDepth);
+      findMaxDepth(destOp, destOp->getResult(0), accmDepth);
       accmDepth -= dist;
     }
   }
@@ -107,54 +130,56 @@ struct UnrollFactorAnalysisPass
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
     mlir::RewritePatternSet pattern(builder.getContext());
-    /* llvm::errs() << "FUNC DUMP\n"; */
-    /* func.dump(); */
 
+    auto &&rf = hecate::earth::EarthDialect::rescalingFactor;
     if (func->hasAttr("be_unroll") &&
         func->getAttrOfType<mlir::BoolAttr>("be_unroll")) {
-      func.walk([&](hecate::earth::UnPackOp pop) {
-        /* max_depth = 0; */
-        startOps.push({pop, 0});
-        while (!startOps.empty()) {
-          visited.clear();
-          auto &&startOp = std::get<0>(startOps.front());
-          auto &&accmDepth = std::get<1>(startOps.front());
-          depthMap[startOp] = {};
-          for (auto &&use : startOp->getUsers()) {
-            dfsLevelDepth(
-                startOp, use,
-                hecate::earth::getScaleType(startOp->getResult(0)).getLevel(),
-                accmDepth);
-          }
-          startOps.pop();
-        }
-
-        findMaxDepth(pop, 0);
-        mlir::Operation *edgeOp = pop;
-        uint64_t chain_depth = 0;
-        while (!isa<hecate::earth::PackOp>(edgeOp)) {
-          mlir::Operation *destOp = std::get<0>(depthMap[edgeOp].front());
-          auto &&dist = std::get<1>(depthMap[edgeOp].front());
-          chain_depth += dist;
-          edgeOp = destOp;
-        }
-        /* max_depth = max_depth < chain_depth ? chain_depth : max_depth; */
-      });
-      llvm::errs() << "PRINT DEPTH MAP\n";
-      llvm::errs() << "MAX DEPTH : " << max_depth << '\n';
-      for (auto &&target : depthMap) {
-        auto &&startOp = target.getFirst();
-        startOp->dump();
-        llvm::errs() << "----------------------\n";
-        for (auto &&depths : target.getSecond()) {
-          std::get<0>(depths)->dump();
-          llvm::errs() << "depth? : " << std::get<1>(depths) << "\n\n";
-          if (max_depth < std::get<1>(depths))
-            max_depth = std::get<1>(depths);
-        }
-        llvm::errs() << "==============================\n\n";
+      bool is_bootstrapped = false;
+      func.walk(
+          [&](hecate::earth::BootstrapOp bop) { is_bootstrapped = true; });
+      if (is_bootstrapped) {
+        func->setAttr("unroll_factor", builder.getI64IntegerAttr(1));
+        return;
       }
 
+      for (auto blockArg : func.getBody().getArguments()) {
+        if (auto sop = dyn_cast<hecate::earth::HEScaleTypeInterface>(
+                blockArg.getType())) {
+          if (sop.getScale() == rf && sop.getLevel() == 0) {
+            startVals.push({blockArg, 0});
+            while (!startVals.empty()) {
+              visited.clear();
+              auto &&startVal = std::get<0>(startVals.front());
+              auto &&accmDepth = std::get<1>(startVals.front());
+              depthMap[startVal] = {};
+              for (auto &&use : startVal.getUses()) {
+                dfsLevelDepth(startVal, use.getOwner(), use.get(),
+                              hecate::earth::getScaleType(startVal).getLevel(),
+                              accmDepth);
+              }
+              startVals.pop();
+            }
+            // draw DepthMap
+            /* for (auto &&target : depthMap) { */
+            /*   auto &&startVal = target.getFirst(); */
+            /*   startVal.dump(); */
+            /*   llvm::errs() << "----------------------\n"; */
+            /*   for (auto &&depths : target.getSecond()) { */
+            /*     std::get<0>(depths)->dump(); */
+            /*     llvm::errs() << "depth? : " << std::get<1>(depths) << "\n\n";
+             */
+            /*     if (max_depth < std::get<1>(depths)) */
+            /*       max_depth = std::get<1>(depths); */
+            /*   } */
+            /*   llvm::errs() << "==============================\n\n"; */
+            /* } */
+
+            findMaxDepth(nullptr, blockArg, 0);
+          }
+        }
+      }
+      /* llvm::errs() << "PRINT DEPTH MAP\n"; */
+      /* llvm::errs() << "MAX DEPTH : " << max_depth << '\n'; */
       auto lowerBound =
           func->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()
               ? hecate::earth::EarthDialect::bootstrapLevelLowerBound + 1
@@ -162,7 +187,7 @@ struct UnrollFactorAnalysisPass
       auto max_bound =
           hecate::earth::EarthDialect::bootstrapLevelUpperBound - lowerBound;
       uint64_t unroll_factor = max_bound / max_depth;
-      llvm::errs() << "UNROLL FACTOR : " << unroll_factor << '\n';
+      /* llvm::errs() << "UNROLL FACTOR : " << unroll_factor << '\n'; */
       func->setAttr("unroll_factor", builder.getI64IntegerAttr(unroll_factor));
     }
   }
