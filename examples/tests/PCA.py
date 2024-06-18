@@ -10,6 +10,7 @@ seed(100)
 a_compile_type = sys.argv[1]
 a_compile_opt = int(sys.argv[2])
 a_epoch = int(sys.argv[5])
+sqrt_epoch = int(sys.argv[6])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
@@ -33,7 +34,7 @@ y = Y.flatten()
     
 epochs = a_epoch
 epochs_power = epochs 
-epochs_babyl = epochs
+epochs_babyl = sqrt_epoch
 epochs_newton = 4
 # epochs_babyl = math.ceil(a_epochs / 5) 
         
@@ -77,7 +78,8 @@ for i in range(n_components):
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.setEpoch(0, a_epoch)
+# hevm.setEpoch(0, a_epoch)
+# hevm.setEpoch(0, sqrt_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
@@ -85,3 +87,4 @@ res = hevm.getOutput()
 
 rms = np.sqrt(np.mean([np.power(abs(res[0][i]-eigenvectors[0][i]), 2) for i in range(4)]))
 hevm.printer(timer/pow(10,9), rms, epochs)
+print("epoch2:", sqrt_epoch)

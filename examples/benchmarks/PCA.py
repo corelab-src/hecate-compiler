@@ -8,6 +8,7 @@ from poly.Poly import *
 
 if(len(sys.argv) != 1):
     a_epochs = int(sys.argv[1])
+    a_epochs1 = int(sys.argv[2])
 step = 1
 def sum_elements1(data, length):
     for i in range(length):
@@ -165,13 +166,14 @@ epochs_newton2 = 4
 epochs_newton3 = 4 
 
 epochs = a_epochs
+epochs1 = a_epochs1
 @hc.func("c,c")
 def PCA(x_data, y_data):
     columns = 4
     rows = 150
     
     epochs_power = epochs
-    epochs_babyl = epochs
+    epochs_babyl = epochs1
     mask = create_mask(columns, rows)
     bit_mask = create_bit_mask(1024)
 
