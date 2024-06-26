@@ -240,6 +240,9 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
   static cl::opt<int64_t> output_val{
       "output-val", cl::desc("Output value upper bound  of scale management"),
       cl::init(10)};
+  static cl::opt<int64_t> unroll_factor{
+      "unroll-factor",
+      cl::desc("Output value upper bound  of scale management"), cl::init(1)};
 
   static cl::opt<float> threshold{
       "threshold",
@@ -736,7 +739,7 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
       });
 
   PassPipelineRegistration<>(
-      "unroll_packed_loop", "Perform Loop Optimization on HE programs",
+      "unroll_factor_loop", "Perform Loop Optimization on HE programs",
       [&](OpPassManager &pm) {
         std::string dir;
         std::string stem;
@@ -749,15 +752,12 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
           pm.addPass(hecate::earth::createSMUChecker());
 
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createApplyDaCapoToLoop(
-            {waterline, output_val, true}));
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopUnroll());
-        pm.addPass(mlir::createSymbolDCEPass());
-
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createLoopUnroll({unroll_factor}));
         pm.addNestedPass<func::FuncOp>(earth::createPackLoopVariables());
-        pm.addNestedPass<func::FuncOp>(hecate::earth::createApplyDaCapoToLoop(
-            {waterline, output_val, false}));
+        pm.addNestedPass<func::FuncOp>(
+            hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
+        pm.addPass(mlir::createSymbolDCEPass());
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));

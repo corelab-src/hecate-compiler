@@ -40,6 +40,9 @@ namespace {
 struct LoopUnrollPass
     : public hecate::earth::impl::LoopUnrollBase<LoopUnrollPass> {
   LoopUnrollPass() {}
+  LoopUnrollPass(hecate::earth::LoopUnrollOptions ops) {
+    this->unroll_factor = ops.unroll_factor;
+  }
 
   mlir::SmallVector<scf::ForOp, 4> scfForQueue;
   void scheduleUnrollForOp(mlir::scf::ForOp &op) {
@@ -70,8 +73,10 @@ struct LoopUnrollPass
       }
     }
     for (auto forOp : scfForQueue) {
-      auto &&unroll_factor =
-          forOp->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getUInt();
+
+      if (forOp->hasAttr("unroll_factor"))
+        auto &&unroll_factor =
+            forOp->getAttrOfType<mlir::IntegerAttr>("unroll_factor").getUInt();
       (void)mlir::loopUnrollByFactor(forOp, unroll_factor);
       mlir::scf::populateSCFForLoopCanonicalizationPatterns(pattern);
     }

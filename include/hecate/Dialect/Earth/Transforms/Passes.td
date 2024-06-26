@@ -211,6 +211,12 @@ def LoopUnroll : Pass<"loop-unrolling", "::mlir::func::FuncOp"> {
   let description = [{
     This pass changes the loop structure through rotation and removes EraseOp.
   }];
+  let options = [
+    Option<"unroll_factor", "unroll_factor", "int64_t", /*default=*/"1",
+    "The minimal result scale of rescaling">,
+  ];
+
+
 }
 def PackLoopVariables: Pass<"packing-loop-carried-variables", "::mlir::func::FuncOp"> {
   let summary = "Pack the loop carried variables";
