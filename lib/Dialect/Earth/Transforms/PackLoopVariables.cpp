@@ -53,6 +53,10 @@ struct PackLoopVariablesPass
     }
 
     for (auto fop : scfForQueue) {
+      if (fop.getNumRegionIterArgs() < 2) {
+        fop->setAttr("is_packed", builder.getBoolAttr(false));
+        continue;
+      }
       auto num_elements =
           hecate::getIntegerAttr("num_elements", fop.getResult(0));
       builder.setInsertionPoint(fop);
