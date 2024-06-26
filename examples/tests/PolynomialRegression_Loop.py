@@ -47,10 +47,10 @@ timer = time.perf_counter_ns() -timer
 # print (timer / pow(10,9))
 res = hevm.getOutput()
 rms = 0
-for i in range(3):
-    rms = rms + pow(res[i] - W[i], 2)
 # for i in range(3):
-#     rms = rms + pow(res[i][:4096] - W[i], 2)
+#     rms = rms + pow(res[i] - W[i], 2)
+for i in range(3):
+    rms = rms + pow(res[i][:4096] - W[i], 2)
 rms = math.sqrt(np.mean(rms))
 # print (rms)
 

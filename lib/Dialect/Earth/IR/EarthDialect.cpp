@@ -420,7 +420,7 @@ void hecate::earth::PackOp::getCanonicalizationPatterns(
 
 void hecate::earth::UnPackOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
-  /* patterns.add<AddZeroPattern>(context); */
+  /* patterns.add<PackUnPackPattern>(context); */
 }
 
 ::mlir::LogicalResult hecate::earth::UnPackOp::inferReturnTypes(

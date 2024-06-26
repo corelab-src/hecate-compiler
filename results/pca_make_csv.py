@@ -24,18 +24,18 @@ res_lists = {
         'boot_cnt' : int,
         'boot_time' : float,
         'epoch' : int,
-        # 'encodeOnline' :int
+        'epoch2' : int,
         }
 
 df = pd.DataFrame()
 ress = []
 
 conference = "ASPLOS25"
-file_name = conference + '/total.txt'
-csv_name = conference +'/csv/'+conference+'.csv'
+file_name = conference + '/pca.txt'
+csv_name = conference +'/csv/'+'pca'+'.csv'
 
 ### for average data
-option_list = ['benchname','compiler', 'epoch']
+option_list = ['benchname','compiler', 'epoch', 'epoch2']
 result_mean = ['latency', 'Execution Time', 'rms', 'boot_time']
 
 f = open(file_name, 'r')
@@ -77,7 +77,6 @@ with open(csv_name, 'w',newline='') as f:
 df = pd.read_csv(csv_name)
 column_names = df.columns.tolist()
 df['boot_time'] = (df['boot_time'] / 1000000).round(6)
-print(df['boot_time'])
 
 remaining_columns = [col for col in column_names if col not in result_mean]
 result_mean_avg = [item + '_avg' for item in result_mean]

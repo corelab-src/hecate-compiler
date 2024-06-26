@@ -8,22 +8,19 @@ import math
 #index : type
 res_lists = {
         'benchname' : str,
-        'library' : str,
-        'device' : str,
+        # 'library' : str,
+        # 'device' : str,
         'compiler' : str,
+        'epoch' : int,
         # 'sim': float,
-        'waterline' : int,
+        # 'waterline' : int,
         # 'packing' : int,
-        'latency' : float,
-        'rms' : float,
+        # 'latency' : float,
+        # 'rms' : float,
         'Execution Time' : float,
-        # 'MemUsage': float,
         'cst_size' : int,
         'hevm_size' : int,
         'total_file_size' : int,
-        'boot_cnt' : int,
-        'boot_time' : float,
-        'epoch' : int,
         # 'encodeOnline' :int
         }
 
@@ -31,12 +28,13 @@ df = pd.DataFrame()
 ress = []
 
 conference = "ASPLOS25"
-file_name = conference + '/total.txt'
-csv_name = conference +'/csv/'+conference+'.csv'
+file_name = conference + '/codesize.txt'
+csv_name = conference +'/csv/'+'codesize'+'.csv'
 
 ### for average data
 option_list = ['benchname','compiler', 'epoch']
-result_mean = ['latency', 'Execution Time', 'rms', 'boot_time']
+# result_mean = ['latency', 'Execution Time', 'rms', 'boot_time']
+result_mean = []
 
 f = open(file_name, 'r')
 data=f.read()
@@ -76,8 +74,8 @@ with open(csv_name, 'w',newline='') as f:
 # make average data
 df = pd.read_csv(csv_name)
 column_names = df.columns.tolist()
-df['boot_time'] = (df['boot_time'] / 1000000).round(6)
-print(df['boot_time'])
+# df['boot_time'] = (df['boot_time'] / 1000000).round(6)
+# print(df['boot_time'])
 
 remaining_columns = [col for col in column_names if col not in result_mean]
 result_mean_avg = [item + '_avg' for item in result_mean]

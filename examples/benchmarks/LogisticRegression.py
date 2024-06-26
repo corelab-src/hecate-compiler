@@ -35,7 +35,7 @@ def LR_y_predict(x_data, W):
         y_predict = dot.rotate(2048*i)
     return y_predict
 
-@hc.func("c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c")
+# @hc.func("c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c")
 def LogisticRegression(x_data_0 , x_data_1 , x_data_2 , x_data_3 , x_data_4 , x_data_5 , x_data_6 , x_data_7,
                    x_data_8 , x_data_9 , x_data_10, x_data_11, x_data_12, x_data_13, x_data_14, x_data_15,
                    x_data_16, x_data_17, x_data_18, x_data_19, x_data_20, x_data_21, x_data_22, x_data_23,
@@ -99,7 +99,7 @@ def LogisticRegression(x_data_0 , x_data_1 , x_data_2 , x_data_3 , x_data_4 , x_
    
     return b[0], W[0], W[1], W[2], W[3], W[4], W[5], W[6], W[7], W[8], W[9], W[10], W[11], W[12], W[13], W[14], W[15], W[16], W[17], W[18], W[19], W[20], W[21], W[22], W[23], W[24], W[25], W[26], W[27], W[28], W[29]
  
-# @hc.func("c,c")
+@hc.func("c,c")
 def LogisticRegression(x_data, y_data):
     step = 1
 

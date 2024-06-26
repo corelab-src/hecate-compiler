@@ -17,6 +17,7 @@ def geZeroAfterRescale : Constraint<CPred<"$0.dyn_cast<IntegerAttr>().getInt() -
 def singleUser : Constraint<CPred<"$0.hasOneUse()">, "single user">;
 def structureNotFixed : Constraint<CPred<"!$0.getDefiningOp()->getAttr(\"sm_fixed\")">, "scale management structure is not fixed">;
 def plainInputForUnary : Constraint<CPred<"!$0.getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>().isCipher()">, "unary operation has plain operand">;
+/* def packUnPack : Constraint<CPred<"llvm::all_of($0,[&](Value v){ return !isa<mlir::BlockArgument>(v) && isa<hecate::earth::PackOp>(v.getDefiningOp());})">>; */
 
 def ZeroUpscalePattern : Pat<(UpscaleOp $arg, $val), (replaceWithValue $arg), [(isZero $val)]>;
 def ZeroModswitchPattern : Pat<(ModswitchOp $arg, $val), (replaceWithValue $arg), [(isZero $val)]>;
@@ -24,6 +25,8 @@ def AddZeroPattern : Pat<(AddOp (either $lhs, (ConstantOp $val, $dat2)) ), (repl
 def MulZeroPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (replaceWithValue $res), [(isAllZero $val)]>;
 def MulOnePattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (replaceWithValue $lhs), [(isAllOne $val)]>;
 def NegMulPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (NegateOp $lhs), [(isAllMinusOne $val)]>;
+
+/* def PackUnPackPattern : Pat<(UnPackOp (PackOp $inputs, $num_elements, $num_inputs) , $num_elem, $num_outputs)) , (replaceWithValue $inputs), []>; */
 
 
 // This patterns

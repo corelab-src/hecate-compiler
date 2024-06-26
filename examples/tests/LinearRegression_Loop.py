@@ -42,7 +42,10 @@ for i in range(epochs):
     W = W + Wup
     c = c + bup
 
-
+hevm.setInput(0, x)
+hevm.setInput(1, y)
+hevm.setEpoch(0, a_epoch)
+hevm.run()
 hevm.setInput(0, x)
 hevm.setInput(1, y)
 hevm.setEpoch(0, a_epoch)
@@ -50,8 +53,8 @@ timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer
 res = hevm.getOutput()
-rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
-# rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
+# rms = np.sqrt(np.mean(np.power(res[0] - W, 2) + np.power(res[1] - c, 2)))
+rms = np.sqrt(np.mean(np.power(res[0] - W, 2)[:4096] + np.power(res[1] - c, 2)[:4096]))
 # print (timer / pow(10,9))
 # print(rms)
 hevm.printer(timer/pow(10,9), rms, epochs)

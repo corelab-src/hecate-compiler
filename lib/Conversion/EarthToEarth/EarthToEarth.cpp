@@ -77,12 +77,14 @@ PackOpLowering::matchAndRewrite(hecate::earth::PackOp op, OpAdaptor adaptor,
 
       Value padConst = rewriter.create<hecate::earth::ConstantOp>(
           op.getLoc(), llvm::ArrayRef(padArray));
+
       padConst.setType(
           hecate::earth::getScaleType(padConst)
               .switchLevel(hecate::earth::getScaleType(adaptor.getOperands()[i])
                                .getLevel())
               .switchScale(hecate::earth::getScaleType(adaptor.getOperands()[i])
                                .getScale()));
+
       Value &&mul = rewriter.create<hecate::earth::MulOp>(
           op.getLoc(), adaptor.getOperands()[i], padConst);
       bePacked.push_back(
@@ -90,7 +92,6 @@ PackOpLowering::matchAndRewrite(hecate::earth::PackOp op, OpAdaptor adaptor,
     }
     auto &&prevOper = bePacked[0];
     for (size_t i = 1; i < adaptor.getNumInputs(); i++) {
-      /* rewriter.setInsertionPoint(prevOper.getDefiningOp()); */
       auto &&currentOper = rewriter.create<hecate::earth::AddOp>(
           op.getLoc(), bePacked[i], prevOper);
       prevOper = currentOper;
@@ -117,7 +118,6 @@ UnPackOpLowering::matchAndRewrite(hecate::earth::UnPackOp op, OpAdaptor adaptor,
     for (size_t i = 0; i < adaptor.getNumOutputs(); i++) {
       SmallVector<double, 4> oneArray, padArray;
       oneArray.resize(num_elements, 1.0);
-      /* padArray.resize(num_elements * adaptor.getNumOutputs(), 0.0); */
       padArray.resize(num_slot, 0.0);
       std::copy(oneArray.begin(), oneArray.end(),
                 padArray.begin() + i * num_elements);
@@ -135,7 +135,6 @@ UnPackOpLowering::matchAndRewrite(hecate::earth::UnPackOp op, OpAdaptor adaptor,
       Value &&extractedResult =
           rewriter.create<hecate::earth::RescaleOp>(op.getLoc(), mul);
       auto res = extractedResult;
-      size_t offset = 1;
       for (size_t offset = 1; offset < (num_slot / num_elements);
            offset = offset << 1) {
         auto rot = rewriter.create<hecate::earth::RotateOp>(

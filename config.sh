@@ -16,6 +16,7 @@ mkdir -p $HECATE/examples/optimized/packed_flex_loop
 mkdir -p $HECATE/examples/optimized/packed_unroll_loop
 mkdir -p $HECATE/examples/optimized/unroll_flex_loop
 mkdir -p $HECATE/examples/optimized/unroll_packed_loop
+mkdir -p $HECATE/examples/optimized/unroll_factor_loop
 mkdir -p $HECATE/examples/optimized/packed_unroll_flex_loop
 mkdir -p $HECATE/examples/optimized/dacapo_flex
 
@@ -76,6 +77,10 @@ hopt-lib-hww() {
 hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
 }
 
+hopt-unroll() {
+hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --unroll-factor=$6 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
+}
+
 hc-back-opt-test(){
 hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6 $7
 }
@@ -89,6 +94,7 @@ hopt-lib-hww $1 $2 $3 $4 $5
 # alias hopts-seal=hopt-seal
 alias hbcot=hc-back-opt-test
 alias hbt=hc-back-opt
+alias hur=hopt-unroll
 
 alias hoptd=hopt-debug-print
 alias hopta=hopt-debug-print-all

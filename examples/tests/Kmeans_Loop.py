@@ -37,8 +37,6 @@ def Kmeans(X, n_clusters=2, max_iter=10, tol=1e-4):
     selected_indices = [0, 1]
     centroids = X[selected_indices]
 
-    # print("Initial centroids: \n", centroids)
-
     for i in range(max_iter):
         # Assign clusters
         clusters = assign_clusters(X, centroids)

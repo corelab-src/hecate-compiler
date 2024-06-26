@@ -62,7 +62,7 @@ def Kmeans_Loop(x_data, y_data, epochs):
     test_mask = hc.Plain([1.0])
 
     # for _ in range(epochs):
-    with hc.loop(0, epochs, 1, inputarr = [centroid_0, centroid_1], num_elements = elements) as i:
+    with hc.loop(0, epochs, 1, inputarr = [centroid_0, centroid_1], num_elements = 1024) as i:
         # calculate the distance difference from centroid to data point
         distance_0 = x_data - centroid_0
         distance_0 = distance_0 * distance_0

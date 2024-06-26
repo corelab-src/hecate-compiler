@@ -19,14 +19,10 @@ hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_
 
 from sklearn import datasets
 
-bc = datasets.load_breast_cancer()
-X, y = bc.data, bc.target
-n_samples, n_features = X.shape
-
-X, y = datasets.make_blobs(n_samples=4096, n_features=2, centers=2, cluster_std=1, random_state=0)
+X, y = datasets.make_blobs(n_samples=1024, n_features=2, centers=2, cluster_std=1, random_state=0)
 X0 = [item[0] for item in X]
 X1 = [item[1] for item in X]
-Y = np.where(y == 0, -0.99999, 1)
+Y = np.where(y == 0, -1, 1)
 
 lambda_param = 0.01
 learning_rate = -0.001

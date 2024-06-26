@@ -54,7 +54,7 @@ struct ApplyDaCapoToLoopPass
     /* func.dump(); */
     /* func.dump(); */
 
-    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
+    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
 
@@ -144,10 +144,12 @@ struct ApplyDaCapoToLoopPass
       auto values = hecate::earth::getOpidToValueMap(&dup.getRegion().front());
 
       SmallVector<Type, 4> inputTypes(initialTypes);
+      llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
       for (auto inputId : ca.getValueInfo(forOpid - 1)->getLiveOuts()) {
         /* values[inputId].dump(); */
         inputTypes.push_back(values[inputId].getType());
       }
+      llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
       forOpTable[forOpid] = {std::get<0>(targetForOp.getSecond()), inputTypes,
                              std::get<2>(targetForOp.getSecond())};
     }
@@ -178,9 +180,11 @@ struct ApplyDaCapoToLoopPass
       /* for (auto tt : inputType) */
       /*   llvm::errs() << tt << '\n'; */
       /* llvm::errs() << "BEFORE PROCESS FOROP : " << forOpid << '\n'; */
+      llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
       if (failed(pm_nested.run(mod))) {
         llvm::errs() << "Apply DaCapo failed" << '\n';
       }
+      llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
 
       /* llvm::errs() << "AFTER PROCESS FOROP : " << forOpid << '\n'; */
       /* ddup.dump(); */
@@ -210,12 +214,14 @@ struct ApplyDaCapoToLoopPass
         });
       }
 
+      llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
       /* forOp->setAttr("unroll_factor",
        * builder.getI64IntegerAttr(unroll_factor)); */
 
       ddup.erase();
     }
 
+    llvm::errs() << __FILE__ << " : " << __LINE__ << '\n';
     func->setAttr("btp_target", builder.getDenseI64ArrayAttr(btp_target));
     /* func->setAttr("return_type", builder.getTypeArrayAttr( */
     /*                                  std::get<0>(edgeTypes[ca.getRetOpid()])));

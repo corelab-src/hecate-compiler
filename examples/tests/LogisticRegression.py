@@ -55,7 +55,7 @@ for i in range(epochs):
 
 hevm.setInput(0, x)
 hevm.setInput(1, y)
-hevm.setEpoch(0, a_epoch)
+# hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
 timer = time.perf_counter_ns() -timer

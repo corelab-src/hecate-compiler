@@ -39,7 +39,6 @@ struct DaCapoPlannerPass
 
   void runOnOperation() override {
 
-    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
@@ -107,12 +106,11 @@ struct DaCapoPlannerPass
                       : ca.getTargets(to, setNum)) llvm::dbgs()
                  << bbbb << " ";
                  llvm::dbgs() << '\n';);
-      /* if (to == ca.getRetOpid()) { */
-      /*   llvm::errs() << "RETOPID " << ca.getRetOpid() << '\n'; */
-      /*   for (auto ttt : ca.toFromMap[to]) */
-      /*     llvm::errs() << ttt << " "; */
-      /*   llvm::errs() << '\n'; */
-      /* } */
+      /* llvm::errs() << "RETOPID " << ca.getRetOpid() << '\n'; */
+      /* llvm::errs() << "To " << to << " :  "; */
+      /* for (auto ttt : ca.toFromMap[to]) */
+      /*   llvm::errs() << ttt << " "; */
+      /* llvm::errs() << '\n'; */
       /* llvm::errs() << "toFromMap Size: " << ca.toFromMap[to].size() << '\n';
        */
       for (auto from : ca.toFromMap[to]) {
@@ -124,6 +122,15 @@ struct DaCapoPlannerPass
         dup->setAttr("cutted_edge", builder.getDenseI64ArrayAttr({from, to}));
         dup->setAttr("btp_target",
                      builder.getDenseI64ArrayAttr(ca.getTargets(from, setNum)));
+        /* if (to == ca.getRetOpid()) { */
+        /*   llvm::errs() << "LAST BOOTSTRAP TARGETS "; */
+
+        /*   llvm::errs() << "FROM : " << from << '\n'; */
+        /*   for (auto tt : ca.getTargets(from, setNum)) */
+        /*     llvm::errs() << tt << " "; */
+        /*   llvm::errs() << '\n'; */
+        /* } */
+
         dup->setAttr(
             "segment_input",
             builder.getDenseI64ArrayAttr(ca.getValueInfo(from)->getLiveOuts()));
@@ -236,13 +243,17 @@ struct DaCapoPlannerPass
 
     auto targets =
         ca.sortTargets(setNum, std::get<1>(bestPlan[ca.getRetOpid()]));
+    /* llvm::errs() << "LAST TARGET\n"; */
+    /* for (auto tt : targets) */
+    /*   llvm::errs() << tt << " "; */
     auto retTypes = std::get<3>(bestPlan[ca.getRetOpid()]).getResultTypes();
 
+    /* llvm::errs() << "LAST BEST PLAN \n"; */
     /* std::get<3>(bestPlan[ca.getRetOpid()]).dump(); */
-    llvm::outs() << llvm::format("Estimated Latency: %lf (sec) \n",
-                                 std::get<0>(bestPlan[ca.getRetOpid()]) /
-                                     1000000);
-    llvm::outs() << "Number of Bootstrapping: " << targets.size() << '\n';
+    /* llvm::outs() << llvm::format("Estimated Latency: %lf (sec) \n", */
+    /*                              std::get<0>(bestPlan[ca.getRetOpid()]) / */
+    /*                                  1000000); */
+    /* llvm::outs() << "Number of Bootstrapping: " << targets.size() << '\n'; */
 
     LLVM_DEBUG(llvm::dbgs() << "Estimated Latency : "
                             << std::get<0>(bestPlan[ca.getRetOpid()]) << '\n';
