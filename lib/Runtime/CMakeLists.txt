@@ -12,10 +12,10 @@ target_link_libraries(SEAL_HEVM
 #  TOY_HEVM.cpp)
 
 
-# add_library (HEAAN_HEVM
-#   SHARED
-#   HEAAN_HEVM.cpp)
-# target_link_libraries(HEAAN_HEVM
-#   PUBLIC
-#   HEaaN::HEaaN
-#   )
+ add_library (HEAAN_HEVM
+   SHARED
+   HEAAN_HEVM.cpp)
+ target_link_libraries(HEAAN_HEVM
+   PUBLIC
+   HEaaN::HEaaN
+   )

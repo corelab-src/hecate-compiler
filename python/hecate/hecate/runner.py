@@ -124,7 +124,7 @@ def setLibnHW (argv=None):
     global run_library
     global run_hardware
     LibnHW_mapping = {
-            # "HEAAN" : ["GPU", "CPU"],
+            "HEAAN" : ["GPU", "CPU"],
             "SEAL" : ["CPU"],
             # "TOY" : ["CPU", "GPU"],
             }
