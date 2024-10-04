@@ -389,7 +389,9 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         }
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-
+        // Check Dummy Test
+        pm.addPass(hecate::earth::createDummyTest());
+        
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createBypassDetection({waterline, 0.5}));

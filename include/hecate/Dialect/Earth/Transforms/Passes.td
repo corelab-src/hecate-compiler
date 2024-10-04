@@ -194,6 +194,12 @@ def CandidateSelection : Pass<"candidate-selection", "::mlir::func::FuncOp"> {
 
 
 }
+def DummyTest : Pass<"dummy-test", "::mlir::func::FuncOp"> {
+  let summary = "Pass for dummy test";
+  let description = [{
+    This pass is dummy test pass for testing functions
+  }];
+}
 def CodeSegmentation : Pass<"code-segmentation", "::mlir::func::FuncOp"> {
   let summary = "Partition code using start, end edges info";
   let description = [{
