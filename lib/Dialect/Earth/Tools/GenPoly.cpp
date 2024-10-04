@@ -1,4 +1,4 @@
-#include "hecate/Dialect/Earth/Analysis/PolynomialAnalysis.h"
+#include "hecate/Dialect/Earth/Tools/GenPoly.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Support/Support.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -121,8 +121,12 @@ void print_PolyVector(std::vector<std::vector<std::variant<ChebyshevPoly, int>>>
 
 
 
+/*
 hecate::PolynomialAnalysis::PolynomialAnalysis(mlir::Operation *op)
   : _op(op) {
+}
+*/
+hecate::PolynomialAnalysis::PolynomialAnalysis() {
 }
 
 int64_t hecate::PolynomialAnalysis::GenPoly_Test(int degree) {
@@ -140,6 +144,8 @@ int64_t hecate::PolynomialAnalysis::GenPoly(const std::vector<std::string> &tree
                        float scale) {
   std::cout<<"GenPoly"<<std::endl;
   std::cout<<"degree : "<<degree<<", scale : "<<scale<<std::endl;
+  length = degree;
+
   // new tree
   std::vector <std::vector<int>> new_tree;
   std::vector <int> line_tree;
@@ -285,7 +291,11 @@ int64_t hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree
   return 0;
 }
 
+//int64_t hecate::PolynomialAnalysis::GSBS(mlir::RankedTensorType input) {
 int64_t hecate::PolynomialAnalysis::GSBS() {
   std::cout<<"Giant-Step, Baby-Step Test"<<std::endl;
+  std::cout<<"length : "<<length<<std::endl;
+  std::vector<int> babyTs;
+  std::vector<int> giantTs;
   return 0;
 }

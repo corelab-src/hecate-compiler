@@ -1,7 +1,5 @@
-add_mlir_dialect_library(EarthAnalysis
- ScaleManagementUnit.cpp
- AutoDifferentiation.cpp
- CandidateAnalysis.cpp
+add_mlir_dialect_library(EarthTools
+ GenPoly.cpp
  DEPENDS
  HecateEarthOpsIncGen
  HecateEarthTransformsIncGen
