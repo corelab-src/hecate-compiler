@@ -33,18 +33,23 @@ struct DummyTestPass
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
+    
+    hecate::GenPoly poly_test;
+    //hecate::GenPoly poly_test(8);
+    //poly_test.GenPoly();
+    
+    std::vector<double> inputs;
+    inputs.push_back(0.1);
+    inputs.push_back(0.2);
+    inputs.push_back(0.3);
+    poly_test.GSBS_check(inputs);
+    
     /*
-    auto &poly_test = getAnalysis<hecate::PolynomialAnalysis>();
-    poly_test.GenPoly_Test();
-    poly_test.GSBS();
-    */
-    hecate::PolynomialAnalysis poly_test;
-    poly_test.GenPoly_Test();
-    poly_test.GSBS();
     hecate::PolynomialAnalysis poly_test2;
     poly_test2.GenPoly_Test(13);
     poly_test2.GSBS();
     poly_test.GSBS();
+    */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

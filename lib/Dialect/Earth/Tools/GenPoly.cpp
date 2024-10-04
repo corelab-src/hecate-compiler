@@ -1,4 +1,5 @@
 #include "hecate/Dialect/Earth/Tools/GenPoly.h"
+#include "hecate/Dialect/Earth/Tools/Chebyshev.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Support/Support.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -10,93 +11,13 @@
 #include <filesystem>
 #include <cmath>
 #include <tuple>
+#include <map>
 #include <algorithm>
 #include <variant>
 
 using namespace hecate;
 
-class ChebyshevPoly {
-public:
-  ChebyshevPoly(const std::vector<double>& coeff) : coefficients(coeff) {}
-
-  double evaluate(double x) const {
-    double Tn = 0.0;
-    double Tn1 = 1.0;
-    double Tn2 = 0.0;
-
-    for (size_t n = 0; n < coefficients.size(); ++n) {
-      Tn = Tn1 * x * 2 - Tn2;
-      Tn2 = Tn1;
-      Tn1 = Tn;
-    }
-
-    double result = 0.0;
-    for (size_t n = 0; n < coefficients.size(); ++n) {
-      result += coefficients[n] * Tn;
-    }
-    return result;
-  }
-
-  //std::vector<double> divide(const std::vector<double>& numerator, const std::vector<double>& denominator) {
-  ChebyshevPoly divide_quotient(const ChebyshevPoly& denominator_cheby) {
-    /* wrong divide!!! must change for chebyshev ******/
-    //std::cout<<"numerator print"<<std::endl;
-    //print();
-    //std::cout<<"denominator_cheby print"<<denominator_cheby.coefficients.size()<<std::endl;
-    //denominator_cheby.print();
-    
-    // quotient = coefficients // denominator;
-    auto denominator = denominator_cheby.coefficients;
-    std::vector<double> quotient;
-    if (denominator.empty() || (denominator.size() == 1 && denominator[0] == 0.0)) {
-        std::cerr<<"Division by zero polynomial"<<std::endl;
-        //exit();
-        //throw std::invalid_argument("Division by zero polynomial");
-    }
-
-    // Perform polynomial long division
-    std::vector<double> remainder = coefficients;
-    while (remainder.size() >= denominator.size()) {
-        // leading coefficients
-        double coeffs = remainder.back() / denominator.back();
-        quotient.push_back(coeffs);
-
-        // Subtract the current term multiplied by the divisor
-        for (size_t i = 0; i < denominator.size(); ++i) {
-            remainder[remainder.size()-1-i] -= coeffs * denominator[denominator.size()-1-i];
-        }
-        // Remove the last term of remainder (it's effectively 0 after subtraction)
-        remainder.pop_back();
-    }
-
-    std::reverse(quotient.begin(), quotient.end());  // Reverse to get correct order
-    //std::cout<<"divide print"<<std::endl;
-    //ChebyshevPoly(quotient).print();
-    return ChebyshevPoly(quotient);
-  }
-  
-  ChebyshevPoly divide_remainder(const ChebyshevPoly& denominator_cheby) {
-    /* wrong divide!!! must change for chebyshev ******/
-    /* simple skeleton for run */
-    int denom_size = denominator_cheby.coefficients.size();
-    std::vector<double> temp(denom_size-1, 0.0);
-    temp.push_back(1.0);
-    return ChebyshevPoly(temp);
-  }
-
-  void print() const {
-    for (const auto& c : coefficients) {
-      std::cout<<c<<" ";
-    }
-    std::cout<<std::endl;
-  }
-
-private:
-  std::vector<double> coefficients;
-};
-
-
-void print_PolyVector(std::vector<std::vector<std::variant<ChebyshevPoly, int>>> chebyshevPolys) {
+void print_PolyVector(std::vector<std::vector<std::variant<hecate::ChebyshevPoly, int>>> chebyshevPolys) {
   // print chebyshev vector for debug
   std::cout<<"[";
   for (size_t i = 0; i<chebyshevPolys.size(); i++) {
@@ -121,30 +42,47 @@ void print_PolyVector(std::vector<std::vector<std::variant<ChebyshevPoly, int>>>
 
 
 
-/*
-hecate::PolynomialAnalysis::PolynomialAnalysis(mlir::Operation *op)
-  : _op(op) {
-}
-*/
-hecate::PolynomialAnalysis::PolynomialAnalysis() {
+hecate::GenPoly::GenPoly() {
+  std::cout<<"genPoly Basic"<<std::endl;
+  std::cout<<"degree : "<<length<<std::endl;
+  tree_var = LoadVar("treeStr.txt");
+  coeff_var = LoadVar("coeffStr.txt");
+  GenPoly_run();
+
 }
 
-int64_t hecate::PolynomialAnalysis::GenPoly_Test(int degree) {
+hecate::GenPoly::GenPoly(int degree) {
   std::cout<<"genPoly Test"<<std::endl;
   std::cout<<"degree : "<<degree<<std::endl;
-  auto tree_var = LoadVar("treeStr.txt");
-  auto coeff_var = LoadVar("coeffStr.txt");
-  GenPoly(tree_var, coeff_var, degree);
-
-  return 0;
+  tree_var = LoadVar("treeStr.txt");
+  coeff_var = LoadVar("coeffStr.txt");
+  length = degree;
+  GenPoly_run();
+  //GenPoly(tree_var, coeff_var, degree);
 }
-int64_t hecate::PolynomialAnalysis::GenPoly(const std::vector<std::string> &tree_var,
+
+hecate::GenPoly::GenPoly(const std::vector<std::string> &treeStr,
+                       const std::vector<std::string> &coeffStr,
+                       int degree,
+                       float scale_in) {
+  std::cout<<"genPoly 4"<<std::endl;
+  std::cout<<"degree : "<<degree<<std::endl;
+  tree_var = treeStr;
+  coeff_var = coeffStr;
+  length = degree;
+  scale = scale_in;
+  GenPoly_run();
+}
+
+/*
+hecate::GenPoly::GenPoly_run(const std::vector<std::string> &tree_var,
                        const std::vector<std::string> &coeff_var,
                        int degree,
                        float scale) {
-  std::cout<<"GenPoly"<<std::endl;
-  std::cout<<"degree : "<<degree<<", scale : "<<scale<<std::endl;
-  length = degree;
+*/
+void hecate::GenPoly::GenPoly_run() {
+  std::cout<<"GenPoly Run"<<std::endl;
+  std::cout<<"degree : "<<length<<", scale : "<<scale<<std::endl;
 
   // new tree
   std::vector <std::vector<int>> new_tree;
@@ -171,7 +109,8 @@ int64_t hecate::PolynomialAnalysis::GenPoly(const std::vector<std::string> &tree
     }
   }
 
-  auto calc_order = Chebyshev(new_tree, coeff);
+  Calc_Chebyshev(new_tree, coeff);
+  //auto calc_order = Calc_Chebyshev(new_tree, coeff);
  /* 
   for (const auto& order : calc_order) {
         std::cout << "Calc Order: " << std::get<0>(order) << ", " 
@@ -182,13 +121,10 @@ int64_t hecate::PolynomialAnalysis::GenPoly(const std::vector<std::string> &tree
   //for (const auto& num : coeff) {
   //  std::cout << num << std::endl;
   //}
-
-
-  return 0;
 }
 
 
-std::vector<std::string> hecate::PolynomialAnalysis::LoadVar(const std::string &filename) {
+std::vector<std::string> hecate::GenPoly::LoadVar(const std::string &filename) {
   std::cout<<"Load "<<filename<<"_var"<<std::endl;
  
   // {ProjectRoot}/python/poly/poly/data/*.txt
@@ -219,8 +155,7 @@ std::vector<std::string> hecate::PolynomialAnalysis::LoadVar(const std::string &
   return file_var;
 }
 
-//std::vector<std::tuple<int, int, int, int>> hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
-int64_t hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
+int64_t hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
   std::cout<<"Chebyshev"<<std::endl;
   ChebyshevPoly cheby_mish(coeff);
   std::vector<std::vector<std::variant<ChebyshevPoly, int>>> chebyshevPolys;
@@ -271,7 +206,7 @@ int64_t hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree
   }
   
   std::cout<<"calc_order"<<std::endl;
-  std::vector<std::tuple<int, int, int, ChebyshevPoly>> calc_order;
+  //std::vector<std::tuple<int, int, int, ChebyshevPoly>> calc_order;
   for (size_t i = 0; i < tree.size(); ++i) {
     for (size_t j = 0; j < tree[i].size(); ++j) {
       int divisor = tree[i][j];
@@ -280,6 +215,8 @@ int64_t hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree
       }
     }
   }
+ 
+  /* HERE... Where is reverse order.........................*/
 
   for (size_t i=0;i<calc_order.size();i++) {
     std::cout<<std::get<0>(calc_order[i])<<" "<<std::get<1>(calc_order[i])<<" "<<std::get<2>(calc_order[i])<<std::endl;
@@ -291,11 +228,117 @@ int64_t hecate::PolynomialAnalysis::Chebyshev(std::vector<std::vector<int>> tree
   return 0;
 }
 
-//int64_t hecate::PolynomialAnalysis::GSBS(mlir::RankedTensorType input) {
-int64_t hecate::PolynomialAnalysis::GSBS() {
+std::vector<double> vector_add(std::vector<double> input, int rhs) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] + rhs;
+  }
+  return input;
+}
+std::vector<double> vector_sub(std::vector<double> input, int rhs) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] - rhs;
+  }
+  return input;
+}
+std::vector<double> vector_sub(std::vector<double> input, std::vector<double> rhs) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] - rhs[i];
+  }
+  return input;
+}
+std::vector<double> vector_mult(std::vector<double> input, int multiply) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] * multiply;
+  }
+  return input;
+}
+std::vector<double> vector_mult(std::vector<double> input, std::vector<double> multiply) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] * multiply[i];
+  }
+  return input;
+}
+
+void vector_print(std::vector<double> input) {
+  for (size_t i=0; i<input.size(); i++) {
+    std::cout<<input[i]<<" ";
+  }
+  std::cout<<std::endl;
+}
+
+
+// For checking the values from GSBS
+int64_t hecate::GenPoly::GSBS_check(std::vector<double> input) {
+//int64_t hecate::GenPoly::GSBS_check() {
   std::cout<<"Giant-Step, Baby-Step Test"<<std::endl;
-  std::cout<<"length : "<<length<<std::endl;
+  std::vector<std::vector<double>> babyTs;
+  // Temporarily, set input as a vector.
+  std::map<int, std::vector<double>> giantTs;
+  giantTs.insert(std::make_pair(0, 1)); 
+  giantTs.insert(std::make_pair(1, input)); 
+  int count = int(floor(log2(length)));
+  for (int i = 1; i < count; i++) {
+    int idx = pow(2, i);
+    int pre_idx = pow(2, i-1);
+    std::cout<<idx<<" "<<pre_idx<<std::endl;
+    //giantTs[idx] = 2 * giantTs[pre_idx]  * giantTs[pre_idx] + -1
+    auto value = vector_mult(giantTs[pre_idx], 2);
+    value = vector_mult(value, giantTs[pre_idx]);
+    value = vector_add(value, -1);
+    giantTs.insert(std::make_pair(idx, value));
+  }
+  
+  babyTs.push_back(input); 
+  for (int i = 1; i < count; i++) {
+    int idx = pow(2, i);
+    std::vector<std::vector<double>> babyAdd;
+    for (size_t i=0; i<babyTs.size();i++) {
+      // 2 * poly * giantTs[idx]
+      auto poly = babyTs[i];
+      auto value = vector_mult(poly, 2);
+      value = vector_mult(value, giantTs[idx]);
+      value = vector_sub(value, babyTs[babyTs.size()-1-i]); // new-old
+      babyAdd.push_back(value);
+    }
+    babyTs.reserve(babyTs.size()+babyAdd.size());
+    babyTs.insert(std::end(babyTs), std::begin(babyAdd), std::end(babyAdd));
+    // currently not use?
+    //std::vector<std::vector<int>> sdfs;
+  }
+
+
+  // print giantTs
+  std::cout<<"giantTs"<<std::endl;
+  for(auto iter = giantTs.begin(); iter != giantTs.end(); iter++){
+    //std::cout<<iter->first<<" "<<iter->second<<std::endl;
+    std::cout<<iter->first<<" : ";
+    vector_print(iter->second);
+  }
+  // print babyTs
+  std::cout<<"babyTs"<<std::endl;
+  for(size_t i = 0; i < babyTs.size(); i++){
+    std::cout<<i<<" : ";
+    vector_print(babyTs[i]);
+  }
+  
+  std::map<int, std::vector<double>> tmpPoly;
+  
+  return 0;
+}
+
+// For creating HE operations for compiler
+//int64_t hecate::GenPoly::GSBS_createHEOps(mlir::RankedTensorType input) {
+int64_t hecate::GenPoly::GSBS_createHEOps() {
+  std::cout<<"Giant-Step, Baby-Step Test"<<std::endl;
   std::vector<int> babyTs;
-  std::vector<int> giantTs;
+  std::map<int, mlir::RankedTensorType> giantTs;
+  
+  int count = int(floor(log2(length)));
+  for (int i = 1; i < count; i++) {
+    int idx = pow(2, i);
+    int pre_idx = pow(2, i-1);
+    std::cout<<idx<<" "<<pre_idx<<std::endl;
+    //giantTs[idx] = 2 * giantTs[pre_idx]  * giantTs[pre_idx] + -1
+  }
   return 0;
 }

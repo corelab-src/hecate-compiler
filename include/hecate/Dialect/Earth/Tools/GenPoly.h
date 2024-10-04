@@ -3,6 +3,7 @@
 #define HECATE_TOOLS_GENPOLY
 
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
+#include "hecate/Dialect/Earth/Tools/Chebyshev.h"
 #include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
@@ -11,24 +12,29 @@
 
 namespace hecate {
 
-struct PolynomialAnalysis {
+struct GenPoly {
 public:
-  PolynomialAnalysis();
+  GenPoly();
   
-  int64_t GenPoly_Test(int degree = 16);
-  int64_t GenPoly(const std::vector<std::string> &tree_var,
-                         const std::vector<std::string> &coeff_var,
+  GenPoly(int degree);
+  GenPoly(const std::vector<std::string> &treeStr,
+                         const std::vector<std::string> &coeffStr,
                          int degree,
-                         float scale = 1.0);
+                         float scale_in);
   std::vector<std::string> LoadVar(const std::string &filename);
-  //int64_t Chebyshev(std::vector<double> coeff);
-  //std::vector<std::tuple<int,int,int,int>> Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
-  int64_t Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
-  //int64_t GSBS(mlir::RankedTensorType input);
-  int64_t GSBS();
-private:
-  int length;
+  void GenPoly_run();
 
+  int64_t Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
+  int64_t GSBS_check(std::vector<double> input);
+  //int64_t GSBS_check();
+  int64_t GSBS_createHEOps(mlir::RankedTensorType input);
+  int64_t GSBS_createHEOps();
+private:
+  int length = 16;
+  float scale = 1.0;
+  std::vector<std::string> tree_var;
+  std::vector<std::string> coeff_var;
+  std::vector<std::tuple<int, int, int, hecate::ChebyshevPoly>> calc_order;
 };
 } // namespace hecate
 
