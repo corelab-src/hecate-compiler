@@ -82,6 +82,13 @@ ChebyshevPoly hecate::ChebyshevPoly::divide_remainder(const ChebyshevPoly& denom
     return ChebyshevPoly(temp);
 }
 
+int hecate::ChebyshevPoly::coeff_size() {
+    return coefficients.size();
+}
+double hecate::ChebyshevPoly::nth_coeff(int n) {
+    return coefficients[n];
+}
+
 void hecate::ChebyshevPoly::print() const {
     for (const auto& c : coefficients) {
       std::cout<<c<<" ";

@@ -61,14 +61,28 @@ hecate::GenPoly::GenPoly(int degree) {
   //GenPoly(tree_var, coeff_var, degree);
 }
 
-hecate::GenPoly::GenPoly(const std::vector<std::string> &treeStr,
-                       const std::vector<std::string> &coeffStr,
+hecate::GenPoly::GenPoly(const std::string &treeStr,
+                       const std::string &coeffStr,
+                       int degree,
+                       float scale_in) {
+  std::cout<<"genPoly fileload"<<std::endl;
+  std::cout<<"degree : "<<degree<<std::endl;
+  tree_var = LoadVar(treeStr);
+  coeff_var = LoadVar(coeffStr);
+  length = degree;
+  scale = scale_in;
+  GenPoly_run();
+}
+
+
+hecate::GenPoly::GenPoly(const std::vector<std::string> &treeVar,
+                       const std::vector<std::string> &coeffVar,
                        int degree,
                        float scale_in) {
   std::cout<<"genPoly 4"<<std::endl;
   std::cout<<"degree : "<<degree<<std::endl;
-  tree_var = treeStr;
-  coeff_var = coeffStr;
+  tree_var = treeVar;
+  coeff_var = coeffVar;
   length = degree;
   scale = scale_in;
   GenPoly_run();
@@ -155,7 +169,7 @@ std::vector<std::string> hecate::GenPoly::LoadVar(const std::string &filename) {
   return file_var;
 }
 
-int64_t hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
+void hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
   std::cout<<"Chebyshev"<<std::endl;
   ChebyshevPoly cheby_mish(coeff);
   std::vector<std::vector<std::variant<ChebyshevPoly, int>>> chebyshevPolys;
@@ -216,21 +230,29 @@ int64_t hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std:
     }
   }
  
-  /* HERE... Where is reverse order.........................*/
+  // Reverse order
+  std::sort(calc_order.begin(), calc_order.end(),
+              [](const auto& a, const auto& b) {
+                  return std::get<0>(a) > std::get<0>(b);
+              });
 
+  /*
   for (size_t i=0;i<calc_order.size();i++) {
     std::cout<<std::get<0>(calc_order[i])<<" "<<std::get<1>(calc_order[i])<<" "<<std::get<2>(calc_order[i])<<std::endl;
     std::get<3>(calc_order[i]).print();
   }
-
-
-  //return calc_order;
-  return 0;
+  */
 }
 
 std::vector<double> vector_add(std::vector<double> input, int rhs) {
   for (size_t i=0; i<input.size(); i++) {
     input[i] = input[i] + rhs;
+  }
+  return input;
+}
+std::vector<double> vector_add(std::vector<double> input, std::vector<double> rhs) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] + rhs[i];
   }
   return input;
 }
@@ -252,6 +274,13 @@ std::vector<double> vector_mult(std::vector<double> input, int multiply) {
   }
   return input;
 }
+std::vector<double> vector_mult(std::vector<double> input, double multiply) {
+  for (size_t i=0; i<input.size(); i++) {
+    input[i] = input[i] * multiply;
+  }
+  return input;
+}
+
 std::vector<double> vector_mult(std::vector<double> input, std::vector<double> multiply) {
   for (size_t i=0; i<input.size(); i++) {
     input[i] = input[i] * multiply[i];
@@ -260,6 +289,7 @@ std::vector<double> vector_mult(std::vector<double> input, std::vector<double> m
 }
 
 void vector_print(std::vector<double> input) {
+  //for (size_t i=0; i<10; i++) {
   for (size_t i=0; i<input.size(); i++) {
     std::cout<<input[i]<<" ";
   }
@@ -268,19 +298,18 @@ void vector_print(std::vector<double> input) {
 
 
 // For checking the values from GSBS
-int64_t hecate::GenPoly::GSBS_check(std::vector<double> input) {
+std::vector<double> hecate::GenPoly::GSBS_check(std::vector<double> input) {
 //int64_t hecate::GenPoly::GSBS_check() {
   std::cout<<"Giant-Step, Baby-Step Test"<<std::endl;
   std::vector<std::vector<double>> babyTs;
   // Temporarily, set input as a vector.
   std::map<int, std::vector<double>> giantTs;
-  giantTs.insert(std::make_pair(0, 1)); 
+  giantTs.insert(std::make_pair(0, 1)); // 0 is not use...
   giantTs.insert(std::make_pair(1, input)); 
   int count = int(floor(log2(length)));
   for (int i = 1; i < count; i++) {
     int idx = pow(2, i);
     int pre_idx = pow(2, i-1);
-    std::cout<<idx<<" "<<pre_idx<<std::endl;
     //giantTs[idx] = 2 * giantTs[pre_idx]  * giantTs[pre_idx] + -1
     auto value = vector_mult(giantTs[pre_idx], 2);
     value = vector_mult(value, giantTs[pre_idx]);
@@ -306,7 +335,7 @@ int64_t hecate::GenPoly::GSBS_check(std::vector<double> input) {
     //std::vector<std::vector<int>> sdfs;
   }
 
-
+  /*
   // print giantTs
   std::cout<<"giantTs"<<std::endl;
   for(auto iter = giantTs.begin(); iter != giantTs.end(); iter++){
@@ -320,10 +349,49 @@ int64_t hecate::GenPoly::GSBS_check(std::vector<double> input) {
     std::cout<<i<<" : ";
     vector_print(babyTs[i]);
   }
-  
-  std::map<int, std::vector<double>> tmpPoly;
-  
-  return 0;
+  */
+  // calc_order : i, j, deg, leaf
+  std::map<std::tuple<int, int>, std::vector<double>> tmpPoly;
+  for (size_t iter=0; iter<calc_order.size();iter++) {
+    auto calc = calc_order[iter];
+    int i = std::get<0>(calc);
+    int j = std::get<1>(calc);
+    int deg = std::get<2>(calc);
+    
+    if (std::get<2>(calc) == 0) {
+      std::vector<double> poly (babyTs[0].size(), 0.0); // babyTs items have same size
+      for (int k=0; k<length/2; k++) {
+        if (std::get<3>(calc).coeff_size() > 2*k+1) {
+          //poly += leaf.coef[2*k+1] * babyTs[k];
+          auto value = vector_mult(babyTs[k], std::get<3>(calc).nth_coeff(2*k+1));
+          poly = vector_add(poly, value);
+        }
+      }
+      tmpPoly[std::make_tuple(i, j)] = poly; 
+    }
+    else {
+      if (giantTs.find(deg) == giantTs.end()) {
+        //giantTs[deg] = 2* giantTs[deg//2] * giantTs[deg//2] + -1
+        auto value = vector_mult(giantTs[deg/2], 2);
+        value = vector_mult(giantTs[deg/2], giantTs[deg/2]);
+        value = vector_sub(value, 1);
+        giantTs.insert(std::make_pair(deg, value));
+      }
+      //tmpPoly[(i,j)] = tmpPoly[(i+1, 2*j+1)] * giantTs[deg] + tmpPoly[(i+1, 2*j)]
+      std::tuple<int, int> key = std::make_tuple(i, j);
+      auto value = vector_mult(tmpPoly.at(std::make_tuple(i+1, 2*j+1)), giantTs[deg]);
+      value = vector_add(value, tmpPoly.at(std::make_tuple(i+1, 2*j)));
+      tmpPoly[std::make_tuple(i, j)] = value;
+    }
+    /*
+    // print tmpPoly
+    for (const auto& pair : tmpPoly) {
+      std::cout<<"key: (" <<std::get<0>(pair.first)<<","<<std::get<1>(pair.first)<<"):";
+      vector_print(pair.second);
+    }
+    */
+  }
+  return tmpPoly.at(std::make_tuple(0,0));
 }
 
 // For creating HE operations for compiler

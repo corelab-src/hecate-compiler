@@ -17,15 +17,19 @@ public:
   GenPoly();
   
   GenPoly(int degree);
-  GenPoly(const std::vector<std::string> &treeStr,
-                         const std::vector<std::string> &coeffStr,
+  GenPoly(const std::string &treeStr,
+                         const std::string &coeffStr,
+                         int degree,
+                         float scale_in);
+  GenPoly(const std::vector<std::string> &treeVar,
+                         const std::vector<std::string> &coeffVar,
                          int degree,
                          float scale_in);
   std::vector<std::string> LoadVar(const std::string &filename);
   void GenPoly_run();
 
-  int64_t Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
-  int64_t GSBS_check(std::vector<double> input);
+  void Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
+  std::vector<double> GSBS_check(std::vector<double> input);
   //int64_t GSBS_check();
   int64_t GSBS_createHEOps(mlir::RankedTensorType input);
   int64_t GSBS_createHEOps();

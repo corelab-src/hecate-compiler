@@ -19,6 +19,8 @@ public:
   ChebyshevPoly divide_quotient(const ChebyshevPoly& denominator_cheby);
   ChebyshevPoly divide_remainder(const ChebyshevPoly& denominator_cheby);
   void print() const;
+  int coeff_size();
+  double nth_coeff(int n);
 private:
   std::vector<double> coefficients;
 };

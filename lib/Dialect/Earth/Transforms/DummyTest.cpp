@@ -35,14 +35,15 @@ struct DummyTestPass
     mlir::IRRewriter rewriter(builder);
     
     hecate::GenPoly poly_test;
-    //hecate::GenPoly poly_test(8);
+    //hecate::GenPoly poly_test("treeStr.txt", "coeffStr.txt", 8, 1.0);
     //poly_test.GenPoly();
     
     std::vector<double> inputs;
     inputs.push_back(0.1);
     inputs.push_back(0.2);
     inputs.push_back(0.3);
-    poly_test.GSBS_check(inputs);
+    std::vector<double> outputs;
+    outputs = poly_test.GSBS_check(inputs);
     
     /*
     hecate::PolynomialAnalysis poly_test2;
