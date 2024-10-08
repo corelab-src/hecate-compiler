@@ -15,7 +15,16 @@ struct ChebyshevPoly {
 public:
   ChebyshevPoly(const std::vector<double>& coeff);
   
-  double evaluate(double x) const;
+  std::vector<std::vector<double>> firstkind(int n);
+  std::vector<double> secondkind(int n);
+  
+  std::vector<double> chebyshev_to_monomial(const std::vector<double>& coeffs);
+  std::vector<double> monomial_to_chebyshev(const std::vector<double>& monCoeffs, int degree);
+  void poly_divide(const std::vector<double>& numerator,
+                   const std::vector<double>& denominator,
+                   std::vector<double>& quotient,
+                   std::vector<double>& remainder);
+
   ChebyshevPoly divide_quotient(const ChebyshevPoly& denominator_cheby);
   ChebyshevPoly divide_remainder(const ChebyshevPoly& denominator_cheby);
   void print() const;
