@@ -172,6 +172,32 @@ std::vector<std::string> hecate::GenPoly::LoadVar(const std::string &filename) {
 void hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
   std::cout<<"Chebyshev"<<std::endl;
   ChebyshevPoly cheby_mish(coeff);
+  std::cout<<"chebyshev test"<<std::endl;
+  /*
+  std::vector<double> numerator = {-2, -8, 4, 12};
+  std::vector<double> denominator = {-2, 2, 6};
+  std::vector<double> quotient;
+  std::vector<double> remainder;
+  cheby_mish.poly_divide(numerator, denominator, quotient, remainder);
+  std::cout<<"quotient"<<std::endl;
+  for (size_t i=0;i<quotient.size();i++) {
+    std::cout<<quotient[i]<<" ";
+  }
+  std::cout<<std::endl;
+  std::cout<<"remainder"<<std::endl;
+  for (size_t i=0;i<remainder.size();i++) {
+    std::cout<<remainder[i]<<" ";
+  }
+  std::cout<<std::endl;
+
+  //std::vector<double> a = {0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0};
+  std::vector<double> a = {0.5,0.635594,-3.00041e-29,-0.209156,-2.99169e-29,0.12233,-2.9772e-29,-0.0841373,-2.95697e-29,0.0622782,-2.93108e-29};
+  std::vector<double> b = {0.1,0.2,0.3,0.4,0.5};
+  ChebyshevPoly aa(a);
+  ChebyshevPoly bb(b);
+  std::cout<<"TESTSTESTETST"<<std::endl;
+  aa.divide_quotient(bb);
+  */
   std::vector<std::vector<std::variant<ChebyshevPoly, int>>> chebyshevPolys;
   
   std::cout<<"Chebyshev Poly"<<std::endl;
@@ -321,12 +347,12 @@ std::vector<double> hecate::GenPoly::GSBS_check(std::vector<double> input) {
   for (int i = 1; i < count; i++) {
     int idx = pow(2, i);
     std::vector<std::vector<double>> babyAdd;
-    for (size_t i=0; i<babyTs.size();i++) {
+    for (size_t j=0; j<babyTs.size();j++) {
       // 2 * poly * giantTs[idx]
-      auto poly = babyTs[i];
+      auto poly = babyTs[j];
       auto value = vector_mult(poly, 2);
       value = vector_mult(value, giantTs[idx]);
-      value = vector_sub(value, babyTs[babyTs.size()-1-i]); // new-old
+      value = vector_sub(value, babyTs[babyTs.size()-1-j]); // new-old
       babyAdd.push_back(value);
     }
     babyTs.reserve(babyTs.size()+babyAdd.size());
@@ -373,7 +399,7 @@ std::vector<double> hecate::GenPoly::GSBS_check(std::vector<double> input) {
       if (giantTs.find(deg) == giantTs.end()) {
         //giantTs[deg] = 2* giantTs[deg//2] * giantTs[deg//2] + -1
         auto value = vector_mult(giantTs[deg/2], 2);
-        value = vector_mult(giantTs[deg/2], giantTs[deg/2]);
+        value = vector_mult(value, giantTs[deg/2]);
         value = vector_sub(value, 1);
         giantTs.insert(std::make_pair(deg, value));
       }
@@ -395,18 +421,99 @@ std::vector<double> hecate::GenPoly::GSBS_check(std::vector<double> input) {
 }
 
 // For creating HE operations for compiler
-//int64_t hecate::GenPoly::GSBS_createHEOps(mlir::RankedTensorType input) {
-int64_t hecate::GenPoly::GSBS_createHEOps() {
+mlir::Value hecate::GenPoly::GSBS_createHEOps(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value input) {
   std::cout<<"Giant-Step, Baby-Step Test"<<std::endl;
-  std::vector<int> babyTs;
-  std::map<int, mlir::RankedTensorType> giantTs;
+
+  //std::vector<hecate::earth::CipherType> babyTs;
+  //std::map<int, hecate::earth::CipherType> giantTs;
+  std::vector<mlir::Value> babyTs;
+  std::map<int, mlir::Value> giantTs;
   
+  giantTs[1] = input;
+
   int count = int(floor(log2(length)));
+  //auto one = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({1.0}));
+  //one.setValueAttr(builder.getI64IntegerAttr(11)); // Temporarily without ElideConstant. Need to Fix!!!
+  auto two = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({2.0}));
+  two.setValueAttr(builder.getI64IntegerAttr(22)); // Temporarily without ElideConstant. Need to Fix!!!
+  auto minus_one = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({-1.0}));
+  minus_one.setValueAttr(builder.getI64IntegerAttr(33)); // Temporarily without ElideConstant. Need to Fix!!!
   for (int i = 1; i < count; i++) {
     int idx = pow(2, i);
     int pre_idx = pow(2, i-1);
     std::cout<<idx<<" "<<pre_idx<<std::endl;
     //giantTs[idx] = 2 * giantTs[pre_idx]  * giantTs[pre_idx] + -1
+    mlir::Value preValue = giantTs[pre_idx];
+    mlir::Value two_preValue = builder.create<hecate::earth::MulOp>(loc, preValue, two);
+    mlir::Value two_ppreValue = builder.create<hecate::earth::MulOp>(loc, two_preValue, preValue);
+    giantTs[idx] = builder.create<hecate::earth::AddOp>(loc, two_ppreValue, minus_one);
   }
-  return 0;
+ 
+  //babyTs
+  babyTs.push_back(input);
+  for (int i = 1; i < count; i++) {
+    int idx = pow(2, i);
+    std::vector<mlir::Value> babyAdd;
+    for (size_t j = 0; j < babyTs.size(); j++) {
+      // 2 * poly * giantTs[idx]
+      mlir::Value poly = babyTs[j];
+      mlir::Value two_poly = builder.create<hecate::earth::MulOp>(loc, poly, two);
+      mlir::Value two_poly_giantTs = builder.create<hecate::earth::MulOp>(loc, two_poly, giantTs[idx]);
+
+      mlir::Value subValue = babyTs[babyTs.size()-1-j];
+      mlir::Value negateValue = builder.create<hecate::earth::NegateOp>(loc, subValue);
+      mlir::Value new_minus_old = builder.create<hecate::earth::AddOp>(loc, two_poly_giantTs, negateValue);
+      babyAdd.push_back(new_minus_old);
+    }
+    babyTs.insert(babyTs.end(), babyAdd.begin(), babyAdd.end());
+  }
+
+  //tmpPoly
+  // calc_order : i, j, deg, leaf
+  std::map<std::tuple<int, int>, mlir::Value> tmpPoly;
+  for (size_t iter = 0; iter < calc_order.size(); iter++) {
+    auto calc = calc_order[iter];
+    int i = std::get<0>(calc);
+    int j = std::get<1>(calc);
+    int deg = std::get<2>(calc);
+    auto leaf = std::get<3>(calc);
+    
+    if(deg == 0) {
+      mlir::Value poly = nullptr;
+      for(int k=0; k < length/2; k++) {
+        if(leaf.coeff_size() > 2*k+1) {
+          // poly+= leaf.coef[2*k+1] * babyTs[k]
+          double coeff = leaf.nth_coeff(2*k+1);
+          auto coeffValue = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>(&coeff, 1));
+          coeffValue.setValueAttr(builder.getI64IntegerAttr(44)); // Temporarily without ElideConstant. Need to Fix!!!
+          mlir::Value babyValue = babyTs[k];
+          mlir::Value coeff_babyValue = builder.create<hecate::earth::MulOp>(loc, babyValue, coeffValue);
+          if(!poly) {
+            poly = coeff_babyValue;
+          }
+          else {
+            poly = builder.create<hecate::earth::AddOp>(loc, poly, coeff_babyValue);
+          }
+        }
+      }
+      tmpPoly[std::make_tuple(i, j)] = poly;
+    }
+    else {
+      if(giantTs.find(deg) == giantTs.end()) { // if not deg in giantTs
+        //giantTs[deg] = 2* giantTs[deg//2] * giantTs[deg//2] + -1
+        mlir::Value preValue = giantTs[deg/2];
+        mlir::Value two_preValue = builder.create<hecate::earth::MulOp>(loc, preValue, two);
+        mlir::Value two_ppreValue = builder.create<hecate::earth::MulOp>(loc, two_preValue, preValue);
+        giantTs[deg] = builder.create<hecate::earth::AddOp>(loc, two_ppreValue, minus_one);
+
+      }
+      //tmpPoly[(i,j)] = tmpPoly[(i+1, 2*j+1)] * giantTs[deg] + tmpPoly[(i+1, 2*j)]
+      mlir::Value value1 = tmpPoly[std::make_tuple(i+1, 2*j+1)];
+      mlir::Value value2 = tmpPoly[std::make_tuple(i+1, 2*j)];
+      mlir::Value tmpPoly_giant = builder.create<hecate::earth::MulOp>(loc, value1, giantTs[deg]);
+      mlir::Value result = builder.create<hecate::earth::AddOp>(loc, tmpPoly_giant, value2);
+      tmpPoly[std::make_tuple(i, j)] = result;
+    }
+  }
+  return tmpPoly[std::make_tuple(0, 0)];
 }

@@ -11,6 +11,7 @@
 #include "llvm/Support/Debug.h"
 #include <fstream>
 #include <random>
+#include <iostream>
 
 namespace hecate {
 namespace earth {
@@ -45,12 +46,25 @@ struct DummyTestPass
     std::vector<double> outputs;
     outputs = poly_test.GSBS_check(inputs);
     
+    std::cout<<"Done"<<std::endl;
+    
+    auto &&block = func.getBody().front();
+    auto &&operations = block.getOperations();
+    for(auto &&op : operations) {
+      // Temporarily convert mulop operation(0) to creating GSBS for test
+      if (auto mop = dyn_cast<hecate::earth::MulOp>(op)) {
+        builder.setInsertionPoint(mop);
+        auto newop = poly_test.GSBS_createHEOps(builder, mop.getLoc(), mop.getOperand(0));
+        mop->setOperand(0, newop);
+      }
+    }
     /*
-    hecate::PolynomialAnalysis poly_test2;
-    poly_test2.GenPoly_Test(13);
-    poly_test2.GSBS();
-    poly_test.GSBS();
+    func.walk([&](hecate::earth::MulOp op) {
+      op->getLoc().dump();
+      poly_test.GSBS_createHEOps(builder, op->getLoc(), op.getResult());
+    });
     */
+    std::cout<<"Done"<<std::endl;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

@@ -4,6 +4,9 @@
 
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "hecate/Dialect/Earth/Tools/Chebyshev.h"
+#include "hecate/Dialect/Earth/Transforms/Common.h"
+#include "hecate/Dialect/Earth/Transforms/Passes.h"
+
 #include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
@@ -31,8 +34,10 @@ public:
   void Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff);
   std::vector<double> GSBS_check(std::vector<double> input);
   //int64_t GSBS_check();
-  int64_t GSBS_createHEOps(mlir::RankedTensorType input);
-  int64_t GSBS_createHEOps();
+  //int64_t GSBS_createHEOps(mlir::RankedTensorType input);
+  //int64_t GSBS_createHEOps();
+  //void GSBS_createHEOps(mlir::OpBuilder &builder, mlir::Location loc, hecate::earth::CipherType input);
+  mlir::Value GSBS_createHEOps(mlir::OpBuilder &builder, mlir::Location loc, mlir::Value input);
 private:
   int length = 16;
   float scale = 1.0;
