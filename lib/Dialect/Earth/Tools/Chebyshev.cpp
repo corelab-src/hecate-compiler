@@ -14,211 +14,197 @@
 #include <algorithm>
 #include <variant>
 
+// ref : https://github.com/numpy/numpy/blob/v2.1.0/numpy/polynomial/chebyshev.py
+
 using namespace hecate;
 
+hecate::ChebyshevPoly::ChebyshevPoly(){};
 hecate::ChebyshevPoly::ChebyshevPoly(const std::vector<double>& coeff) : coefficients(coeff) {}
 
-std::vector<std::vector<double>> hecate::ChebyshevPoly::firstkind(int n) {
-  /* If the model uses chebyshev calculation many times, 
-     it is better to save a answer result */
-  std::vector<std::vector<double>> Tn(n+1);
-  // T0(x) = 1
-  Tn[0]={1};
-  if(n==0) {
-    return Tn;
+std::vector<double> hecate::ChebyshevPoly::chebyshev_to_zseries(const std::vector<double>& coeffs) {
+  size_t n = coeffs.size();
+  std::vector<double> zs(2*n-1, 0.0);
+  for (size_t i=0; i<n; i++) {
+    zs[n-1+i] += coeffs[i]/2.0;
+    zs[n-1-i] += coeffs[i]/2.0;
   }
-  Tn[1]={0, 1}; // T1(x)=x
-       
-  for (int k=2; k<=n; k++) {
-    std::vector<double> Tk(Tn[k-1].size()+1, 0.0);
-    // Tn(x) = 2 * x * T(n-1)(x) - T(n-2)(x)
-    for (size_t j=0;j<Tn[k-1].size(); j++) {
-      Tk[j+1] += 2 * Tn[k-1][j];
-    }
-    for (size_t j=0; j<Tn[k-2].size();j++) {
-      Tk[j] -= Tn[k-2][j];
-    }
-    Tn[k] = Tk;
-  }  
-  return Tn;
+  return zs;
 }
 
-std::vector<double> hecate::ChebyshevPoly::secondkind(int n) {
-  std::vector<double> Un(n+1, 0.0);
-  // U0(x) = 1
-  if(n==0) {
-    Un[0]=1;
-  }
-  else if(n==1) {
-    Un[0]=0; 
-    Un[1]=2; // U1(x)=2x
-  }
-  else {
-    std::vector<double> U0 = {1};
-    std::vector<double> U1 = {0, 2};
-    for (int k=2; k<=n; k++) {
-      std::vector<double> Uk(k+1, 0.0);
-      // Un(x) = 2 * x * U(n-1)(x) - U(n-2)(x)
-      for (size_t j=0;j<U1.size(); j++) {
-        Uk[j+1] += 2 * U1[j];
-      }
-      for (size_t j=0; j<U0.size();j++) {
-        Uk[j] -= U0[j];
-      }
-      U0 = U1;
-      U1 = Uk;
-      Un = Uk;
+std::vector<double> ChebyshevPoly::zseries_to_chebyshev(const std::vector<double>& zs) {
+  size_t n = (zs.size()+1)/2;
+  std::vector<double> coeffs(n, 0.0);
+  for (size_t i=0; i< n; i++) {
+    coeffs[i] = zs[n-1+i];
+    if (i>0) {
+      coeffs[i] *= 2.0;
     }
   }
-  return Un;
+  return coeffs;
 }
-
-std::vector<double> hecate::ChebyshevPoly::chebyshev_to_monomial(const std::vector<double>& coeffs) {
-  int N = coeffs.size()-1;
-  std::vector<std::vector<double>> monomial_basis = firstkind(N);
-  std::vector<double> monomial_coeffs(monomial_basis[N].size(), 0.0);
-
-  for (int n=0; n<=N; n++) {
-    double c = coeffs[n];
-    const std::vector<double>& Tn = monomial_basis[n];
-    for (size_t k=0; k<Tn.size(); k++) {
-      monomial_coeffs[k] += c * Tn[k];
-    }
-  }
-  return monomial_coeffs;
-}
-
-
-
-std::vector<double> hecate::ChebyshevPoly::monomial_to_chebyshev(const std::vector<double>& monCoeffs, int degree) {
-    const int N = degree;
-    const int numPoints = 2 * N + 1; // Number of sample points
-    std::vector<double> chebCoeffs(N + 1, 0.0);
-
-    // Chebyshev nodes
-    std::vector<double> x(numPoints);
-    for (int k = 0; k < numPoints; ++k) {
-        x[k] = std::cos(M_PI * (k + 0.5) / numPoints);
-    }
-
-    // Evaluate monomial polynomial at Chebyshev nodes
-    std::vector<double> y(numPoints, 0.0);
-    for (int k = 0; k < numPoints; ++k) {
-        double xi = x[k];
-        double xi_pow = 1.0;
-        for (size_t i = 0; i < monCoeffs.size(); ++i) {
-            y[k] += monCoeffs[i] * xi_pow;
-            xi_pow *= xi;
-        }
-    }
-
-    // Compute Chebyshev coefficients using the discrete orthogonality
-    for (int n = 0; n <= N; ++n) {
-        double sum = 0.0;
-        for (int k = 0; k < numPoints; ++k) {
-            sum += y[k] * std::cos(n * M_PI * (k + 0.5) / numPoints);
-        }
-        chebCoeffs[n] = (2.0 / numPoints) * sum;
-    }
-    chebCoeffs[0] *= 0.5; // Adjust the first coefficient
-
-    return chebCoeffs;
-}
-
-
 
 void hecate::ChebyshevPoly::poly_divide(const std::vector<double>& numerator, 
                                         const std::vector<double>& denominator,
-                                        std::vector<double>& quotient,
+                                        std::vector<double>& quotient, 
                                         std::vector<double>& remainder) {
-  std::vector<double> num = numerator;
-  std::vector<double> den = denominator;
+  size_t lc1 = numerator.size();
+  size_t lc2 = denominator.size();
 
-  int n = num.size() - 1;
-  int m = den.size() - 1;
-
-  if (m < 0) {
-    std::cerr<<"Division by zero polynomial"<<std::endl;
+  if (lc2 == 1) {
+    quotient = numerator;
+    for (auto& value : quotient) {
+      value /= denominator[0];
+    }
+    remainder = {0.0};
+    return;
   }
 
-  quotient.assign(std::max(0, n-m + 1), 0.0);
-  for (int i = n-m; i >= 0; --i) {
-    quotient[i] = num[m+i]/den[m];
-    for (int j = m+i; j >= i; --j) {
-      num[j] -= quotient[i]*den[j-i];
+  if (lc1 < lc2) {
+    quotient = {0.0};
+    remainder = numerator;
+    return;
+  }
+
+  std::vector<double> numerator_copy = numerator;
+  std::vector<double> denominator_copy = denominator;
+  size_t dlen = lc1 - lc2;
+  double scl = denominator_copy[0];
+  for (auto& value : denominator_copy) {
+    value /= scl;
+  }
+  quotient.resize(dlen+1, 0.0);
+
+  size_t i = 0;
+  size_t j = dlen;
+  while (i<=j) {
+    double r = numerator_copy[i];
+    quotient[i] = r;
+    quotient[dlen-i] = r;
+    for (size_t k=0; k< lc2; k++) {
+      numerator_copy[i+k] -= r*denominator_copy[k];
+      numerator_copy[j+k] -= r*denominator_copy[k];
+    }
+    i=i+1;;
+    if (j>0) {
+      j=j-1;
+    }
+    else {
+      break;
     }
   }
-    
-  // The remainder is the lower-degree part of num
-  remainder.assign(num.begin(), num.begin()+m);
+
+  for (auto& val : quotient) {
+    val /= scl;
+  }
+
+  remainder.assign(numerator_copy.begin()+i, numerator_copy.begin()+i+lc2-1);
 }
 
-//ChebyshevPoly hecate::ChebyshevPoly::divide_quotient(const ChebyshevPoly& denominator_cheby) {
 ChebyshevPoly hecate::ChebyshevPoly::operator/(const ChebyshevPoly& denominator_cheby) {
-    /* wrong divide!!! must change for chebyshev ******/
-  
   /*
   std::cout<<"numerator_cheby print"<<std::endl;
   print();
   std::cout<<"denominator_cheby print"<<denominator_cheby.coefficients.size()<<std::endl;
   denominator_cheby.print();
   */
+  if (denominator_cheby.coefficients.empty()) {
+    std::cerr<<"Division by zero polynomial"<<std::endl;
+  }
 
-  std::vector<double> numerator = chebyshev_to_monomial(coefficients);
-  std::vector<double> denominator = chebyshev_to_monomial(denominator_cheby.coefficients);
+  size_t lc1 = coefficients.size();
+  size_t lc2 = denominator_cheby.coefficients.size();
 
-  std::vector<double> quotient;
-  std::vector<double> remainder;
-  poly_divide(numerator, denominator, quotient, remainder);
+  if (lc1 < lc2) {
+    ChebyshevPoly quotient = ChebyshevPoly({0.0});
+    return quotient;
+  } 
+  else if (lc2 == 1) {
+    std::vector<double> q = coefficients;
+    for (auto& val : q) {
+      val /= denominator_cheby.coefficients[0];
+    }
+    ChebyshevPoly quotient = ChebyshevPoly(q);
+    return quotient;
+  }
+
+  std::vector<double> numerator = chebyshev_to_zseries(coefficients);
+  std::vector<double> denominator = chebyshev_to_zseries(denominator_cheby.coefficients);
+
+  std::vector<double> z_quotient;
+  std::vector<double> z_remainder;
+  poly_divide(numerator, denominator, z_quotient, z_remainder);
+
+  std::vector<double> c_quotient = zseries_to_chebyshev(z_quotient);
+  //std::vector<double> c_remainder = zseries_to_chebyshev(z_remainder);
   
-  // Convert quotient back to Chebyshev
-  ChebyshevPoly quotient_value = ChebyshevPoly(monomial_to_chebyshev(quotient, quotient.size()-1));
-  //ChebyshevPoly remainder_value = ChebyshevPoly(monomial_to_chebyshev(remainder, remainder.size()-1));
+  ChebyshevPoly quotient = ChebyshevPoly(c_quotient);
+  //ChebyshevPoly remainder = ChebyshevPoly(c_remainder);
 
-  /*
-  std::cout<<"numerator print"<<std::endl;
-  ChebyshevPoly(numerator).print();
-  std::cout<<"denominator print"<<std::endl;
-  ChebyshevPoly(denominator).print();
-  std::cout<<"quotient print"<<std::endl;
-  ChebyshevPoly(quotient).print();
+
+  //std::cout<<"numerator print"<<std::endl;
+  //ChebyshevPoly(numerator).print();
+  //std::cout<<"denominator print"<<std::endl;
+  //ChebyshevPoly(denominator).print();
+  //std::cout<<"quotient print"<<std::endl;
+  //ChebyshevPoly(z_quotient).print();
   std::cout<<"quotient_cheby print"<<std::endl;
-  quotient_value.print();
-  std::cout<<"remainder print"<<std::endl;
-  ChebyshevPoly(remainder).print();
-  std::cout<<"remainder_cheby print"<<std::endl;
-  remainder_value.print();
-  */
-  return quotient_value;
-  
+  quotient.print();
+  //std::cout<<"remainder print"<<std::endl;
+  //ChebyshevPoly(z_remainder).print();
+  //std::cout<<"remainder_cheby print"<<std::endl;
+  //remainder.print();
+
+  return quotient;
 }
-  
-//ChebyshevPoly hecate::ChebyshevPoly::divide_remainder(const ChebyshevPoly& denominator_cheby) {
+
 ChebyshevPoly hecate::ChebyshevPoly::operator%(const ChebyshevPoly& denominator_cheby) {
-  /* wrong divide!!! must change for chebyshev ******/
-  std::vector<double> numerator = chebyshev_to_monomial(coefficients);
-  std::vector<double> denominator = chebyshev_to_monomial(denominator_cheby.coefficients);
+  if (denominator_cheby.coefficients.empty()) {
+    std::cerr<<"Division by zero polynomial"<<std::endl;
+  }
 
-  std::vector<double> quotient;
-  std::vector<double> remainder;
-  poly_divide(numerator, denominator, quotient, remainder);
+  size_t lc1 = coefficients.size();
+  size_t lc2 = denominator_cheby.coefficients.size();
+
+  if (lc1 < lc2) {
+    ChebyshevPoly remainder = ChebyshevPoly(coefficients);
+    return remainder;
+  } 
+  else if (lc2 == 1) {
+    ChebyshevPoly remainder = ChebyshevPoly({0.0});
+    return remainder;
+  }
+
+  std::vector<double> numerator = chebyshev_to_zseries(coefficients);
+  std::vector<double> denominator = chebyshev_to_zseries(denominator_cheby.coefficients);
+
+  std::vector<double> z_quotient;
+  std::vector<double> z_remainder;
+  poly_divide(numerator, denominator, z_quotient, z_remainder);
+
+  std::vector<double> c_remainder = zseries_to_chebyshev(z_remainder);
   
-  // Convert quotient back to Chebyshev
-  ChebyshevPoly remainder_value = ChebyshevPoly(monomial_to_chebyshev(remainder, remainder.size()-1));
+  ChebyshevPoly remainder = ChebyshevPoly(c_remainder);
 
-  return remainder_value;
+  return remainder;
 }
 
 int hecate::ChebyshevPoly::coeff_size() {
-    return coefficients.size();
+  return coefficients.size();
 }
+
 double hecate::ChebyshevPoly::nth_coeff(int n) {
+  if (n < coefficients.size()) {
     return coefficients[n];
+  }
+  else {
+    return 0.0;
+  }
 }
 
 void hecate::ChebyshevPoly::print() const {
-    for (const auto& c : coefficients) {
-      std::cout<<c<<" ";
-    }
-    std::cout<<std::endl;
+  for (const auto& c : coefficients) {
+    std::cout << c << " ";
+  }
+  std::cout << std::endl;
 }
+
