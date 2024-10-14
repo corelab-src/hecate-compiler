@@ -133,6 +133,7 @@ void hecate::ChebyshevPoly::poly_divide(const std::vector<double>& numerator,
                                         std::vector<double>& remainder) {
   std::vector<double> num = numerator;
   std::vector<double> den = denominator;
+
   int n = num.size() - 1;
   int m = den.size() - 1;
 
@@ -152,10 +153,12 @@ void hecate::ChebyshevPoly::poly_divide(const std::vector<double>& numerator,
   remainder.assign(num.begin(), num.begin()+m);
 }
 
-ChebyshevPoly hecate::ChebyshevPoly::divide_quotient(const ChebyshevPoly& denominator_cheby) {
+//ChebyshevPoly hecate::ChebyshevPoly::divide_quotient(const ChebyshevPoly& denominator_cheby) {
+ChebyshevPoly hecate::ChebyshevPoly::operator/(const ChebyshevPoly& denominator_cheby) {
     /* wrong divide!!! must change for chebyshev ******/
+  
   /*
-  std::cout<<"numerator print"<<std::endl;
+  std::cout<<"numerator_cheby print"<<std::endl;
   print();
   std::cout<<"denominator_cheby print"<<denominator_cheby.coefficients.size()<<std::endl;
   denominator_cheby.print();
@@ -190,7 +193,8 @@ ChebyshevPoly hecate::ChebyshevPoly::divide_quotient(const ChebyshevPoly& denomi
   
 }
   
-ChebyshevPoly hecate::ChebyshevPoly::divide_remainder(const ChebyshevPoly& denominator_cheby) {
+//ChebyshevPoly hecate::ChebyshevPoly::divide_remainder(const ChebyshevPoly& denominator_cheby) {
+ChebyshevPoly hecate::ChebyshevPoly::operator%(const ChebyshevPoly& denominator_cheby) {
   /* wrong divide!!! must change for chebyshev ******/
   std::vector<double> numerator = chebyshev_to_monomial(coefficients);
   std::vector<double> denominator = chebyshev_to_monomial(denominator_cheby.coefficients);

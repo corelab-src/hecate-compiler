@@ -172,32 +172,7 @@ std::vector<std::string> hecate::GenPoly::LoadVar(const std::string &filename) {
 void hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::vector<double> coeff) {
   std::cout<<"Chebyshev"<<std::endl;
   ChebyshevPoly cheby_mish(coeff);
-  std::cout<<"chebyshev test"<<std::endl;
-  /*
-  std::vector<double> numerator = {-2, -8, 4, 12};
-  std::vector<double> denominator = {-2, 2, 6};
-  std::vector<double> quotient;
-  std::vector<double> remainder;
-  cheby_mish.poly_divide(numerator, denominator, quotient, remainder);
-  std::cout<<"quotient"<<std::endl;
-  for (size_t i=0;i<quotient.size();i++) {
-    std::cout<<quotient[i]<<" ";
-  }
-  std::cout<<std::endl;
-  std::cout<<"remainder"<<std::endl;
-  for (size_t i=0;i<remainder.size();i++) {
-    std::cout<<remainder[i]<<" ";
-  }
-  std::cout<<std::endl;
-
-  //std::vector<double> a = {0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4,2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8,3.9,4.0};
-  std::vector<double> a = {0.5,0.635594,-3.00041e-29,-0.209156,-2.99169e-29,0.12233,-2.9772e-29,-0.0841373,-2.95697e-29,0.0622782,-2.93108e-29};
-  std::vector<double> b = {0.1,0.2,0.3,0.4,0.5};
-  ChebyshevPoly aa(a);
-  ChebyshevPoly bb(b);
-  std::cout<<"TESTSTESTETST"<<std::endl;
-  aa.divide_quotient(bb);
-  */
+  
   std::vector<std::vector<std::variant<ChebyshevPoly, int>>> chebyshevPolys;
   
   std::cout<<"Chebyshev Poly"<<std::endl;
@@ -235,8 +210,10 @@ void hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::ve
             std::cerr<<"push_back error "<<arg<<std::endl;
           }
           else if constexpr (std::is_same_v<std::decay_t<decltype(arg)>, ChebyshevPoly>) {
-            chebyshevPolys[i+1][2*j+1]=arg.divide_quotient(divisor_poly);
-            chebyshevPolys[i+1][2*j]=arg.divide_remainder(divisor_poly);
+            //chebyshevPolys[i+1][2*j+1]=arg.divide_quotient(divisor_poly);
+            //chebyshevPolys[i+1][2*j]=arg.divide_remainder(divisor_poly);
+            chebyshevPolys[i+1][2*j+1]=arg/divisor_poly;
+            chebyshevPolys[i+1][2*j]=arg%divisor_poly;
           }
         }, chebyshevPolys[i][j]);
         
@@ -270,48 +247,67 @@ void hecate::GenPoly::Calc_Chebyshev(std::vector<std::vector<int>> tree, std::ve
   */
 }
 
-std::vector<double> vector_add(std::vector<double> input, int rhs) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] + rhs;
+template <typename T, typename U>
+std::vector<T> vector_add(const std::vector<T>& input, const U& rhs) {
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] + rhs;
   }
-  return input;
-}
-std::vector<double> vector_add(std::vector<double> input, std::vector<double> rhs) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] + rhs[i];
-  }
-  return input;
-}
-std::vector<double> vector_sub(std::vector<double> input, int rhs) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] - rhs;
-  }
-  return input;
-}
-std::vector<double> vector_sub(std::vector<double> input, std::vector<double> rhs) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] - rhs[i];
-  }
-  return input;
-}
-std::vector<double> vector_mult(std::vector<double> input, int multiply) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] * multiply;
-  }
-  return input;
-}
-std::vector<double> vector_mult(std::vector<double> input, double multiply) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] * multiply;
-  }
-  return input;
+  return result;
 }
 
-std::vector<double> vector_mult(std::vector<double> input, std::vector<double> multiply) {
-  for (size_t i=0; i<input.size(); i++) {
-    input[i] = input[i] * multiply[i];
+template <typename T>
+std::vector<T> vector_add(const std::vector<T>& input, const std::vector<T>& rhs) {
+  if (input.size() != rhs.size()) {
+    std::cerr<<"Vectors must be of the same size."<<std::endl;
   }
-  return input;
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] + rhs[i];
+  }
+  return result;
+}
+
+template <typename T, typename U>
+std::vector<T> vector_sub(const std::vector<T>& input, const U& rhs) {
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] - rhs;
+  }
+  return result;
+}
+
+template <typename T>
+std::vector<T> vector_sub(const std::vector<T>& input, const std::vector<T>& rhs) {
+  if (input.size() != rhs.size()) {
+    std::cerr<<"Vectors must be of the same size."<<std::endl;
+  }
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] - rhs[i];
+  }
+  return result;
+}
+
+template <typename T, typename U>
+std::vector<T> vector_mult(const std::vector<T>& input, const U& rhs) {
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] * rhs;
+  }
+  return result;
+}
+
+template <typename T>
+std::vector<T> vector_mult(const std::vector<T>& input, const std::vector<T>& rhs) {
+  if (input.size() != rhs.size()) {
+    std::cerr<<"Vectors must be of the same size."<<std::endl;
+  }
+  std::vector<T> result(input.size());
+  for (size_t i = 0; i < input.size(); ++i) {
+    result[i] = input[i] * rhs[i];
+  }
+  return result;
 }
 
 void vector_print(std::vector<double> input) {
@@ -435,6 +431,7 @@ mlir::Value hecate::GenPoly::GSBS_createHEOps(mlir::OpBuilder &builder, mlir::Lo
   //auto one = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({1.0}));
   //one.setValueAttr(builder.getI64IntegerAttr(11)); // Temporarily without ElideConstant. Need to Fix!!!
   auto two = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({2.0}));
+  
   two.setValueAttr(builder.getI64IntegerAttr(22)); // Temporarily without ElideConstant. Need to Fix!!!
   auto minus_one = builder.create<hecate::earth::ConstantOp>(loc, llvm::ArrayRef<double>({-1.0}));
   minus_one.setValueAttr(builder.getI64IntegerAttr(33)); // Temporarily without ElideConstant. Need to Fix!!!
@@ -516,4 +513,6 @@ mlir::Value hecate::GenPoly::GSBS_createHEOps(mlir::OpBuilder &builder, mlir::Lo
     }
   }
   return tmpPoly[std::make_tuple(0, 0)];
+  
+  //return two;
 }

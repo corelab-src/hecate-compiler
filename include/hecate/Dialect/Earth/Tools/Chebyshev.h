@@ -25,8 +25,11 @@ public:
                    std::vector<double>& quotient,
                    std::vector<double>& remainder);
 
-  ChebyshevPoly divide_quotient(const ChebyshevPoly& denominator_cheby);
-  ChebyshevPoly divide_remainder(const ChebyshevPoly& denominator_cheby);
+  //ChebyshevPoly divide_quotient(const ChebyshevPoly& denominator_cheby);
+  //ChebyshevPoly divide_remainder(const ChebyshevPoly& denominator_cheby);
+  ChebyshevPoly operator/(const ChebyshevPoly& denominator_cheby);
+  ChebyshevPoly operator%(const ChebyshevPoly& denominator_cheby);
+  
   void print() const;
   int coeff_size();
   double nth_coeff(int n);
