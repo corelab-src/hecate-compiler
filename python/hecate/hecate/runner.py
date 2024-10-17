@@ -26,6 +26,7 @@ if not hecateBuild.is_dir() : # We expect that this is library path
 
 libpath = hecateBuild / "lib"
 lw = ctypes.CDLL(libpath / "libSEAL_HEVM.so")
+lw = ctypes.CDLL(libpath / "libHEONGPU_HEVM.so")
 # lw = ctypes.CDLL(libpath / "libHEAAN_HEVM.so")
 # lw = ctypes.CDLL(libpath / "libTOY_HEVM.so")
 os.environ['PATH'] = str(libpath) + os.pathsep + os.environ['PATH']
@@ -78,6 +79,8 @@ def reinit_lw():
         lw = ctypes.CDLL(libpath / "libHEAAN_HEVM.so")
     elif(run_library == "OPENFHE"):
         lw = ctypes.CDLL(libpath / "libOPENFHE_HEVM.so")
+    elif(run_library == "HEONGPU"):
+        lw = ctypes.CDLL(libpath / "libHEONGPU_HEVM.so")
     elif(run_library == "TOY"):
         lw = ctypes.CDLL(libpath / "libTOY_HEVM.so")
 
@@ -126,6 +129,7 @@ def setLibnHW (argv=None):
     LibnHW_mapping = {
             "HEAAN" : ["GPU", "CPU"],
             "SEAL" : ["CPU"],
+            "HEONGPU" : ["GPU"],
             # "TOY" : ["CPU", "GPU"],
             }
     HWnLib_mapping = {}
@@ -245,6 +249,10 @@ class HEVM :
         elif(run_library == "SEAL"):
             result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
             data = np.zeros(  1 << 14, dtype=np.float64)
+        elif(run_library == "HEONGPU"):
+            result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
+            data = np.zeros(  1 << 14, dtype=np.float64)
+ 
         for i in range(self.reslen) :
             # carr = npcl.as_ctypes(data) 
             carr =  data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
