@@ -113,6 +113,7 @@ void ConstData::save(const std::string &filename, size_t startIndex) {
     outFile.write(reinterpret_cast<const char *>(arr.data()),
                   arr.size() * sizeof(double));
   }
+  std::cout << filename << '\n';
 }
 
 // Overload the subscript operator to return a reference to
