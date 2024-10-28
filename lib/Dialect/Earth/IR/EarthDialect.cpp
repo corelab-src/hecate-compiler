@@ -280,6 +280,59 @@ void hecate::earth::BootstrapOp::getCanonicalizationPatterns(
     return ::mlir::failure();
 }
 
+void hecate::earth::ConjugateOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<exceedBootstrapBound>(context); */
+}
+void hecate::earth::MultIntOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<exceedBootstrapBound>(context); */
+}
+
+void hecate::earth::LevelRecoverOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<exceedBootstrapBound>(context); */
+}
+
+::mlir::LogicalResult hecate::earth::LevelRecoverOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = LevelRecoverOpAdaptor(operands, attributes, properties, regions);
+  auto lScale = earth::getScaleType(op.getValue());
+  // accumulated scale > maximum scale limit
+  if (lScale.getLevel() <=
+      hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound) {
+    inferredReturnTypes.push_back(lScale.switchLevel(op.getTargetLevel()));
+    return ::mlir::success();
+  } else
+    return ::mlir::failure();
+}
+
+void hecate::earth::ScaleCastOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {
+  /* patterns.add<exceedBootstrapBound>(context); */
+}
+
+::mlir::LogicalResult hecate::earth::ScaleCastOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  auto op = ScaleCastOpAdaptor(operands, attributes, properties, regions);
+  auto lScale = earth::getScaleType(op.getValue());
+  // accumulated scale > maximum scale limit
+  if (lScale.getLevel() <=
+      hecate::earth::EarthDialect::bootstrapLevelUpperBound -
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound) {
+    inferredReturnTypes.push_back(lScale.switchScale(op.getInteger()));
+    return ::mlir::success();
+  } else
+    return ::mlir::failure();
+}
+
 void hecate::earth::AddOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   patterns.add<AddZeroPattern>(context);
@@ -308,7 +361,7 @@ void hecate::earth::AddOp::getCanonicalizationPatterns(
 void hecate::earth::MulOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   /* patterns.add<MulZeroPattern, MulOnePattern, NegMulPattern>(context); */
-  patterns.add<MulOnePattern, NegMulPattern>(context);
+  patterns.add<MulOnePattern, NegMulPattern, MulTwoPattern>(context);
 }
 
 ::mlir::LogicalResult hecate::earth::MulOp::inferReturnTypes(

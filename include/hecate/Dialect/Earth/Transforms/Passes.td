@@ -206,6 +206,13 @@ def CodeSegmentation : Pass<"code-segmentation", "::mlir::func::FuncOp"> {
     This pass make code segments by cutting edges of code .
   }];
 }
+
+def BootstrappingLowering : Pass<"boot-lowering", "::mlir::func::FuncOp"> {
+  let summary = "Lowering bootstrapping operations";
+  let description = [{
+    Lowering the bootstrap operations with the arithmetic operations.
+  }];
+}
 /* def ScaleManagementStructuring : Pass<> */
 
 

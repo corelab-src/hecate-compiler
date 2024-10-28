@@ -21,6 +21,7 @@ add_mlir_dialect_library(EarthTransforms
  SMUEmbedding.cpp
  ErrorEstimator.cpp
  LatencyEstimator.cpp
+ BootstrappingLowering.cpp
  DummyTest.cpp
  DEPENDS
  HecateEarthTransformsIncGen

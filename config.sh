@@ -56,11 +56,11 @@ hopt --$1 --ckks-config="$HECATE/profiled_$4_$5.json" --waterline=$2 $HECATE/exa
 }
 
 hc-opt-test() {
-hopt-silent $1 $2 $3 && hc-test $1 $2 $3
+hopt-silent $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
 }
 
 hc-opt-test-timing() {
-hopt-timing-only $1 $2 $3 && hc-test $1 $2 $3
+hopt-timing-only $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
 }
 
 hopt-lib-hw() {
