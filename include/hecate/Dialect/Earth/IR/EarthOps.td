@@ -155,6 +155,19 @@ def ConstantOp : Earth_Op<"constant",[]> {
               $_builder.getF64Type()),
             arr);
         build($_builder, $_state, denseValues, $_builder.getF64FloatAttr(rms));
+      }]>, OpBuilder<(ins "llvm::ArrayRef<std::complex<double>>": $arr), 
+      [{
+      double rms = 0.0;
+      for (auto && dval : arr){
+        rms += std::norm(dval);
+      }
+      rms /= arr.size();
+      rms = std::sqrt(rms);
+      auto denseValues = mlir::DenseElementsAttr::get(
+          mlir::RankedTensorType::get(llvm::SmallVector<int64_t, 1>{static_cast<long>(arr.size())},
+            mlir::ComplexType::get($_builder.getF64Type())),
+          arr);
+      build($_builder, $_state, denseValues, $_builder.getF64FloatAttr(rms));
       }]>];
 }
 
@@ -284,6 +297,30 @@ def UpscaleOp : Unary_Earth_Op<"upscale"> {
   let results = (outs HETensor);
   let hasCanonicalizer = 1;
 }
+
+
+def LevelRecoverOp: Unary_Earth_Op<"level_recover">  {
+  let arguments = (ins HETensor:$value, I64Attr:$target_level);
+  let results = (outs HETensor);
+  let hasCanonicalizer = 1;
+}
+
+def ConjugateOp: Unary_Earth_Op<"conjugate", [SameOperandsAndResultType]>  {
+  let arguments = (ins HETensor:$value, I64Attr:$target_level);
+  let results = (outs HETensor);
+  let hasCanonicalizer = 1;
+}
+def MultIntOp: Unary_Earth_Op<"mult_int", [SameOperandsAndResultType]>  {
+  let arguments = (ins HETensor:$value, I64Attr:$integer);
+  let results = (outs HETensor);
+  let hasCanonicalizer = 1;
+}
+def ScaleCastOp: Unary_Earth_Op<"scale_cast">  {
+  let arguments = (ins HETensor:$value, I64Attr:$integer);
+  let results = (outs HETensor);
+  let hasCanonicalizer = 1;
+}
+
 
 def ApplyScheduleOp : Unary_Earth_Op<"apply_schedule", [SameOperandsAndResultType]> {
   let arguments = (ins HETensor:$value, I64Attr:$scaleFactor, I64Attr:$levelFactor);

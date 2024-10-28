@@ -12,6 +12,8 @@ def isZero : Constraint<CPred<"$0.dyn_cast<IntegerAttr>().getInt() == 0"> , "che
 def isAllZero : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == 0;})">, "check all zero">;
 def isAllOne : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == 1.0;})">, "check all one">;
 def isAllMinusOne : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == -1.0;})">, "check all minus one">;
+def isIntegerDenseAttr : Constraint<CPred<"$0.isa<DenseElementsAttr>() && && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == double(int64_t(d));})">, "check integer dense attr">;
+def isAllTwo : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == 2.0;})">, "check integer dense attr">;
 def geZeroAfterRescale : Constraint<CPred<"$0.dyn_cast<IntegerAttr>().getInt() - hecate::earth::EarthDialect::rescalingFactor >= 0"> , "check zero">;
 def singleUser : Constraint<CPred<"$0.hasOneUse()">, "single user">;
 def structureNotFixed : Constraint<CPred<"!$0.getDefiningOp()->getAttr(\"sm_fixed\")">, "scale management structure is not fixed">;
@@ -21,6 +23,7 @@ def ZeroModswitchPattern : Pat<(ModswitchOp $arg, $val), (replaceWithValue $arg)
 def AddZeroPattern : Pat<(AddOp (either $lhs, (ConstantOp $val, $dat2)) ), (replaceWithValue $lhs), [(isAllZero $val)]>;
 def MulZeroPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (replaceWithValue $res), [(isAllZero $val)]>;
 def MulOnePattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (replaceWithValue $lhs), [(isAllOne $val)]>;
+def MulTwoPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (AddOp $lhs, $lhs), [(isAllTwo $val)]>;
 def NegMulPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (NegateOp $lhs), [(isAllMinusOne $val)]>;
 
 
