@@ -1,26 +1,26 @@
+#include <HEonGPU-1.0/heongpu.cuh>
 #include <any>
 #include <cassert>
 #include <chrono>
-#include <context.cuh>
 #include <cuda_runtime.h>
 #include <fstream>
-#include <hostvector.cuh>
 #include <iostream>
 
-#include <HEonGPU-1.0/heongpu.cuh>
 #include <cmath>
 #include <map>
 
 #include <memory>
+#include <omp.h>
 #include <publickey.cuh>
 #include <secretkey.cuh>
 #include <type_traits>
 #include <vector>
 
 #include "hecate/Support/HEVMHeader.h"
+#include "hecate/Support/Support.h"
 
 struct HEONGPU_HEVM {
-  std::vector<std::vector<double>> buffer;
+  hecate::ConstData constData;
   HEVMHeader header;
   ConfigBody config;
   /* std::vector<uint64_t> config_dats; */
@@ -75,15 +75,15 @@ struct HEONGPU_HEVM {
 
     heongpu::Parameters context(
         heongpu::scheme_type::ckks,
-        heongpu::keyswitching_type::KEYSWITHING_METHOD_I,
+        heongpu::keyswitching_type::KEYSWITHING_METHOD_II,
         heongpu::sec_level_type::sec128);
 
     context.set_poly_modulus_degree(1LL << N);
     std::vector<int> coeffs;
-    for (int i = 1; i < L; i++) {
-      coeffs.push_back(60);
+    for (int i = 0; i < L; i++) {
+      coeffs.push_back(50);
     }
-    context.set_coeff_modulus(coeffs, {60});
+    context.set_coeff_modulus(coeffs, {50, 50});
 
     context.generate();
     heongpu::HEKeyGenerator keygen(context);
@@ -116,21 +116,7 @@ struct HEONGPU_HEVM {
 
   void loadConstants(char *name) {
     std::string sname(name);
-
-    std::ifstream iff(sname, std::ios::binary);
-    int64_t len;
-    iff.read((char *)&len, sizeof(int64_t));
-    buffer.resize(len);
-
-    for (size_t i = 0; i < len; i++) {
-      int64_t veclen;
-      iff.read((char *)&veclen, sizeof(int64_t));
-      std::vector<double> tmp;
-      tmp.resize(veclen);
-      iff.read((char *)tmp.data(), veclen * sizeof(double));
-      buffer[i] = tmp;
-    }
-    iff.close();
+    constData.load(sname);
   }
 
   void loadHEVM(char *name) {
@@ -182,9 +168,6 @@ struct HEONGPU_HEVM {
         if (debug) {
           std::cout << std::endl;
           std::cout << "encode \n";
-          /* std::cout << std::oct << i++ << " " << std::dec << j++ <<
-           * std::endl;
-           */
           std::cout << "opcode [" << op.opcode << "], dst [" << op.dst
                     << "], lhs [" << op.lhs << "], rhs [" << op.rhs << "]"
                     << std::endl;
@@ -192,7 +175,7 @@ struct HEONGPU_HEVM {
 
         encode_internal(plains[op.dst],
                         op.lhs == ((unsigned short)-1) ? identity
-                                                       : buffer[op.lhs],
+                                                       : constData[op.lhs],
                         op.rhs >> 10, op.rhs & 0x3FF);
       }
     }
@@ -221,6 +204,8 @@ struct HEONGPU_HEVM {
       std::cout << std::log2(ciphers[src].scale()) << std::endl;
     ciphers[dst] = ciphers[src];
     operators->rotate_rows_inplace(ciphers[dst], *galois_key, offset);
+    if (debug)
+      std::cout << std::log2(ciphers[dst].scale()) << std::endl;
   }
   void negate(int16_t dst, int16_t src) {
     if (debug)
@@ -402,11 +387,7 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   heongpu::Plaintext ptxt(*hevm->context);
   std::vector<double> dats(dat, dat + len);
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
-  std::vector<Data> tmp_ptxt(ptxt.plain_size());
-  /* ptxt.device_to_host(tmp_ptxt); */
-  /* cudaDeviceSynchronize(); */
-  /* std::cout << tmp_ptxt.data()[0] << '\n'; */
-  /* cudaDeviceSynchronize(); */
+  std::vector<Data> tmp_ptxt(ptxt.size());
   hevm->encryptor->encrypt(hevm->ciphers[i], ptxt);
 }
 void decrypt(void *vm, int64_t i, double *dat) {
@@ -419,7 +400,6 @@ void decrypt(void *vm, int64_t i, double *dat) {
   std::vector<double> msg(1LL << (HEONGPU_HEVM::N - 1), 0.0);
   hevm->encoder->decode(msg, ptxt);
   for (int i = 0; i < (1LL << (HEONGPU_HEVM::N - 1)); i++) {
-    /* for (size_t j = 0; j < msg.getSize(); j++) */
     dat[i] = msg[i];
   }
 }

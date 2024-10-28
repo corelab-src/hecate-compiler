@@ -82,6 +82,25 @@ cmake --build build
 sudo cmake --install build
 cd .. 
 ```
+### Install HEonGPU 
+```bash
+git clone git@git.corelab.or.kr:corelab/HEonGPU.git
+cd HEonGPU
+cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=86 
+cmake --build build
+sudo cmake --install build
+cd .. 
+```
+#### Optional : Install Directory  to maintain multiple versions or a debug build
+```bash
+git clone git@git.corelab.or.kr:corelab/HEonGPU.git
+cd HEonGPU
+cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=86 -DCMAKE_INSTALL_PREFIX=<HEON_INSTALL>
+cmake --build build
+sudo cmake --install build
+cd .. 
+```
+
 ### Build Hecate 
 ```bash
 git clone <this-repository>

@@ -63,7 +63,7 @@ find_package(MLIR REQUIRED CONFIG)
 find_package(SEAL 4.0 REQUIRED CONFIG)
 # find_package(HEaaN REQUIRED CONFIG)
 find_package(HEaaN)
-# find_package(HEonGPU)
+find_package(HEonGPU)
 find_package(OpenMP)
 
 # MLIR SETTING
