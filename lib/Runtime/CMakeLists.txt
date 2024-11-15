@@ -5,7 +5,7 @@ add_library (SEAL_HEVM
 target_link_libraries(SEAL_HEVM
  PUBLIC
  SEAL::seal
-  HecateSupport
+  ConstData
  )
 
 
@@ -15,7 +15,7 @@ add_library (HEAAN_HEVM
 target_link_libraries(HEAAN_HEVM
   PUBLIC
   HEaaN::HEaaN
-  HecateSupport
+  ConstData
   )
 
 add_library(HEONGPU_HEVM
@@ -26,7 +26,7 @@ target_link_libraries(HEONGPU_HEVM
 	PUBLIC
   HEonGPU::heongpu
   CUDA::cudart
-  HecateSupport
+  ConstData
   OpenMP::OpenMP_CXX
   )
 

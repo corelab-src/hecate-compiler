@@ -16,8 +16,8 @@
 #include <type_traits>
 #include <vector>
 
+#include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
-#include "hecate/Support/Support.h"
 
 struct HEONGPU_HEVM {
   hecate::ConstData constData;

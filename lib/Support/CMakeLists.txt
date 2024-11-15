@@ -1,4 +1,9 @@
 
+add_library (ConstData
+  STATIC
+  ConstData.cpp
+  )
+
 add_mlir_dialect_library (HecateSupport
   ConstData.cpp
   BootstrapGen.cpp
@@ -10,6 +15,7 @@ add_mlir_dialect_library (HecateSupport
  EarthDialect
  EarthAnalysis
  MLIRIR
+ ConstData
  # MLIRFuncDialect
  # MLIRSupport
  # MLIRIR
@@ -18,3 +24,5 @@ add_mlir_dialect_library (HecateSupport
  #  ${dialect_libs}
  #  ${conversion_libs}
   )
+
+

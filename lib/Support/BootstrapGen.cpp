@@ -186,8 +186,8 @@ mlir::Value dvMultGen(mlir::OpBuilder builder, mlir::Value X,
 
 // Function to perform ddMult (Diagonal Matrix-Matrix multiplication)
 StepMatrix ddMult(const StepMatrix &WS0, const StepMatrix &WS1) {
-  assert(W1.first.size() == 3); // W1 must have 3 diagonal
-  assert((W0.first.size() + 1) / 2 == W1.second);
+  assert(WS1.first.size() == 3); // W1 must have 3 diagonal
+  assert((WS0.first.size() + 1) / 2 == WS1.second);
 
   DiagonalMatrix W0 = WS0.first;
   int step = WS0.second;

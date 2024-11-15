@@ -1,5 +1,6 @@
-#include <hecate/Support/Support.h>
+#include <hecate/Support/ConstData.h>
 
+#include <cassert>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -33,7 +34,7 @@ void ConstData::moveFrom(ConstData &&other) noexcept {
 void ConstData::load(const std::string &filename) {
   std::ifstream inFile(filename, std::ios::binary);
   if (!inFile) {
-    assert("Error: Unable to open file for reading: " + filename);
+    assert("Error: Unable to open file for reading");
   }
 
   // Read the start index
@@ -88,7 +89,7 @@ void ConstData::load(const std::string &filename) {
 void ConstData::save(const std::string &filename, size_t startIndex) {
   std::ofstream outFile(filename, std::ios::binary | std::ios::trunc);
   if (!outFile) {
-    assert("Error: Unable to open file for writing: " + filename);
+    assert("Error: Unable to open file for writing");
   }
 
   size_t arrayCount = arrays_.size();
