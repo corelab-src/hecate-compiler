@@ -7,7 +7,9 @@ build-debug
 *.un~
 dot
 *.bc
+# Ignore other MLIR files but not tests
 *.mlir
+!tests/mlir/**/*.mlir
 *.hevm
 *.o
 *.so
