@@ -101,6 +101,31 @@ add_definitions (-DMEM_CHECK)
 add_subdirectory (include/hecate)
 add_subdirectory (lib)
 add_subdirectory (tools)
+add_subdirectory (tests)
 
 # get_target_property(HEAAN_INCLUDE_DIR HEaaN::HEaaN INTERFACE_INCLUDE_DIRECTORIES)
 
+enable_testing()
+
+# Set LLVM_EXTERNAL_LIT if using installed MLIR
+if(NOT LLVM_EXTERNAL_LIT)
+  find_program(LLVM_EXTERNAL_LIT "llvm-lit"
+    HINTS "${MLIR_ROOT}/bin"
+          ENV PATH
+    NO_DEFAULT_PATH
+  )
+  if(NOT LLVM_EXTERNAL_LIT)
+    message(WARNING "llvm-lit not found, attempting to use lit")
+    find_program(LLVM_EXTERNAL_LIT "lit" REQUIRED)
+  endif()
+endif()
+
+# Find FileCheck
+find_program(FILECHECK_EXE FileCheck
+  HINTS "${MLIR_ROOT}/bin"
+        ENV PATH
+  NO_DEFAULT_PATH
+)
+if(NOT FILECHECK_EXE)
+  message(FATAL_ERROR "FileCheck not found. Please ensure it is installed and in your PATH.")
+endif()
