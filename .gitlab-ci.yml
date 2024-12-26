@@ -1,0 +1,689 @@
+stages:
+    - prepare_environment
+    - docker_run
+    - clone_projects
+    - llvm_build
+    - seal_build
+    - heaan_build
+    - HEonGPU_build
+    - Hecate_build
+    - Hecate_env
+    - testing_Hecate_Pass
+    - testing_Hecate_Benchmark
+    - save_result
+
+before_script:
+    - date
+
+after_script:
+    - date
+
+.irregularly_template:
+    tags:
+        - hestia_runner
+    rules:
+        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && $SCHEDULE_TYPE == 'irregularly'"
+          when: always
+
+.weekly_template:
+    tags:
+        - hestia_runner
+    rules:
+        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && ($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
+          when: always
+
+
+Preparing Environment - docker build:
+    extends:
+        - .irregularly_template
+    stage: prepare_environment
+    script:
+        - echo "Preparing Environment - docker build"
+        - cd script
+        - docker build --no-cache --build-arg username_=${USER} --build-arg uid_=$(id -u) --build-arg gid_=$(id -g) -t hecate_ci_docker_image .
+
+Preparing Environment - docker execution:
+    extends:
+        - .irregularly_template
+    stage: docker_run
+    script:
+        - echo "Preparing Environment - docker execution"
+        - |
+          if [ $(docker ps -aq -f name=hecate_ci_conatiner) ]; then
+            echo "Container already exists. Stopping and removing..."
+            docker stop hecate_ci_container || true
+            docker rm hecate_ci_container || true
+          fi
+        - >
+          docker run -itd --gpus all --name hecate_ci_container
+          -v "$(pwd):/home/gitlab-runner/hecate-compiler"
+          -v "/home/gitlab-runner/data/results:/home/gitlab-runner/results"
+          -v "/home/gitlab-runner/.ssh:/home/gitlab-runner/.ssh"
+          hecate_ci_docker_image
+
+Clone projects using shell script:
+    extends:
+        - .irregularly_template
+    stage: clone_projects
+    script:
+        - echo  "Clone projects using shell script"
+        - docker cp /home/gitlab-runner/data/clone_projects.sh hecate_ci_container:/home/gitlab-runner/hecate-compiler/script/clone_projects.sh
+        - docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script/ && ./clone_projects.sh"
+        - echo "Cloning completed!"
+        - docker exec -i hecate_ci_container bash -c "mkdir install"
+
+llvm build:
+    extends:
+        - .irregularly_template
+    stage: llvm_build
+    script:
+        - echo "LLVM build"
+        #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh llvm"
+        - >
+          docker exec -i hecate_ci_container bash -c "cd llvm-project &&
+          cmake -GNinja -Bbuild
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_BUILD_TYPE=Release
+          -DLLVM_ENABLE_PROJECTS=mlir
+          -DLLVM_INSTALL_UTILS=ON
+          -DLLVM_TARGETS_TO_BUILD=host
+          -DCMAKE_INSTALL_PREFIX=/home/gitlab-runner/install/MLIR
+          llvm"
+        - docker exec -i hecate_ci_container bash -c "cd llvm-project && cmake --build build"
+        - docker exec -i hecate_ci_container bash -c "cd llvm-project && cmake --install build"
+
+SEAL build:
+    extends:
+        - .irregularly_template
+    stage: seal_build
+    script:
+        - echo "SEAL build"
+        #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh seal"
+        - >
+          docker exec -i hecate_ci_container bash -c "cd SEAL &&
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_INSTALL_PREFIX=/home/gitlab-runner/install/SEAL"
+        - docker exec -i hecate_ci_container bash -c "cd SEAL && cmake --build build"
+        - docker exec -i hecate_ci_container bash -c "cd SEAL && cmake --install build"
+
+HEAAN build:
+    extends:
+        - .irregularly_template
+    stage: heaan_build
+    script:
+        - echo "HEaaN build"
+        #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh seal"
+        - >
+          docker exec -i hecate_ci_container bash -c "cd HEaaN &&
+          cmake -Bbuild -DBUILD_WITH_CUDA=on
+          -DBUILD_EXAMPLES=ON
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DBUILD_DOCUMENTATION=OFF
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_INSTALL_PREFIX=/home/gitlab-runner/install/heaan"
+        - docker exec -i hecate_ci_container bash -c "cd HEaaN/build && ninja"
+        - docker exec -i hecate_ci_container bash -c "cd HEaaN/build && ninja install"
+
+HEonGPU build:
+    extends:
+        - .irregularly_template
+    stage: HEonGPU_build
+    script:
+        - echo "HEonGPU build"
+         #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh heon 86"
+        - >
+          docker exec -i hecate_ci_container bash -c "cd HEonGPU &&
+          cmake -S . -D CMAKE_CUDA_ARCHITECTURES=86
+          -D CMAKE_INSTALL_PREFIX=/home/gitlab-runner/install/HEON
+          -D HEonGPU_BUILD_BENCHMARKS=ON
+          -D HEonGPU_BUILD_TESTS=ON
+          -D HEonGPU_BUILD_EXAMPLES=ON
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -B build"
+        - docker exec -i hecate_ci_container bash -c "cd HEonGPU && cmake --build build"
+        - docker exec -i hecate_ci_container bash -c "cd HEonGPU && cmake --install build"
+
+Hecate build:
+    extends:
+        - .weekly_template
+    stage: Hecate_build
+    script:
+        - echo "Hecate build"
+        #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh hecate"
+        - >
+          docker exec -i hecate_ci_container bash -c "cd hecate-compiler &&
+          cmake -S . -B build -DMLIR_ROOT=/home/gitlab-runner/install/MLIR
+          -DSEAL_ROOT=/home/gitlab-runner/install/SEAL
+          -DHEaaN_ROOT=/home/gitlab-runner/install/heaan
+          -DHEonGPU_ROOT=/home/gitlab-runner/install/HEON
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DLLVM_EXTERNAL_LIT=/home/gitlab-runner/llvm-project/build/bin/llvm-lit"
+        - docker exec -i hecate_ci_container bash -c "cd hecate-compiler && cmake --build build"
+    artifacts:
+        paths:
+            - build/
+        expire_in: 1 week
+
+Setting Hecate python environment:
+    extends:
+        - .weekly_template
+    stage: Hecate_env
+    script:
+        - echo "Hecate python environment"
+        #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh env"
+        - docker exec -i hecate_ci_container bash -c "python3 -m venv .venv"
+        - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && cd hecate-compiler && pip install -r requirements.txt"
+        - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && 
+            cd hecate-compiler/python/hecate && 
+            python setup.py sdist --format=tar && 
+            pip uninstall hecate --yes && pip install dist/hecate-0.0.1.tar"
+        - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && 
+            cd hecate-compiler/python/poly && python setup.py sdist --format=tar && 
+            pip uninstall poly --yes && 
+            pip install dist/poly-0.0.1.tar"
+    dependencies:
+        - Hecate build
+    artifacts:
+        paths:
+            - python/
+        expire_in: 1 week
+
+
+testing Pass of Hecate compiler:
+    extends:
+        - .weekly_template
+    stage: testing_Hecate_Pass
+    script:
+        - echo "testing Pass of Hecate compiler"
+        - ls
+        - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && cd hecate-compiler && cmake --build build --target check-hecate"
+        - mkdir need_testing3
+    dependencies:
+        - Hecate build
+        - Setting Hecate python environment
+    allow_failure: true
+
+.benchmark_template:
+    extends:
+        - .weekly_template
+    stage: testing_Hecate_Benchmark
+    needs:
+        - Hecate build
+        - Setting Hecate python environment
+    variables:
+        COMPILER: "dacapo"
+        WATERLINE: "40"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+    allow_failure: true
+
+.benchmark_script:
+  script:
+    - echo "testing Hecate $CI_JOB_NAME Benchmark with waterscale $WATERLINE using $LIBRARY"
+    - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && 
+        cd hecate-compiler && 
+        source config.sh && 
+        hc-trace $CI_JOB_NAME" || exit 1
+    - docker exec -i hecate_ci_container bash -c "source .venv/bin/activate && 
+        cd hecate-compiler && 
+        source config.sh && 
+        export LLVM_SYMBOLIZER_PATH='/home/gitlab-runner/install/MLIR/bin/llvm-symbolizer' && 
+        ./build/bin/hecate-opt --$COMPILER --ckks-config='./profiled_${LIBRARY}_${HARDWARE}.json' --waterline=$WATERLINE ./examples/traced/$CI_JOB_NAME.mlir --mlir-disable-threading --mlir-timing -o ./examples/optimized/$COMPILER/$CI_JOB_NAME.$WATERLINE.mlir" || exit 1
+    - docker exec -i hecate_ci_container bash -c "set -e && 
+        source .venv/bin/activate && 
+        cd hecate-compiler && 
+        source config.sh && 
+        echo 'y' | hc-test $COMPILER $WATERLINE $CI_JOB_NAME $LIBRARY $HARDWARE > /home/gitlab-runner/results/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}.txt" || exit 1
+  after_script:
+    - echo "Cleaning up benchmark processes"
+    - docker exec -i hecate_ci_container bash -c "
+        pkill -f python3 || echo 'No python3 process found';
+        pkill -f hecate-opt || echo 'No hecate-opt process found';
+        " || true
+Initialization:
+    extends:
+        - .benchmark_template
+    script:
+        - echo "Preparing and Initialization"
+        - docker exec -i hecate_ci_container bash -c "rm /home/gitlab-runner/results/*.txt"
+    needs:
+        - Hecate build
+        - Setting Hecate python environment
+
+# SEAL-eva
+HarrisCornerDetection-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    needs:
+        - Initialization
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    needs:
+        - SobelFilter-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    needs:
+        - MLP-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    needs:
+        - LinearRegression-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-SEAL-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "eva"
+    needs:
+        - PolynomialRegression-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+# SEAL-pars
+HarrisCornerDetection-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    needs:
+        - Multivariate-40-SEAL-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    needs:
+        - SobelFilter-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    needs:
+        - MLP-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    needs:
+        - LinearRegression-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-SEAL-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "pars"
+    needs:
+        - PolynomialRegression-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+# HEONGPU-eva
+HarrisCornerDetection-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    needs:
+        - Multivariate-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    needs:
+        - SobelFilter-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    needs:
+        - MLP-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    needs:
+        - LinearRegression-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-HEONGPU-eva :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "eva"
+    needs:
+        - PolynomialRegression-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+
+
+# HEONGPU-pars
+HarrisCornerDetection-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    needs:
+        - Multivariate-40-HEONGPU-eva
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    needs:
+        - SobelFilter-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    needs:
+        - MLP-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    needs:
+        - LinearRegression-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-HEONGPU-pars :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "pars"
+    needs:
+        - PolynomialRegression-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+
+# HEaaN - Dacapo
+ResNet-40-HEaaN-Dacapo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "ResNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "GPU"
+    # For Sequential Testing
+    needs:
+        - Multivariate-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+AlexNet-40-HEaaN-Dacapo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "AlexNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "GPU"
+    # For Sequential Testing
+    needs:
+        - ResNet-40-HEaaN-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+VGG16-40-HEaaN-Dacapo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "VGG16"
+        LIBRARY: "HEAAN"
+        HARDWARE: "GPU"
+    # For Sequential Testing
+    needs:
+        - AlexNet-40-HEaaN-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+SqueezeNet-40-HEaaN-Dacapo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SqueezeNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "GPU"
+    # For Sequential Testing
+    needs:
+        - VGG16-40-HEaaN-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+MobileNet-40-HEaaN-Dacapo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MobileNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "GPU"
+    # For Sequential Testing
+    needs:
+        - SqueezeNet-40-HEaaN-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+# Using tools, show all results of testing to a file.
+save_result:
+    stage: save_result
+    script:
+        - echo "Save Results"
+        - docker exec -i hecate_ci_container bash -c "python3 hecate-compiler/script/ci_result.py /home/gitlab-runner/results"
+    tags:
+        - hestia_runner
+    dependencies:
+        - Hecate build
+    rules:
+        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && ($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
+          when: always
+
