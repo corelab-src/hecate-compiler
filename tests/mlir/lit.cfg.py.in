@@ -1,0 +1,44 @@
+import os
+import lit.formats
+import lit.llvm
+
+lit.llvm.initialize(lit_config, config)
+from lit.llvm import llvm_config
+
+config.name = 'Hecate_Tests'
+config.test_format = lit.formats.ShTest(execute_external=True)
+config.suffixes = ['.mlir']
+
+# Set variable for Hecate Root directory
+hecate_root = "@HECATE_SOURCE_DIR@"
+config.substitutions.append(('%hecate_root', hecate_root))
+# Set variable for ckks-configuration
+ckks_config = "profiled_HEONGPU_GPU.json"
+config.substitutions.append(('%ckks_config', ckks_config))
+
+# test source root : The root path where tests are located
+config.test_source_root = os.path.join("@HECATE_SOURCE_DIR@", "tests/mlir")
+
+# test executable root : The root path where tests should be run
+config.test_exec_root = os.path.join("@HECATE_BINARY_DIR@", "tests/mlir")
+
+# hecate-opt
+hecate_tools_dir = "@HECATE_TOOLS_DIR@"
+
+if not os.path.exists(hecate_tools_dir):
+    lit_config.fatal("hecate-opt not found at {}".format(hecate_tools_dir))
+
+# Where FileCheck is located
+llvm_tools_dir = "@LLVM_TOOLS_DIR@"
+if not os.path.exists(llvm_tools_dir):
+    lit_config.fatal("FileCheck not found at {}".format(llvm_tools_dir))
+
+# Tweak the PATH to include the tools dir.
+llvm_config.with_environment("PATH", hecate_tools_dir, append_path=True)
+llvm_config.with_environment("PATH", llvm_tools_dir, append_path=True)
+
+
+tool_dirs = [hecate_tools_dir, llvm_tools_dir]
+tools = ['hecate-opt', 'FileCheck']
+
+llvm_config.add_tool_substitutions(tools, tool_dirs)
