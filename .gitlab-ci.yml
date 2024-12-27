@@ -49,7 +49,7 @@ Preparing Environment - docker execution:
     script:
         - echo "Preparing Environment - docker execution"
         - |
-          if [ $(docker ps -aq -f name=hecate_ci_conatiner) ]; then
+          if [ $(docker ps -aq -f name=hecate_ci_container) ]; then
             echo "Container already exists. Stopping and removing..."
             docker stop hecate_ci_container || true
             docker rm hecate_ci_container || true
