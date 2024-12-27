@@ -389,8 +389,6 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         }
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-        // Check Dummy Test
-        //pm.addPass(hecate::earth::createDummyTest());
         
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
         pm.addNestedPass<func::FuncOp>(
@@ -446,15 +444,6 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         }
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-        // Check Dummy Test
-        //
-        pm.addPass(hecate::earth::createDummyTest());
-        pm.addPass(hecate::earth::createPrivatizeConstant()); //Duplicated privatize. Need to Fix
-        if (enable_printer)
-          pm.addPass(createLocationSnapshotPass(
-              OpPrintingFlags().enableDebugInfo(false, false),
-              dir + "/" + stem + ".earth.dummy", "earth"));
-        //
 
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));
