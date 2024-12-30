@@ -176,21 +176,17 @@ def setLibnHW (argv=None):
 
 
 class HEVM : 
-    def __init__ (self, path = str((Path.home() / ".hevm" / "heaan").absolute()) , option= "full") :
+    def __init__ (self, path = str((Path.home() / ".hevm" / "default").absolute()) , option= "full") :
         global run_library
         global run_hardware
         reinit_lw()
 
         self.option = option
-        if(run_library == "SEAL"):
-            if(path == str((Path.home() / ".hevm" / "heaan").absolute())):
-                # If path is default
-                path = str((Path.home() / ".hevm" / "seal").absolute())
+        if(path == str((Path.home() / ".hevm" / "default").absolute())):
+            # When user does not set path
+            path = str((Path.home() / ".hevm" / run_library).absolute())
         if not Path(path).is_dir() : 
-            if(run_library == "SEAL"):
-                print ("Press Any key to generate SEAL files (or just kill with ctrl+c)")
-            elif(run_library == "HEAAN"):
-                print ("Press Any key to generate HEaaN files (or just kill with ctrl+c)")
+            print (f"Press Any key to generate {run_library} key files (or just kill with ctrl+c)")
             input()
             Path(path).mkdir(parents=True)
             lw.create_context(path.encode('utf-8'))

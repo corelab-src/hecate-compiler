@@ -239,7 +239,9 @@ testing Pass of Hecate compiler:
         cd hecate-compiler && 
         source config.sh && 
         echo 'y' | hc-test $COMPILER $WATERLINE $CI_JOB_NAME $LIBRARY $HARDWARE > /home/gitlab-runner/results/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}.txt" || exit 1
+    - docker exec -i hecate_ci_container bash -c "echo /home/gitlab-runner/results/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}.txt" || exit 1
   after_script:
+    - date
     - echo "Cleaning up benchmark processes"
     - docker exec -i hecate_ci_container bash -c "
         pkill -f python3 || echo 'No python3 process found';
