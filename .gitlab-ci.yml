@@ -208,6 +208,8 @@ testing Pass of Hecate compiler:
         - Setting Hecate python environment
     allow_failure: true
 
+# This script manually sets up test cases to display all benchmark results on GitLab website.
+# For better maintainability, consider transitioning to an automated testing framework once the tests are reliable.
 .benchmark_template:
     extends:
         - .weekly_template
@@ -429,6 +431,92 @@ Multivariate-40-SEAL-pars :
         - Hecate build
         - Setting Hecate python environment
 
+# SEAL-elasm
+HarrisCornerDetection-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    needs:
+        - Multivariate-40-SEAL-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-SEAL-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    needs:
+        - SobelFilter-40-SEAL-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    needs:
+        - MLP-40-SEAL-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    needs:
+        - LinearRegression-40-SEAL-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-SEAL-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "SEAL"
+        HARDWARE: "CPU"
+        COMPILER: "elasm"
+    needs:
+        - PolynomialRegression-40-SEAL-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
 # HEONGPU-eva
 HarrisCornerDetection-40-HEONGPU-eva :
     extends:
@@ -440,7 +528,7 @@ HarrisCornerDetection-40-HEONGPU-eva :
         HARDWARE: "GPU"
         COMPILER: "eva"
     needs:
-        - Multivariate-40-SEAL-pars
+        - Multivariate-40-SEAL-elasm
         - Hecate build
         - Setting Hecate python environment
 
@@ -514,8 +602,6 @@ Multivariate-40-HEONGPU-eva :
         - PolynomialRegression-40-HEONGPU-eva
         - Hecate build
         - Setting Hecate python environment
-
-
 
 # HEONGPU-pars
 HarrisCornerDetection-40-HEONGPU-pars :
@@ -603,6 +689,92 @@ Multivariate-40-HEONGPU-pars :
         - Hecate build
         - Setting Hecate python environment
 
+# HEONGPU-elasm
+HarrisCornerDetection-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "HarrisCornerDetection"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    needs:
+        - Multivariate-40-HEONGPU-pars
+        - Hecate build
+        - Setting Hecate python environment
+
+SobelFilter-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SobelFilter"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    # For Sequential Testing
+    needs:
+        - HarrisCornerDetection-40-HEONGPU-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+MLP-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MLP"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    needs:
+        - SobelFilter-40-HEONGPU-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+LinearRegression-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    needs:
+        - MLP-40-HEONGPU-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegression-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    needs:
+        - LinearRegression-40-HEONGPU-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
+Multivariate-40-HEONGPU-elasm :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        COMPILER: "elasm"
+    needs:
+        - PolynomialRegression-40-HEONGPU-elasm
+        - Hecate build
+        - Setting Hecate python environment
+
 
 # HEaaN - Dacapo
 ResNet-40-HEaaN-Dacapo :
@@ -615,7 +787,7 @@ ResNet-40-HEaaN-Dacapo :
         HARDWARE: "GPU"
     # For Sequential Testing
     needs:
-        - Multivariate-40-HEONGPU-pars
+        - Multivariate-40-HEONGPU-elasm
         - Hecate build
         - Setting Hecate python environment
 
@@ -674,6 +846,79 @@ MobileNet-40-HEaaN-Dacapo :
         - SqueezeNet-40-HEaaN-Dacapo
         - Hecate build
         - Setting Hecate python environment
+
+# HEaaN - Dacapo - CPU
+ResNet-40-HEaaN-Dacapo-CPU :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "ResNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "CPU"
+    # For Sequential Testing
+    needs:
+        - MobileNet-40-HEaaN-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+AlexNet-40-HEaaN-Dacapo-CPU :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "AlexNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "CPU"
+    # For Sequential Testing
+    needs:
+        - ResNet-40-HEaaN-Dacapo-CPU
+        - Hecate build
+        - Setting Hecate python environment
+
+VGG16-40-HEaaN-Dacapo-CPU :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "VGG16"
+        LIBRARY: "HEAAN"
+        HARDWARE: "CPU"
+    # For Sequential Testing
+    needs:
+        - AlexNet-40-HEaaN-Dacapo-CPU
+        - Hecate build
+        - Setting Hecate python environment
+
+SqueezeNet-40-HEaaN-Dacapo-CPU :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SqueezeNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "CPU"
+    # For Sequential Testing
+    needs:
+        - VGG16-40-HEaaN-Dacapo-CPU
+        - Hecate build
+        - Setting Hecate python environment
+
+MobileNet-40-HEaaN-Dacapo-CPU :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "MobileNet"
+        LIBRARY: "HEAAN"
+        HARDWARE: "CPU"
+    # For Sequential Testing
+    needs:
+        - SqueezeNet-40-HEaaN-Dacapo-CPU
+        - Hecate build
+        - Setting Hecate python environment
+
+
 
 # Using tools, show all results of testing to a file.
 save_result:
