@@ -2,7 +2,7 @@
 import hecate as hc
 from random import *
 import numpy as np
-import simfhe as sf
+#import simfhe as sf
 import sys
 from pathlib import Path
 import time
@@ -14,7 +14,7 @@ a_compile_opt = int(sys.argv[2])
 hc.setLibnHW(sys.argv)
 
 stem = Path(__file__).stem
-print("sim:", sf.simulate(f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm"))
+#print("sim:", sf.simulate(f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm"))
 
 hevm = hc.HEVM()
 stem = Path(__file__).stem
