@@ -41,6 +41,13 @@ Preparing Environment - docker build:
         - echo "Preparing Environment - docker build"
         - cd script
         - docker build --no-cache --build-arg username_=${USER} --build-arg uid_=$(id -u) --build-arg gid_=$(id -g) -t hecate_ci_docker_image .
+        - |
+          if [ "$(docker images -f 'dangling=true' -q)" ]; then
+            echo "Removing dangling Docker images..."
+            docker rmi $(docker images -f 'dangling=true' -q) || echo "Failed to remove some images, continuing..."
+          else
+            echo "No dangling Docker images found."
+          fi
 
 Preparing Environment - docker execution:
     extends:
@@ -79,6 +86,7 @@ llvm build:
     script:
         - echo "LLVM build"
         #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh llvm"
+        - docker exec -i hecate_ci_container bash -c "cd llvm-project && git log -n 1 HEAD"
         - >
           docker exec -i hecate_ci_container bash -c "cd llvm-project &&
           cmake -GNinja -Bbuild
@@ -100,6 +108,7 @@ SEAL build:
     script:
         - echo "SEAL build"
         #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh seal"
+        - docker exec -i hecate_ci_container bash -c "cd SEAL && git log -n 1 HEAD"
         - >
           docker exec -i hecate_ci_container bash -c "cd SEAL &&
           cmake -S . -B build -DCMAKE_C_COMPILER=clang
@@ -115,6 +124,7 @@ HEAAN build:
     script:
         - echo "HEaaN build"
         #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh seal"
+        - docker exec -i hecate_ci_container bash -c "cd HEaaN && git log -n 1 HEAD"
         - >
           docker exec -i hecate_ci_container bash -c "cd HEaaN &&
           cmake -Bbuild -DBUILD_WITH_CUDA=on
@@ -134,6 +144,7 @@ HEonGPU build:
     script:
         - echo "HEonGPU build"
          #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh heon 86"
+        - docker exec -i hecate_ci_container bash -c "cd HEonGPU && git log -n 1 HEAD"
         - >
           docker exec -i hecate_ci_container bash -c "cd HEonGPU &&
           cmake -S . -D CMAKE_CUDA_ARCHITECTURES=86
@@ -154,6 +165,7 @@ Hecate build:
     script:
         - echo "Hecate build"
         #- docker exec -i hecate_ci_container bash -c "cd hecate-compiler/script && ./build.sh hecate"
+        - docker exec -i hecate_ci_container bash -c "cd hecate-compiler && git log -n 1 HEAD"
         - >
           docker exec -i hecate_ci_container bash -c "cd hecate-compiler &&
           cmake -S . -B build -DMLIR_ROOT=/home/gitlab-runner/install/MLIR
