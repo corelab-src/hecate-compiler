@@ -34,14 +34,15 @@ struct BootstrapPlacementPass
     auto func = getOperation();
     mlir::OpBuilder builder(func);
     mlir::IRRewriter rewriter(builder);
-    auto values = hecate::earth::attachOpid(func);
-    auto &ca = getAnalysis<hecate::CandidateAnalysis>();
+    /* auto values = hecate::earth::attachOpid(&func.getRegion().front()); */
+    auto values = hecate::earth::getOpidToValueMap(&func.getRegion().front());
     auto &&btp_target =
         func->getAttrOfType<mlir::DenseI64ArrayAttr>("btp_target").asArrayRef();
     // Bootstrapping Placement based on btp_targets
     for (auto opid : btp_target) {
-      if (opid == ca.getRetOpid())
+      if (opid == values.size())
         continue;
+      /* if (values.count(opid)) */
       auto &&target = values[opid];
       if (target.getType()
               .dyn_cast<hecate::earth::HEScaleTypeInterface>()
@@ -54,6 +55,7 @@ struct BootstrapPlacementPass
         hecate::setIntegerAttr("opid", btp, opid);
       }
     }
+    markAnalysesPreserved<hecate::CandidateAnalysis>();
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

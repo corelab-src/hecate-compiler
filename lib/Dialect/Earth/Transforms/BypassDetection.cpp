@@ -36,7 +36,6 @@ struct BypassDetectionPass
 
   void runOnOperation() override {
 
-    /* llvm::errs() << "Bypass Edge Detection\n"; */
     auto func = getOperation();
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
 
@@ -57,19 +56,6 @@ struct BypassDetectionPass
     for (std::thread &th : thres) {
       th.join();
     }
-    // Organize the validLiveOuts
-    for (auto a : ca.getEdges()) {
-      auto v = ca.getValueInfo(a);
-      mlir::SmallVector<int64_t, 4> validTargets;
-      for (auto bp : v->getLiveOuts()) {
-        auto vp = ca.getValueInfo(bp);
-        if (!vp->isBypassEdge(a)) {
-          validTargets.push_back(bp);
-        }
-      }
-      v->setValidLiveOuts(validTargets);
-      ca.sortValidCandidates(a);
-    }
     markAnalysesPreserved<hecate::CandidateAnalysis>();
   }
 
@@ -85,22 +71,14 @@ struct BypassDetectionPass
     mlir::OpBuilder builder(dup);
     dup->setAttr("btp_target", builder.getDenseI64ArrayAttr(
                                    ca.getValueInfo(from)->getLiveOuts()));
-    /* builder.getDenseI64ArrayAttr(ca.getTargets(from))); */
-    /* dup->setAttr("segment_return", builder.getDenseI64ArrayAttr({})); */
     mod.push_back(dup);
 
     if (pm.run(mod).failed()) {
       llvm::errs() << "bootstrap placement failed" << '\n';
     }
 
-    for (auto argval : dup.getArguments()) {
-      auto tt = argval.getType().dyn_cast<RankedTensorType>();
-      argval.setType(RankedTensorType::get(
-          tt.getShape(), tt.getElementType()
-                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                             .switchScale(waterline)));
-    }
-
+    SmallVector<mlir::Type, 4> inputTypes;
+    inputTypes = hecate::earth::getInputValueTypes(dup, builder, waterline, 0);
     for (auto &&op : operations) {
       if (auto sop = dyn_cast<hecate::earth::ForwardMgmtInterface>(op)) {
         auto opid = hecate::getIntegerAttr("opid", sop->getResult(0));

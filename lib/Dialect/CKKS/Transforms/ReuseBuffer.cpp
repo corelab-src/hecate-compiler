@@ -7,6 +7,8 @@
 #include "hecate/Dialect/CKKS/Transforms/Passes.h"
 #include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+/* #include "mlir/Interfaces/DestinationStyleOpInterface.h" */
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace hecate {
@@ -29,33 +31,42 @@ struct ReuseBufferPass
     mlir::OpBuilder builder(func);
     mlir::Liveness l(func);
     SmallVector<Value, 4> garbage;
-    func.walk([&](mlir::DestinationStyleOpInterface op) {
-      for (int i = 0; i < op.getNumDpsInputs(); i++) {
-        auto v = op.getDpsInputOperand(i);
-        if (auto tt = hecate::ckks::getPolyType(v->get())) {
-          if (tt.getNumPoly() == 1)
-            continue;
-          if (l.isDeadAfter(v->get(), op) &&
-              (garbage.empty() || v->get() != garbage.back())) {
-            garbage.push_back(v->get());
+
+    /* func.walk([&](Operation *oop) { */
+    auto &&bb = func.getBody().getBlocks().front();
+    for (auto iter = bb.begin(); iter != bb.end(); ++iter) {
+      Operation *oop = &*iter;
+      if (auto op = dyn_cast<mlir::DestinationStyleOpInterface>(oop)) {
+        for (int i = 0; i < op.getNumDpsInputs(); i++) {
+          auto v = op.getDpsInputOperand(i);
+          if (auto tt = hecate::ckks::getPolyType(v->get())) {
+            if (tt.getNumPoly() == 1)
+              continue;
+            if (l.isDeadAfter(v->get(), op) &&
+                (garbage.empty() || v->get() != garbage.back()) &&
+                !isa<hecate::ckks::CopyCOp>(oop)) {
+              garbage.push_back(v->get());
+            }
+          }
+        }
+        for (int i = 0; i < op.getNumDpsInits(); i++) {
+          auto v = op.getDpsInitOperand(i);
+          if (auto tt = hecate::ckks::getPolyType(v->get())) {
+            if (tt.getNumPoly() == 1)
+              continue;
+            if (!garbage.empty()) {
+              op.getDpsInitOperand(i)->set(garbage.pop_back_val());
+            }
           }
         }
       }
-      for (int i = 0; i < op.getNumDpsInits(); i++) {
-        auto v = op.getDpsInitOperand(i);
-        if (auto tt = hecate::ckks::getPolyType(v->get())) {
-          if (tt.getNumPoly() == 1)
-            continue;
-          if (!garbage.empty()) {
-            op.getDpsInitOperand(i)->set(garbage.pop_back_val());
-          }
-        }
-      }
-    });
+    }
+    /* }); */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::ckks::CKKSDialect>();
+    /* hecate::ckks::registerSCFOpInterfaceExternalModels(registry); */
   }
 };
 } // namespace

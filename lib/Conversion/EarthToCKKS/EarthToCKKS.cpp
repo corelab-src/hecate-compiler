@@ -4,7 +4,11 @@
 #include "hecate/Dialect/CKKS/IR/CKKSOps.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "mlir/Conversion/ArithCommon/AttrToLLVMConverter.h"
+#include "mlir/Conversion/IndexToLLVM/IndexToLLVM.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -39,6 +43,20 @@ struct ConstantOpLowering
 
   LogicalResult
   matchAndRewrite(hecate::earth::ConstantOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+  int64_t init_level;
+};
+
+struct VariableOpLowering
+    : public OpConversionPattern<hecate::earth::VariableOp> {
+  using OpConversionPattern<hecate::earth::VariableOp>::ConversionPattern;
+  VariableOpLowering(mlir::TypeConverter &converter, MLIRContext *ctxt,
+                     int64_t init_level)
+      : OpConversionPattern<hecate::earth::VariableOp>(converter, ctxt),
+        init_level(init_level) {}
+
+  LogicalResult
+  matchAndRewrite(hecate::earth::VariableOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
   int64_t init_level;
 };
@@ -145,6 +163,35 @@ struct ReturnOpLowering : public OpConversionPattern<mlir::func::ReturnOp> {
 
 LogicalResult
 ConstantOpLowering::matchAndRewrite(hecate::earth::ConstantOp op,
+                                    OpAdaptor adaptor,
+                                    ConversionPatternRewriter &rewriter) const {
+
+  auto dst = rewriter.create<tensor::EmptyOp>(
+      op.getLoc(), op.getType().getShape(),
+      getTypeConverter()->convertType(op.getType().getElementType()));
+
+  auto tt = op.getType()
+                .getElementType()
+                .dyn_cast<hecate::earth::HEScaleTypeInterface>();
+  if (hecate::earth::EarthDialect::bootstrapLevelLowerBound > 0) {
+    rewriter.replaceOpWithNewOp<ckks::EncodeOp>(
+        op, dst, adaptor.getValue().dyn_cast<IntegerAttr>().getInt(),
+        tt.getScale(), init_level - tt.getLevel());
+  } else {
+    rewriter.replaceOpWithNewOp<ckks::EncodeOp>(
+        op, dst, adaptor.getValue().dyn_cast<IntegerAttr>().getInt(),
+        tt.getScale(),
+        hecate::earth::EarthDialect::bootstrapLevelUpperBound - tt.getLevel());
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// VariableOpLowering
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+VariableOpLowering::matchAndRewrite(hecate::earth::VariableOp op,
                                     OpAdaptor adaptor,
                                     ConversionPatternRewriter &rewriter) const {
 
@@ -360,6 +407,7 @@ struct EarthToCKKSConversion
     hecate::PolyTypeConverter converter(base_level);
     target.addLegalDialect<hecate::ckks::CKKSDialect>();
     target.addLegalDialect<tensor::TensorDialect>();
+    target.addLegalDialect<scf::SCFDialect>();
     target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp fop) {
       return converter.isSignatureLegal(fop.getFunctionType());
     });
@@ -374,6 +422,8 @@ struct EarthToCKKSConversion
         &getContext(), converter, patterns, base_level);
     mlir::populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(
         patterns, converter);
+    scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
+                                                         target);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))
@@ -390,7 +440,7 @@ void hecate::earth::populateEarthToCKKSConversionPatterns(
     mlir::MLIRContext *ctxt, mlir::TypeConverter &converter,
     mlir::RewritePatternSet &patterns, int64_t init_level) {
   // clang-format off
-  patterns.add<ConstantOpLowering> (converter, ctxt, init_level);
+  patterns.add<ConstantOpLowering, VariableOpLowering> (converter, ctxt, init_level);
   patterns.add<
     MulOpLowering,
     AddOpLowering,

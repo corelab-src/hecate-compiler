@@ -6,6 +6,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 
 #include "hecate/Dialect/Earth/Analysis/CandidateAnalysis.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 /* #include "hecate/Dialect/Earth/Analysis/ScaleManagementUnit.h" */
 #include "hecate/Dialect/Earth/Transforms/Common.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -40,7 +41,9 @@ struct DaCapoPlannerPass
 
     auto func = getOperation();
     mlir::OpBuilder builder(func);
+    mlir::IRRewriter rewriter(builder);
 
+    /* func.dump(); */
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
 
     // to, bestplan{latency, cutted_edges, return_type}
@@ -52,11 +55,22 @@ struct DaCapoPlannerPass
 
     SmallVector<mlir::Type, 4> inputTypes;
     SmallVector<bool, 2> inputBypasses;
+    // prevent DCE to scf.forOp
+    func.walk([&](mlir::scf::ForOp forOp) {
+      for (auto arg : forOp.getRegionIterArgs()) {
+        builder.setInsertionPointAfterValue(arg);
+        auto btp = builder.create<hecate::earth::DummyOp>(arg.getLoc(), arg);
+        rewriter.replaceAllUsesExcept(arg, btp, btp);
+      }
+    });
+
+    inputTypes =
+        hecate::earth::getInputValueTypes(func, builder, waterline, output_val);
     for (auto argval : func.getArguments()) {
-      auto tp = mlir::RankedTensorType::get(
-          llvm::SmallVector<int64_t, 1>{1},
-          builder.getType<hecate::earth::CipherType>(waterline, 0));
-      inputTypes.push_back(tp);
+      /* auto tp = mlir::RankedTensorType::get( */
+      /*     llvm::SmallVector<int64_t, 1>{1}, */
+      /*     builder.getType<hecate::earth::CipherType>(waterline, 0)); */
+      /* inputTypes.push_back(tp); */
       inputBypasses.push_back(true);
     }
     bestPlan[0] = {0.0, {}, inputTypes, {}, inputBypasses};
@@ -83,6 +97,7 @@ struct DaCapoPlannerPass
 
     int64_t setNum =
         func->getAttrOfType<mlir::IntegerAttr>("selected_set").getInt();
+    /* llvm::errs() << "RETOPID " << ca.getRetOpid() << '\n'; */
     for (auto to : ca.getCandidates()) {
       double optCost = std::numeric_limits<double>::max();
       func::FuncOp optFunc;
@@ -91,6 +106,13 @@ struct DaCapoPlannerPass
                       : ca.getTargets(to, setNum)) llvm::dbgs()
                  << bbbb << " ";
                  llvm::dbgs() << '\n';);
+      /* llvm::errs() << "RETOPID " << ca.getRetOpid() << '\n'; */
+      /* llvm::errs() << "To " << to << " :  "; */
+      /* for (auto ttt : ca.toFromMap[to]) */
+      /*   llvm::errs() << ttt << " "; */
+      /* llvm::errs() << '\n'; */
+      /* llvm::errs() << "toFromMap Size: " << ca.toFromMap[to].size() << '\n';
+       */
       for (auto from : ca.toFromMap[to]) {
         auto vif = ca.getValueInfo(from);
         auto dup = func.clone();
@@ -100,6 +122,15 @@ struct DaCapoPlannerPass
         dup->setAttr("cutted_edge", builder.getDenseI64ArrayAttr({from, to}));
         dup->setAttr("btp_target",
                      builder.getDenseI64ArrayAttr(ca.getTargets(from, setNum)));
+        /* if (to == ca.getRetOpid()) { */
+        /*   llvm::errs() << "LAST BOOTSTRAP TARGETS "; */
+
+        /*   llvm::errs() << "FROM : " << from << '\n'; */
+        /*   for (auto tt : ca.getTargets(from, setNum)) */
+        /*     llvm::errs() << tt << " "; */
+        /*   llvm::errs() << '\n'; */
+        /* } */
+
         dup->setAttr(
             "segment_input",
             builder.getDenseI64ArrayAttr(ca.getValueInfo(from)->getLiveOuts()));
@@ -119,6 +150,7 @@ struct DaCapoPlannerPass
           dup.dump();
           assert(0 && "Pass failed inside DaCapo explorer");
         }
+        /* dup.dump(); */
 
         double cost = dup->getAttrOfType<mlir::FloatAttr>("est_latency")
                           .getValueAsDouble() +
@@ -154,6 +186,13 @@ struct DaCapoPlannerPass
                      builder.getBoolArrayAttr(std::get<4>(bestPlan[to])));
         dup->setAttr("segment_returnBypasses", builder.getBoolArrayAttr({}));
         mod.push_back(dup);
+        /* llvm::errs() << "to: " << to << '\n'; */
+        /* for (auto tt : ca.getValueInfo(to)->getLiveOuts()) */
+        /*   llvm::errs() << tt << " "; */
+        /* llvm::errs() << '\n'; */
+        /* for (auto ttt : std::get<2>(bestPlan[to])) */
+        /*   llvm::errs() << ttt << " "; */
+        /* llvm::errs() << "====liveouts" << '\n'; */
         if (pmC.run(mod).failed()) {
           llvm::dbgs() << "pmC Pass failed" << '\n';
           dup.dump();
@@ -162,7 +201,16 @@ struct DaCapoPlannerPass
         auto &&coverages =
             dup->getAttrOfType<mlir::DenseI64ArrayAttr>("coverages")
                 .asArrayRef();
-        ca.pushFromCoverage(to, mlir::SmallVector<int64_t, 2>(coverages));
+        /* llvm::errs() << "to " << to << "coverage " << coverages.front() << "
+         * " */
+        /*              << coverages.back() << '\n'; */
+        bool is_mid_section = false;
+        if (dup->hasAttr("is_mid_section")) {
+          is_mid_section =
+              func->getAttrOfType<mlir::BoolAttr>("is_mid_section").getValue();
+        }
+        ca.pushFromCoverage(to, mlir::SmallVector<int64_t, 2>(coverages),
+                            is_mid_section);
         dup.erase();
       }
       LLVM_DEBUG(
@@ -195,11 +243,17 @@ struct DaCapoPlannerPass
 
     auto targets =
         ca.sortTargets(setNum, std::get<1>(bestPlan[ca.getRetOpid()]));
+    /* llvm::errs() << "LAST TARGET\n"; */
+    /* for (auto tt : targets) */
+    /*   llvm::errs() << tt << " "; */
+    auto retTypes = std::get<3>(bestPlan[ca.getRetOpid()]).getResultTypes();
 
-    llvm::outs() << llvm::format("Estimated Latency: %lf (sec) \n",
-                                 std::get<0>(bestPlan[ca.getRetOpid()]) /
-                                     1000000);
-    llvm::outs() << "Number of Bootstrapping: " << targets.size() << '\n';
+    /* llvm::errs() << "LAST BEST PLAN \n"; */
+    /* std::get<3>(bestPlan[ca.getRetOpid()]).dump(); */
+    /* llvm::outs() << llvm::format("Estimated Latency: %lf (sec) \n", */
+    /*                              std::get<0>(bestPlan[ca.getRetOpid()]) / */
+    /*                                  1000000); */
+    /* llvm::outs() << "Number of Bootstrapping: " << targets.size() << '\n'; */
 
     LLVM_DEBUG(llvm::dbgs() << "Estimated Latency : "
                             << std::get<0>(bestPlan[ca.getRetOpid()]) << '\n';
@@ -213,7 +267,23 @@ struct DaCapoPlannerPass
                << dd << " ";
                llvm::dbgs() << '\n';);
     func->setAttr("btp_target", builder.getDenseI64ArrayAttr(targets));
+    func->setAttr("return_type", builder.getTypeArrayAttr(retTypes));
+    /* llvm::errs() << "RETURN_TYPE \n"; */
+    /* for (auto tt : retTypes) { */
+    /*   llvm::errs() << tt << '\n'; */
+    /* } */
+    /* if (ca.getIdMap().size()) { */
+    /*   auto idMap = ca.getIdMap(); */
+    /*   SmallVector<int64_t, 2> convertedTarget; */
+    /*   for (auto tt : targets) { */
+    /*     convertedTarget.push_back(idMap[tt]); */
+    /*   } */
+    /*   func->setAttr("btp_target", */
+    /*                 builder.getDenseI64ArrayAttr(convertedTarget)); */
+    /* } */
+
     markAnalysesPreserved<hecate::CandidateAnalysis>();
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

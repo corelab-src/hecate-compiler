@@ -1,7 +1,12 @@
 add_mlir_dialect_library(EarthTransforms
+ ApplyDaCapoToLoop.cpp
+ PromoteLoopBody.cpp
+ WrapUpLoopBody.cpp
  WaterlineRescaling.cpp
  ElideConstant.cpp
  PrivatizeConstant.cpp
+ PackLoopVariables.cpp
+ UnrollFactorAnalysis.cpp
  BootstrapPlacement.cpp
  CodeSegmentation.cpp
  Common.cpp
@@ -9,10 +14,13 @@ add_mlir_dialect_library(EarthTransforms
  EarlyModswitch.cpp
  FlexibleBootstrap.cpp
  RemoveBootstrap.cpp
+ RemoveErasedOp.cpp
  DaCapoPlanner.cpp
  CoverageRecorder.cpp
  BypassDetection.cpp
  CandidateSelection.cpp
+ LoopRotation.cpp
+ LoopUnroll.cpp
  SMUChecker.cpp
  SNRRescaling.cpp
  ProactiveRescaling.cpp

@@ -34,29 +34,65 @@ struct CandidateSelectionPass
 
     auto func = getOperation();
     auto &ca = getAnalysis<hecate::CandidateAnalysis>();
+    /* llvm::errs() << __FILE__ << " : " << __LINE__ << '\n'; */
 
+    // Organize the validLiveOuts
+    for (auto a : ca.getEdges()) {
+      auto v = ca.getValueInfo(a);
+      mlir::SmallVector<int64_t, 4> validTargets;
+      for (auto bp : v->getLiveOuts()) {
+        auto vp = ca.getValueInfo(bp);
+        if (!vp->isBypassEdge(a)) {
+          validTargets.push_back(bp);
+        }
+      }
+      v->setValidLiveOuts(validTargets);
+      ca.sortValidCandidates(a);
+    }
+    /* llvm::errs() << "CANDIDATE SELECTION \n"; */
+    /* func.dump(); */
+    /* for (auto a : ca.getEdges()) { */
+    /*   auto v = ca.getValueInfo(a); */
+    /*   llvm::errs() << a << " : "; */
+    /*   for (auto vl : v->getValidLiveOuts()) { */
+    /*     llvm::errs() << vl << " "; */
+    /*   } */
+    /*   llvm::errs() << '\n'; */
+    /* } */
+
+    /* llvm::errs() << "MAX NUM OUT : " << ca.getMaxNumOuts() << '\n'; */
+    /* for (size_t i = 1; i <= ca.getMaxNumOuts(); i++) { */
+    /*   llvm::errs() << i << " : "; */
+    /*   for (auto tt : ca.sortTargets(i)) */
+    /*     llvm::errs() << tt << " "; */
+    /*   llvm::errs() << '\n'; */
+    /* } */
+
+    mlir::OpBuilder builder(func);
     auto mod = mlir::ModuleOp::create(func.getLoc());
     PassManager pm(mod.getContext());
     pm.addNestedPass<func::FuncOp>(hecate::earth::createBootstrapPlacement());
     pm.addNestedPass<func::FuncOp>(
         hecate::earth::createProactiveRescaling({waterline, output_val}));
 
-    for (size_t i = 1; i < ca.getMaxNumOuts(); i++) {
+    for (size_t i = 1; i <= ca.getMaxNumOuts(); i++) {
       auto dup = func.clone();
       mlir::OpBuilder builder(dup);
-      dup->setAttr("btp_target",
-                   builder.getDenseI64ArrayAttr(ca.sortTargets(i)));
+      auto &&btp_target = ca.sortTargets(i);
+      /* if (btp_target.empty()) */
+      /*   continue; */
+      dup->setAttr("btp_target", builder.getDenseI64ArrayAttr(btp_target));
       mod.push_back(dup);
       if (pm.run(mod).succeeded()) {
         func->setAttr("selected_set", builder.getI64IntegerAttr(i));
-        LLVM_DEBUG(llvm::dbgs() << "selected _set : " << i << '\n';);
         ca.finalizeCandidates(i);
+        /* llvm::errs() << "selectedSet : " << i << '\n'; */
+        /* dup.dump(); */
         dup.erase();
         break;
       }
       dup.erase();
     }
-
     markAnalysesPreserved<hecate::CandidateAnalysis>();
   }
 

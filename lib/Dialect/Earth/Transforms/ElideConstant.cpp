@@ -4,8 +4,10 @@
 #include "hecate/Dialect/Earth/Transforms/Passes.h"
 #include "hecate/Support/Support.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Builders.h"
 #include <fstream>
+#include <zlib.h>
 
 namespace hecate {
 namespace earth {
@@ -52,6 +54,30 @@ struct ElideConstantPass
 
     func->setAttr("num_constants",
                   builder.getI64IntegerAttr(num_constants + save_data.size()));
+
+    // Compressed Code Should be Updated to Support/ConstData.cpp
+    // llvm::errs() << name << "\n";
+    // std::ofstream of(name, std::ios::binary);
+    // int64_t a;
+    // a = save_data.size();
+    // of.write((char *)&a, sizeof(int64_t));
+    // SmallVector<double> serializedData;
+    // for (auto k : save_data) {
+    //   a = k.size();
+    //   of.write((char *)&a, sizeof(int64_t));
+    //   for (auto d : k) {
+    //     serializedData.push_back(d);
+    //   }
+    // }
+    // // compress the constant data
+    // uLongf compressedSize =
+    //     compressBound(serializedData.size() * sizeof(double));
+    // std::vector<Bytef> buffer(compressedSize);
+    // compress(buffer.data(), &compressedSize, (Bytef *)(serializedData.data()),
+    //          serializedData.size() * sizeof(double));
+    // of.write((char *)(buffer.data()), compressedSize);
+
+    // of.close();
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

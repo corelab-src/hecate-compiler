@@ -1,6 +1,7 @@
 #include "hecate/Dialect/Earth/Transforms/Common.h"
 #include "hecate/Dialect/Earth/IR/EarthOps.h"
 #include "hecate/Support/Support.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Value.h"
 
 using namespace mlir;
@@ -53,32 +54,63 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
 
   // Reduce the level of the resulting values to reduce the size of returns
   //
+  /* func.walk([&](scf::ForOp ForOp) { */
+  /*   mlir::Block *loopBodyBlock = ForOp.getBody(); */
+  /*   for (size_t i = 0; i < ForOp.getNumResults(); i++) { */
+  /*     ForOp.getResult(i).setType( */
+  /*         loopBodyBlock->getTerminator()->getOperand(i).getType()); */
+  /*   } */
+  /* }); */
+
   auto rop = dyn_cast<func::ReturnOp>(func.getBlocks().front().getTerminator());
-
-  if (func->hasAttr("is_mid_segment") &&
-      func->getAttrOfType<mlir::BoolAttr>("is_mid_segment").getValue()) {
-    auto &&bypassTypes = func->getAttr("segment_returnBypasses")
-                             .dyn_cast<mlir::ArrayAttr>()
-                             .getValue();
-    for (size_t i = 0; i < rop->getNumOperands(); i++) {
-      auto v = rop->getOperand(i);
-      bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
-      hecate::setIntegerAttr("is_bypassed", v, isBypass);
+  if (func->hasAttr("is_packed") &&
+      func->getAttrOfType<mlir::BoolAttr>("is_packed").getValue()) {
+    if (func->hasAttr("is_mid_segment") &&
+        func->getAttrOfType<mlir::BoolAttr>("is_mid_segment").getValue()) {
+      if (func->hasAttr("segment_returnBypasses")) {
+        auto &&bypassTypes = func->getAttr("segment_returnBypasses")
+                                 .dyn_cast<mlir::ArrayAttr>()
+                                 .getValue();
+        for (size_t i = 0; i < rop->getNumOperands(); i++) {
+          auto v = rop->getOperand(i);
+          bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
+          hecate::setIntegerAttr("is_bypassed", v, isBypass);
+        }
+      }
+      hecate::earth::refineLevel(
+          builder, rop, waterline, 0,
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
+    } else {
+      hecate::earth::refineLevel(
+          builder, rop, waterline, 0,
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound);
     }
-    hecate::earth::refineLevel(
-        builder, rop, waterline, 0,
-        hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
-
-  } else
-    hecate::earth::refineLevel(builder, rop, waterline, output_val, 0);
-
-  func.walk([&](hecate::earth::BootstrapOp bop) {
-    hecate::earth::refineLevel(
-        builder, bop, waterline, 0,
-        hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
-  });
-
-  /* func.walk([&](func::ReturnOp rop) { */
+  } else {
+    if (func->hasAttr("is_mid_section") &&
+        func->getAttrOfType<mlir::BoolAttr>("is_mid_section").getValue()) {
+      hecate::earth::refineLevel(
+          builder, rop, waterline, 0,
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
+    } else if (func->hasAttr("is_mid_segment") &&
+               func->getAttrOfType<mlir::BoolAttr>("is_mid_segment")
+                   .getValue()) {
+      if (func->hasAttr("segment_returnBypasses")) {
+        auto &&bypassTypes = func->getAttr("segment_returnBypasses")
+                                 .dyn_cast<mlir::ArrayAttr>()
+                                 .getValue();
+        for (size_t i = 0; i < rop->getNumOperands(); i++) {
+          auto v = rop->getOperand(i);
+          bool isBypass = bypassTypes[i].dyn_cast<mlir::BoolAttr>().getValue();
+          hecate::setIntegerAttr("is_bypassed", v, isBypass);
+        }
+      }
+      hecate::earth::refineLevel(
+          builder, rop, waterline, 0,
+          hecate::earth::EarthDialect::bootstrapLevelLowerBound - 1);
+    } else {
+      hecate::earth::refineLevel(builder, rop, waterline, output_val, 0);
+    }
+  }
   // Remap the return types
   func.setFunctionType(
       builder.getFunctionType(inputTypes, rop.getOperandTypes()));
@@ -90,16 +122,57 @@ void hecate::earth::refineReturnValues(mlir::func::FuncOp func,
   SmallVector<int64_t, 4> scales_out;
 
   for (auto &&arg : func.getArguments()) {
-    scales_in.push_back(arg.getType()
-                            .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                            .getScale());
+    if (auto tt = arg.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>())
+      scales_in.push_back(tt.getScale());
+    else
+      scales_in.push_back(0);
   }
   func->setAttr("arg_scale", builder.getDenseI64ArrayAttr(scales_in));
   for (auto &&restype : func.getResultTypes()) {
-    scales_out.push_back(
-        restype.dyn_cast<hecate::earth::HEScaleTypeInterface>().getScale());
+    if (auto tt = restype.dyn_cast<hecate::earth::HEScaleTypeInterface>())
+      scales_out.push_back(tt.getScale());
   }
   func->setAttr("res_scale", builder.getDenseI64ArrayAttr(scales_out));
+}
+
+SmallVector<mlir::Type, 4>
+hecate::earth::getInputValueTypes(mlir::func::FuncOp func,
+                                  mlir::OpBuilder builder, int64_t waterline,
+                                  int64_t output_val) {
+  SmallVector<mlir::Type, 4> inputTypes;
+  // Set function argument types
+  if (!func->hasAttr("segment_inputType")) {
+    for (auto &&argval : func.getArguments()) {
+      mlir::Type ty = argval.getType();
+      if (auto tt = argval.getType().dyn_cast<RankedTensorType>()) {
+        ty = RankedTensorType::get(
+            tt.getShape(), tt.getElementType()
+                               .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                               .switchScale(waterline));
+      }
+      inputTypes.push_back(ty);
+    }
+  } else {
+    auto &&inputType_attrs = func->getAttr("segment_inputType")
+                                 .dyn_cast<mlir::ArrayAttr>()
+                                 .getValue();
+    /* llvm::errs() << "func size: " << func.getNumArguments() << '\n'; */
+    /* llvm::errs() << "input size: " << inputType_attrs.size() << '\n'; */
+    for (size_t i = 0; i < func.getNumArguments(); i++) {
+      auto &&argval = func.getArgument(i);
+      mlir::Type ty = argval.getType();
+
+      if (auto input_type =
+              inputType_attrs[i]
+                  .dyn_cast<mlir::TypeAttr>()
+                  .getValue()
+                  .dyn_cast<hecate::earth::HEScaleTypeInterface>())
+        ty = input_type;
+      /* llvm::errs() << ty << '\n'; */
+      inputTypes.push_back(ty);
+    }
+  }
+  return inputTypes;
 }
 
 /* llvm::SmallVector<mlir::Type, 4> */
@@ -109,12 +182,13 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
                                       int64_t waterline, int64_t output_val) {
   // Set function argument types
   if (!func->hasAttr("segment_inputType")) {
-    for (auto argval : func.getArguments()) {
-      auto tt = argval.getType().dyn_cast<RankedTensorType>();
-      argval.setType(RankedTensorType::get(
-          tt.getShape(), tt.getElementType()
-                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                             .switchScale(waterline)));
+    for (auto &&argval : func.getArguments()) {
+      if (auto tt = argval.getType().dyn_cast<RankedTensorType>()) {
+        argval.setType(RankedTensorType::get(
+            tt.getShape(), tt.getElementType()
+                               .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                               .switchScale(waterline)));
+      }
       inputTypes.push_back(argval.getType());
     }
   } else {
@@ -122,47 +196,103 @@ void hecate::earth::refineInputValues(mlir::func::FuncOp func,
                                  .dyn_cast<mlir::ArrayAttr>()
                                  .getValue();
     for (size_t i = 0; i < func.getNumArguments(); i++) {
-      auto argval = func.getArgument(i);
-      auto input_type = inputType_attrs[i]
-                            .dyn_cast<mlir::TypeAttr>()
-                            .getValue()
-                            .dyn_cast<hecate::earth::HEScaleTypeInterface>();
-      argval.setType(input_type);
+      auto &&argval = func.getArgument(i);
+      if (auto input_type =
+              inputType_attrs[i]
+                  .dyn_cast<mlir::TypeAttr>()
+                  .getValue()
+                  .dyn_cast<hecate::earth::HEScaleTypeInterface>())
+        argval.setType(input_type);
       inputTypes.push_back(argval.getType());
     }
   }
+  func.walk([&](scf::ForOp ForOp) {
+    auto inputTy = ForOp.getOperandTypes();
+    mlir::Region &loop_body = ForOp.getBodyRegion();
+    mlir::Block *loopBodyBlock = ForOp.getBody();
+    for (auto argval : loop_body.getArguments()) {
+      if (auto sop = argval.getType().dyn_cast<mlir::RankedTensorType>()) {
+        argval.setType(mlir::RankedTensorType::get(
+            argval.getType().dyn_cast<mlir::RankedTensorType>().getShape(),
+            argval.getType()
+                .dyn_cast<mlir::RankedTensorType>()
+                .getElementType()
+                .dyn_cast<hecate::earth::HEScaleTypeInterface>()
+                .switchScale(hecate::earth::EarthDialect::rescalingFactor)));
+      }
+    }
+  });
+
   return;
 }
 
 void hecate::earth::inferTypeForward(hecate::earth::ForwardMgmtInterface sop) {
   Operation *oop = sop.getOperation();
-  auto iop = dyn_cast<mlir::InferTypeOpInterface>(oop);
-  SmallVector<Type, 4> retTypes;
-  if (iop.inferReturnTypes(oop->getContext(), oop->getLoc(), oop->getOperands(),
-                           oop->getAttrDictionary(),
-                           oop->getPropertiesStorage(), oop->getRegions(),
-                           retTypes)
-          .succeeded()) {
-    oop->getResults().back().setType(retTypes.back());
+  if (auto iop = dyn_cast<mlir::InferTypeOpInterface>(oop)) {
+    SmallVector<Type, 4> retTypes;
+    if (iop.inferReturnTypes(oop->getContext(), oop->getLoc(),
+                             oop->getOperands(), oop->getAttrDictionary(),
+                             oop->getPropertiesStorage(), oop->getRegions(),
+                             retTypes)
+            .succeeded()) {
+      oop->getResults().back().setType(retTypes.back());
+    }
   }
 }
 
-llvm::SmallVector<mlir::Value, 4>
-hecate::earth::attachOpid(mlir::func::FuncOp func) {
+llvm::SmallVector<mlir::Value, 4> hecate::earth::attachOpid(mlir::Block *bb) {
   llvm::SmallVector<mlir::Value, 4> values;
   // attach the opid to operation
   values.push_back(NULL);
-  func->walk([&](hecate::earth::HEScaleOpInterface sop) {
-    if ((llvm::isa<hecate::earth::UpscaleOp>(sop) ||
-         llvm::isa<hecate::earth::RescaleOp>(sop) ||
-         llvm::isa<hecate::earth::BootstrapOp>(sop) ||
-         llvm::isa<hecate::earth::ModswitchOp>(sop))) {
+  /* bb->walk([&](hecate::earth::HEScaleOpInterface sop) { */
+  for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
+    mlir::Operation *op = &*iter;
+    if ((llvm::isa<hecate::earth::UpscaleOp>(op) ||
+         llvm::isa<hecate::earth::RescaleOp>(op) ||
+         llvm::isa<hecate::earth::BootstrapOp>(op) ||
+         llvm::isa<hecate::earth::DummyOp>(op) ||
+         llvm::isa<hecate::earth::ModswitchOp>(op))) {
       /* assert(0 && "Currently not supported"); */
-      return;
+      continue;
     }
-    for (auto &&val : sop.getOperation()->getResults()) {
+    for (auto &&val : op->getResults()) {
       values.push_back(val);
     }
-  });
+    if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+      auto &&bb = forOp.getBody();
+      auto &&v = attachOpid(bb);
+      values.append(v.begin() + 1, v.end());
+    }
+  }
   return values;
+}
+
+llvm::DenseMap<int64_t, mlir::Value>
+hecate::earth::getOpidToValueMap(mlir::Block *bb) {
+  llvm::DenseMap<int64_t, mlir::Value> valueMap;
+  // attach the opid to operation
+  /* values.push_back(NULL); */
+  valueMap[0] = NULL;
+  /* bb->walk([&](hecate::earth::HEScaleOpInterface sop) { */
+  for (auto iter = bb->begin(); iter != bb->end(); ++iter) {
+    mlir::Operation *op = &*iter;
+    if ((llvm::isa<hecate::earth::UpscaleOp>(op) ||
+         llvm::isa<hecate::earth::RescaleOp>(op) ||
+         llvm::isa<hecate::earth::BootstrapOp>(op) ||
+         llvm::isa<hecate::earth::DummyOp>(op) ||
+         llvm::isa<hecate::earth::ModswitchOp>(op))) {
+      /* assert(0 && "Currently not supported"); */
+      continue;
+    }
+    for (auto &&val : op->getResults()) {
+      auto opid = hecate::getIntegerAttr("opid", val);
+      valueMap[opid] = val;
+    }
+    if (auto forOp = dyn_cast<mlir::scf::ForOp>(op)) {
+      auto &&bb = forOp.getBody();
+      auto &&v = getOpidToValueMap(bb);
+      valueMap.insert(v.begin(), v.end());
+    }
+  }
+  return valueMap;
 }

@@ -57,17 +57,23 @@ private:
 
 struct CandidateAnalysis {
 public:
+  /* CandidateAnalysis(mlir::func::FuncOp func); */
   CandidateAnalysis(mlir::Operation *op);
 
   // Default Implementation
   int64_t getOpid(mlir::Value v) const;
   int64_t getOpid(mlir::Operation *op) const;
   ValueInfo *getValueInfo(int64_t opid);
+  void build();
+  void doLiveAnalysis(mlir::Operation *op,
+                      mlir::SmallVector<int64_t, 4> &liveIn,
+                      mlir::SmallVector<int64_t, 4> &liveOut);
 
   mlir::SmallVector<int64_t, 4> getTargets(int64_t opid) const;
   mlir::SmallVector<int64_t, 4> getTargets(int64_t opid, int64_t setNum) const;
   mlir::SmallVector<int64_t, 4> getTargets(int64_t from, int64_t to,
                                            int64_t setNum) const;
+  mlir::DenseMap<int64_t, int64_t> getIdMap();
   mlir::SmallVector<int64_t, 4> getCandidateSet(size_t size) const;
   mlir::SmallVector<int64_t, 4> getCandidates() const;
   mlir::SmallVector<int64_t, 4> getEdges() const;
@@ -82,7 +88,8 @@ public:
   void setBypassEdges(int64_t from, int64_t OverThr);
   void sortValidCandidates(int64_t opid);
   void finalizeCandidates(int64_t setNum);
-  void pushFromCoverage(int64_t from, mlir::SmallVector<int64_t, 2> coverages);
+  void pushFromCoverage(int64_t from, mlir::SmallVector<int64_t, 2> coverages,
+                        bool is_mid_section = false);
   mlir::SmallVector<int64_t, 4> sortTargets(int64_t setNum);
   mlir::SmallVector<int64_t, 4>
   sortTargets(int64_t setNum, mlir::SmallVector<int64_t, 4> opids);
@@ -96,9 +103,12 @@ private:
       segToBypasses;
 
   llvm::SmallVector<ValueInfo, 4> values;
+  /* mlir::DenseMap<int64_t, ValueInfo> values; */
+  mlir::DenseMap<int64_t, int64_t> idToIdMap;
   int64_t retOpid;
   mlir::Liveness _l;
   mlir::Operation *_op;
+  /* mlir::func::FuncOp _func; */
   ScaleManagementUnit smu;
 };
 } // namespace hecate

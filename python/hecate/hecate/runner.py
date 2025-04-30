@@ -69,7 +69,7 @@ lw.setDebug.argtypes = [ctypes.c_void_p, ctypes.c_bool]
 
 #ToGPU Function
 lw.setToGPU.argtypes = [ctypes.c_void_p, ctypes.c_bool]
-lw.printMem.argtypes = [ctypes.c_void_p]
+
 
 def reinit_lw():
     global lw
@@ -100,6 +100,7 @@ def reinit_lw():
     lw.getArgLen.restype = ctypes.c_int64
     lw.getResLen.argtypes = [ctypes.c_void_p]
     lw.getResLen.restype = ctypes.c_int64
+    lw.setEpoch.argtypes = [ctypes.c_void_p, ctypes.c_int64,ctypes.c_int]
 
     # Encrypt/Decrypt Functions
     lw.encrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
@@ -182,6 +183,7 @@ class HEVM :
         reinit_lw()
 
         self.option = option
+        self.boot_cnt = 0
         if(path == str((Path.home() / ".hevm" / "default").absolute())):
             # When user does not set path
             path = str((Path.home() / ".hevm" / run_library).absolute())
@@ -222,13 +224,18 @@ class HEVM :
 
     def run (self) : 
         lw.run(self.vm)
-        lw.printMem(self.vm)
 
     def setInput(self, i, data) :
         if not isinstance(data, np.ndarray) :
             data = np.array(data, dtype=np.float64)
         carr = data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
         lw.encrypt(self.vm, i, carr, len(data))
+
+    def setEpoch(self, i, data) :
+        # if not isinstance(data, np.ndarray) :
+        #     data = np.array(data, dtype=np.float64)
+        # carr = data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+        lw.setEpoch(self.vm, i, data)
 
     def setDebug (self, enable) : 
         lw.setDebug(self.vm, enable)
@@ -257,7 +264,7 @@ class HEVM :
             result[i] = data
         return result
     
-    def printer(self, latency, rms, mem_usage = 0.0) :
+    def printer(self, latency, rms, epoch = 10, mem_usage = 0.0) :
         import re
         bench = re.search(r"optimized/(.*)/(.*)\.(.*)\._", self.hevm_path)
         print("======================================")
@@ -267,6 +274,7 @@ class HEVM :
         print("waterline:", bench.group(3))
         print("library:", run_library)
         print("device:", run_hardware)
+        print("epoch:", epoch)
         print("---------------Result-----------------")
         print("latency:", latency)
         print("rms:", rms)

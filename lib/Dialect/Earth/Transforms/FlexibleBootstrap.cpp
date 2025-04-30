@@ -12,6 +12,7 @@
 #include "hecate/Dialect/Earth/IR/HEParameterInterface.h"
 #include "hecate/Dialect/Earth/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
@@ -33,54 +34,38 @@ struct FlexibleBootstrapPass
   FlexibleBootstrapPass() {}
 
   void runOnOperation() override {
+    /* llvm::errs() << __FILE__ << '\n'; */
     auto func = getOperation();
-    auto &&block = func.getBody().front();
-    auto &&operations = block.getOperations();
-    // TODO: walk function has error for bootstrap operation
-    /* func.walk([&](hecate::earth::BootstrapOp bop) { */
-    uint64_t minModFactor = -1;
-    for (auto &&op : operations) {
-      if (auto bop = dyn_cast<hecate::earth::BootstrapOp>(op)) {
-
-        for (auto &&oper : bop.getResult().getUsers()) {
-          if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper)) {
-            minModFactor = std::min(minModFactor, oop.getDownFactor());
-          } else
-            minModFactor = 0;
-        }
-        // Check that every user needs the "downFactor"ed level
-        if (!minModFactor) {
-          return; // Go to next operation
-        }
-        bop.setTargetLevel(bop.getTargetLevel() + minModFactor);
-        bop->getResult(0).setType(
-            bop.getScaleType().switchLevel(bop.getTargetLevel()));
-
-        // bop.getResult()
-        //     .getType()
-        //     .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-        //     .switchLevel(bop.getTargetLevel());
-
-        // Change the user modswitch downFactors
-        for (auto &&oper : bop.getResult().getUsers()) {
-          if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper)) {
-            auto newDownFactor = oop.getDownFactor() - minModFactor;
-            if (!newDownFactor) {
-              oop.replaceAllUsesWith(oop.getOperand());
-              oop.erase();
-            } else {
-              oop.setDownFactor(oop.getDownFactor() - minModFactor);
-            }
-          }
-        }
-        /* }); */
-        /* LLVM_DEBUG(llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n"); */
+    mlir::OpBuilder builder(func.getOperation());
+    func.walk([&](hecate::earth::BootstrapOp bop) {
+      uint64_t minModFactor = -1;
+      for (auto &&oper : bop.getResult().getUsers()) {
+        if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper)) {
+          minModFactor = std::min(minModFactor, oop.getDownFactor());
+        } else
+          minModFactor = 0;
       }
-    }
+      // Check that every user needs the "downFactor"ed level
+      if (!minModFactor) {
+        return; // Go to next operation
+      }
+      bop.setTargetLevel(bop.getTargetLevel() + minModFactor);
+      bop->getResult(0).setType(
+          bop.getScaleType().switchLevel(bop.getTargetLevel()));
+      // Change the user modswitch downFactors
+      for (auto &&oper : bop.getResult().getUsers()) {
+        if (auto oop = dyn_cast<hecate::earth::ModswitchOp>(oper)) {
+          oop.setDownFactor(oop.getDownFactor() - minModFactor);
+        }
+      }
+    });
+
+    /* llvm::errs() << __FILE__ << '\n'; */
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<hecate::earth::EarthDialect>();
+    registry.insert<scf::SCFDialect>();
   }
 };
 } // namespace

@@ -49,6 +49,8 @@ public:
 
 namespace hecate {
 namespace ckks {
+void registerArithOpInterfaceExternalModels(mlir::DialectRegistry &registry);
+void registerSCFOpInterfaceExternalModels(mlir::DialectRegistry &registry);
 ::hecate::ckks::PolyTypeInterface getPolyType(mlir::Value v);
 ::mlir::RankedTensorType getTensorType(mlir::Value v);
 } // namespace ckks

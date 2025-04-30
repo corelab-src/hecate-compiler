@@ -10,6 +10,17 @@ mkdir -p $HECATE/examples/optimized/eva
 mkdir -p $HECATE/examples/optimized/elasm
 mkdir -p $HECATE/examples/optimized/dacapo
 mkdir -p $HECATE/examples/optimized/pars
+mkdir -p $HECATE/examples/optimized/simple_loop
+mkdir -p $HECATE/examples/optimized/flex_loop
+mkdir -p $HECATE/examples/optimized/packed_loop
+mkdir -p $HECATE/examples/optimized/unroll_loop
+mkdir -p $HECATE/examples/optimized/packed_flex_loop
+mkdir -p $HECATE/examples/optimized/packed_unroll_loop
+mkdir -p $HECATE/examples/optimized/unroll_flex_loop
+mkdir -p $HECATE/examples/optimized/unroll_packed_loop
+mkdir -p $HECATE/examples/optimized/unroll_factor_loop
+mkdir -p $HECATE/examples/optimized/packed_unroll_flex_loop
+mkdir -p $HECATE/examples/optimized/dacapo_flex
 
 build-hopt()(
 cd $HECATE/build
@@ -23,12 +34,12 @@ ninja
 
 hc-trace()(
 cd $HECATE/examples
-python3 $HECATE/examples/benchmarks/$1.py
+python3 $HECATE/examples/benchmarks/$1.py $2 $3
 )
 
 hc-test()(
 cd $HECATE/examples
-python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5
+python3 $HECATE/examples/tests/$3.py $1 $2 $4 $5 $6 $7
 )
 
 
@@ -71,8 +82,12 @@ hopt-lib-hww() {
 hopt --$1 --ckks-config="$HECATE/profiled_$4_$5.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
 }
 
+hopt-unroll() {
+hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --unroll-factor=$6 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
+}
+
 hc-back-opt-test(){
-hopt-lib-hw $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
+hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6 $7
 }
 
 hc-back-opt(){
@@ -84,6 +99,7 @@ hopt-lib-hww $1 $2 $3 $4 $5
 # alias hopts-seal=hopt-seal
 alias hbcot=hc-back-opt-test
 alias hbt=hc-back-opt
+alias hur=hopt-unroll
 
 alias hoptd=hopt-debug-print
 alias hopta=hopt-debug-print-all

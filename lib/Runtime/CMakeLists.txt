@@ -1,3 +1,4 @@
+find_package(ZLIB)
 
 add_library (SEAL_HEVM
  SHARED
@@ -8,10 +9,9 @@ target_link_libraries(SEAL_HEVM
   ConstData
  )
 
-
 add_library (HEAAN_HEVM
-  SHARED
-  HEAAN_HEVM.cpp)
+ SHARED
+ HEAAN_HEVM.cpp)
 target_link_libraries(HEAAN_HEVM
   PUBLIC
   HEaaN::HEaaN
@@ -45,3 +45,4 @@ set_target_properties(HEONGPU_HEVM PROPERTIES
 	# POSITION_INDEPENDENT_CODE ON
 	# CUDA_RUNTIME_LIBRARY Static
 	)
+

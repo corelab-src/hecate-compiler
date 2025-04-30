@@ -28,6 +28,11 @@ lt.createConstant.argtypes = [
         ctypes.POINTER(ctypes.c_double), ctypes.c_size_t, ctypes.c_char_p,
         ctypes.c_size_t
         ]
+lt.createArithConstant.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int, ctypes.c_char_p,
+        ctypes.c_size_t
+        ]
 lt.createFunc.argtypes = [
         ctypes.c_void_p, ctypes.c_char_p, 
         ctypes.POINTER(ctypes.c_int), ctypes.c_size_t, ctypes.c_char_p,
@@ -38,12 +43,28 @@ lt.initFunc.argtypes = [
         ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t
         ]
 lt.createConstant.restype = ctypes.c_size_t
-lt.createConstant.restype = ctypes.c_size_t
 lt.createFunc.restype = ctypes.c_size_t
+lt.createLoop.argtypes = [
+        ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t), ctypes.POINTER(ctypes.c_size_t),
+        ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t, ctypes.c_size_t,ctypes.c_char_p, ctypes.c_size_t
+        ]
+lt.setYield.argtypes = [
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t), 
+        ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
+        ]
+lt.setLoopCarriedVars.argtypes = [
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t), 
+        ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
+        ]
+lt.getInductionVar.argtypes = [
+        ctypes.c_void_p, ctypes.c_size_t
+        ]
+
 
 """Immediate arguments"""
 lt.createRotation.argtypes = [
-        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int64, ctypes.c_char_p, ctypes.c_size_t
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t
+        # ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
         ]
 lt.createRotation.restype = ctypes.c_size_t
 
@@ -79,9 +100,11 @@ toUnary = {
         "bootstrap": 0,  # Bootstrap
         }
 toBinary = {
+        # "rotate": 1, #Rotation
         "add": 6,  # Addition
         "sub": 7,  # Subtraction
         "mul": 8,  # Multiplication
+        "lshift": 101,
         }
 toInnerUnary = {
         "neg": 13,  # Negation
@@ -105,7 +128,7 @@ def save(dirs="", cst_dirs=""):
     name = (dirs +"/"+ filename.split("/")[-1].split(".")[0]+ ".mlir" ).encode('utf-8') 
     cst_name = (cst_dirs).encode('utf-8') 
     name = lt.save(ctxt, cst_name, name ).decode('utf-8')
-
+    # print(name)
 
     return name 
 
@@ -198,9 +221,11 @@ class hecateMetaBinary(hecateMetaBase):
         def rotate(self, offset) :
             (frame, filename, line_number, function_name, lines,
                         index) = inspect.stack()[1]
+            # tmp = resolveType(offset)
             return Expr(lt.createRotation(ctxt, self.obj, offset, 
                 filename.encode('utf-8'), line_number))
         setattr(newcls, "rotate", rotate)
+
         return newcls
 
 """Helper Functions"""
@@ -238,6 +263,7 @@ def resolveType(other):
     if isinstance(other, Expr):
         return other
     elif isinstance(other, int):
+        # return Index(other)
         return Plain(np.array([other], dtype=np.float64)) #Plain([other])
     elif isinstance(other, float):
         return Plain(np.array([other], dtype=np.float64)) #Plain([other])
@@ -273,6 +299,17 @@ class Plain(Expr):
                 lt.createConstant(ctxt, carr, len(data), filename.encode('utf-8'),
                     line_number))
 
+class Index(Expr):
+    def __init__(self, data, scale = 40):
+         
+        # carr = npcl.as_ctypes(data) 
+        (frame, filename, line_number, function_name, lines,
+                index) = getProperFrame()
+        super().__init__(
+                lt.createArithConstant(ctxt, data, filename.encode('utf-8'),
+                    line_number))
+
+
 class Empty :
     def __init__ (self) : 
         pass
@@ -304,6 +341,12 @@ def func(param):
         return a
 
     return generateFunc
+
+# def operation(cls):
+#     def generateClass(cls):
+#         return a
+
+#     return generateClass
 
 
 """Function object"""
@@ -344,6 +387,69 @@ class Func(metaclass=hecateMetaBase):
                 lt.createCall(ctxt, self.obj, argarr, len(args),
                     filename.encode('utf-8'), line_number))
 
+
+class WithScope(metaclass=hecateMetaBase):
+# class WithScope(object):
+    # def __init__(self, rng, inputarr):
+    
+    def __init__(self, rng, inputarr, num_elements,name):
+        (frame, filename, line_number, function_name, lines, index) = getProperFrame()
+        
+        self.frame = frame;
+        # self.inputarr = inputarr
+        self.filename = filename.encode('utf-8')
+        self.line_number = line_number
+        self.i = 0
+        # self.carriedvars = []
+        self.ind = [ a== "i" for a in name]
+        self.loopargs = [0 for i in range(len(self.ind+inputarr))] 
+        self.indvars = (ctypes.c_size_t * len(self.loopargs))(*self.loopargs)
+        self.init_vars = {} 
+
+        for k, v in frame.f_locals.items() :
+            self.init_vars[k] = v 
+        # self.indvar = i
+        self.inputarr = (ctypes.c_size_t *len(inputarr))(*[resolveType(bb).obj for bb in inputarr])
+        rngg = (ctypes.c_size_t *3)(*[resolveType(bb).obj if isinstance(bb, Expr) else bb for bb in rng])
+        self.obj = lt.createLoop(ctxt, (ctypes.c_size_t * 3)(*rngg), self.indvars, self.inputarr, len(self.inputarr), num_elements, self.filename, self.line_number)
+        for i in range(len(inputarr)) :
+            inputarr[i].obj = self.indvars[i+1] 
+
+    def __enter__(self):
+        return Expr(self.indvars[0])
+    
+    
+    def __exit__(self, exc_type, exc_value, trace):
+        self.ret = []
+        curloc = self.frame.f_locals
+        for key, expr in self.init_vars.items() :
+            if key in curloc and expr != curloc[key]: 
+                if type(curloc[key]) is list :
+                    arr = np.array(curloc[key]).reshape(-1)
+                    self.ret.extend(arr.tolist())
+                else :
+                    self.ret.append(curloc[key])
+                # self.carriedvars.append(expr)
+
+        rets = (ctypes.c_size_t * len(self.ret))(*[resolveType(bb).obj for bb in self.ret])
+        lt.setYield(ctxt, self.obj, rets, len(self.ret), self.filename, self.line_number)
+        for i in range(len(self.ret)) :
+            self.ret[i].obj = rets[i]
+        return
+
+def loop(lower_bound, upper_bound, step, inputarr = [], num_elements = 1, name='i') :
+    # def recusive_flatten_list():
+    def flatten(arr):
+        flat_list = []
+        for item in arr:
+            if isinstance(item, list):
+                flat_list.extend(flatten(item))
+            else:
+                flat_list.append(item)
+        return flat_list
+    arr = flatten(inputarr) 
+    # arr = [resolveType(tt) for tt in arrt]
+    return WithScope([lower_bound, upper_bound, step], arr, num_elements, name)
 
 def removeCtxt() :
     lt.removeCtxt()

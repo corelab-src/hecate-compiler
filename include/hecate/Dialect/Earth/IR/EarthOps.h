@@ -14,6 +14,7 @@
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/CopyOpInterface.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Interfaces/LoopLikeInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include <cmath>
 
@@ -30,6 +31,7 @@
 
 namespace hecate {
 namespace earth {
+void registerSCFOpInterfaceExternalModels(mlir::DialectRegistry &registry);
 ::hecate::earth::HEScaleTypeInterface getScaleType(mlir::Value v);
 ::mlir::RankedTensorType getTensorType(mlir::Value v);
 } // namespace earth

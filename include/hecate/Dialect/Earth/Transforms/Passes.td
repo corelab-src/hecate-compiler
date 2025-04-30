@@ -213,6 +213,80 @@ def BootstrappingLowering : Pass<"boot-lowering", "::mlir::func::FuncOp"> {
     Lowering the bootstrap operations with the arithmetic operations.
   }];
 }
+def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
+def LoopUnroll : Pass<"loop-unrolling", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+  let options = [
+    Option<"unroll_factor", "unroll_factor", "int64_t", /*default=*/"1",
+    "The minimal result scale of rescaling">,
+  ];
+
+
+}
+def PackLoopVariables: Pass<"packing-loop-carried-variables", "::mlir::func::FuncOp"> {
+  let summary = "Pack the loop carried variables";
+  let description = [{
+    All of the constant op should have a single use after this pass.
+  }];
+}
+def ApplyDaCapoToLoop : Pass<"dacapo-loop", "::mlir::func::FuncOp"> {
+  let summary = "Apply DaCapo scheme to loop body";
+  let description = [{
+    This pass applies DaCapo scheme on loop body to optimize.
+  }];
+  let options = [
+    Option<"waterline", "waterline", "int64_t", /*default=*/"40",
+    "The minimal result scale of rescaling">,
+    Option<"output_val", "output_val", "int64_t", /*default=*/"10",
+    "The maximum result value bits of return value">,
+    Option<"be_unroll", "be_unroll", "bool", /*default=*/"false",
+    "The maximum result value bits of return value">,
+  ];
+}
+def PromoteLoopBody : Pass<"promote-loop-body", "::mlir::func::FuncOp"> {
+  let summary = "Move Loop body operations outside the loop";
+  let description = [{
+    This pass applies DaCapo scheme on loop body to optimize.
+  }];
+  let options = [
+    Option<"waterline", "waterline", "int64_t", /*default=*/"40",
+    "The minimal result scale of rescaling">,
+    Option<"output_val", "output_val", "int64_t", /*default=*/"10",
+    "The maximum result value bits of return value">,
+  ];
+}
+def WrapUpLoopBody : Pass<"wrapup-loop-body", "::mlir::func::FuncOp"> {
+  let summary = "Wrap Loop body operations into the loop";
+  let description = [{
+    This pass applies DaCapo scheme on loop body to optimize.
+  }];
+  let options = [
+    Option<"waterline", "waterline", "int64_t", /*default=*/"40",
+    "The minimal result scale of rescaling">,
+    Option<"output_val", "output_val", "int64_t", /*default=*/"10",
+    "The maximum result value bits of return value">,
+  ];
+}
+def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
+def UnrollFactorAnalysis : Pass<"find-optimized-unrollfactor", "::mlir::func::FuncOp"> {
+  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+  let description = [{
+    This pass changes the loop structure through rotation and removes EraseOp.
+  }];
+}
 /* def ScaleManagementStructuring : Pass<> */
 
 

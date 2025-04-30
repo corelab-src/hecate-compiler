@@ -10,6 +10,7 @@ include "hecate/Dialect/Earth/IR/EarthOps.td"
 
 def isZero : Constraint<CPred<"$0.dyn_cast<IntegerAttr>().getInt() == 0"> , "check zero">;
 def isAllZero : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == 0;})">, "check all zero">;
+/* def isAllOffsetZero : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseI64ArrayAttr>().getElement,[&](int64_t d){ return d == 0;})">, "check all zero">; */
 def isAllOne : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == 1.0;})">, "check all one">;
 def isAllMinusOne : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == -1.0;})">, "check all minus one">;
 def isIntegerDenseAttr : Constraint<CPred<"$0.isa<DenseElementsAttr>() && && llvm::all_of($0.dyn_cast<DenseElementsAttr>().getValues<double>(),[&](double d){ return d == double(int64_t(d));})">, "check integer dense attr">;
@@ -17,6 +18,8 @@ def isAllTwo : Constraint<CPred<"$0.isa<DenseElementsAttr>() && llvm::all_of($0.
 def geZeroAfterRescale : Constraint<CPred<"$0.dyn_cast<IntegerAttr>().getInt() - hecate::earth::EarthDialect::rescalingFactor >= 0"> , "check zero">;
 def singleUser : Constraint<CPred<"$0.hasOneUse()">, "single user">;
 def structureNotFixed : Constraint<CPred<"!$0.getDefiningOp()->getAttr(\"sm_fixed\")">, "scale management structure is not fixed">;
+def plainInputForUnary : Constraint<CPred<"!$0.getType().dyn_cast<::hecate::earth::HEScaleTypeInterface>().isCipher()">, "unary operation has plain operand">;
+/* def packUnPack : Constraint<CPred<"llvm::all_of($0,[&](Value v){ return !isa<mlir::BlockArgument>(v) && isa<hecate::earth::PackOp>(v.getDefiningOp());})">>; */
 
 def ZeroUpscalePattern : Pat<(UpscaleOp $arg, $val), (replaceWithValue $arg), [(isZero $val)]>;
 def ZeroModswitchPattern : Pat<(ModswitchOp $arg, $val), (replaceWithValue $arg), [(isZero $val)]>;
@@ -25,6 +28,8 @@ def MulZeroPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), 
 def MulOnePattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (replaceWithValue $lhs), [(isAllOne $val)]>;
 def MulTwoPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (AddOp $lhs, $lhs), [(isAllTwo $val)]>;
 def NegMulPattern : Pat<(MulOp (either $lhs, (ConstantOp:$res $val, $dat2)) ), (NegateOp $lhs), [(isAllMinusOne $val)]>;
+
+/* def PackUnPackPattern : Pat<(UnPackOp (PackOp $inputs, $num_elements, $num_inputs) , $num_elem, $num_outputs)) , (replaceWithValue $inputs), []>; */
 
 
 // This patterns
@@ -40,6 +45,8 @@ def ModswitchConstantPattern: Pat<(ModswitchOp (ConstantOp:$res $dat1,$dat2), $d
 
 /* def moduloSlot : NativeCodeCall<"$0 % (hecate::earth::EarthDialect::polynomialDegree/2)">; */
 /* def RotateOffsetModuloPattern: Pat<(RotateOp $arg, $offset), (RotateOp $arg, (moduloSlot $offset))>; */
+def RotateZeroOffsetPattern: Pat<(RotateOp $arg, $offset), (replaceWithValue $arg), [(isAllZero $offset)]>;
+/* def RotatePlainOperandPattern: Pat<(RotateOp $arg, $offset),("$0.dyn_cast<DenseElementsAttr>().getValues<double>()"), [(plainInputForUnary $arg)]>; */
 
 
 def UpscaleRescalePattern: Pat<(UpscaleOp (RescaleOp:$res $arg), $up), (RescaleOp (UpscaleOp $arg, $up)), [(singleUser $res)]>;

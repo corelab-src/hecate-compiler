@@ -14,6 +14,16 @@ def EarthToCKKSConversion : Pass<"convert-earth-to-ckks", "::mlir::func::FuncOp"
   let options = [
   ];
 }
+def EarthToEarthConversion : Pass<"convert-earth-to-earth", "::mlir::func::FuncOp"> {
+  let summary = "Convert Earth dialect to Earth dialect (PackOp and UnPackOp to Earth Ops)";
+  let description = [{
+    This pass converts supported Earth ops to CKKS dialect instructions.
+  }];
+  let constructor = "::hecate::earth::createEarthToEarthConversionPass()";
+  let dependentDialects = ["hecate::earth::EarthDialect", "mlir::tensor::TensorDialect"];
+  let options = [
+  ];
+}
 def UpscaleToMulcpConversion : Pass<"convert-upscale-to-mulcp", "::mlir::func::FuncOp"> {
   let summary = "Convert upscale operation to mulcp operation";
   let description = [{
@@ -24,5 +34,24 @@ def UpscaleToMulcpConversion : Pass<"convert-upscale-to-mulcp", "::mlir::func::F
   let options = [
   ];
 }
-
+def ArithToDpsArithConversion : Pass<"convert-arith-to-dpsarith", "::mlir::func::FuncOp"> {
+  let summary = "Convert arith operation to dps arith";
+  let description = [{
+    This pass converts arith ops to dps arith.
+  }];
+  let constructor = "::hecate::ckks::createArithToDpsArithConversionPass()";
+  let dependentDialects = ["mlir::arith::ArithDialect", "mlir::tensor::TensorDialect"];
+  let options = [
+  ];
+}
+def SCFToDpsSCFConversion : Pass<"convert-scf-to-dpsscf", "::mlir::func::FuncOp"> {
+  let summary = "Convert scf operation to dps scf";
+  let description = [{
+    This pass converts arith ops to dps arith.
+  }];
+  let constructor = "::hecate::ckks::createSCFToDpsSCFConversionPass()";
+  let dependentDialects = ["mlir::scf::SCFDialect", "mlir::tensor::TensorDialect"];
+  let options = [
+  ];
+}
 #endif
