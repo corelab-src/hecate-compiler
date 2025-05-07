@@ -1,8 +1,10 @@
-
 add_library (ConstData
   STATIC
   ConstData.cpp
   )
+
+find_package(ZLIB)
+target_link_libraries(ConstData PUBLIC ZLIB::ZLIB)
 
 add_mlir_dialect_library (HecateSupport
   ConstData.cpp

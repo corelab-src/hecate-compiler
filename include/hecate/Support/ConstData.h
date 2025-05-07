@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <zlib.h>
 
 namespace hecate {
 class ConstData {
@@ -26,6 +27,12 @@ public:
   // Save the data structure to a binary file with the given start index
   void save(const std::string &filename, size_t startIndex);
 
+  // Compress the data structure with from start index to last index
+  void compressData(std::ofstream &outFile, std::vector<char>& serializedBuffer);
+
+  // Decompress the constant data structure with all compressed data;
+  void decompressData(std::ifstream& inFile, std::vector<char>& compressedBuffer);
+
   // Overload the subscript operator to return a reference to
   // std::vector<double>
   std::vector<double> &operator[](size_t index);
@@ -43,6 +50,9 @@ public:
   void clear();
 
 private:
+  // Check whether constants are saved as compressed form
+  bool isCompressed = false;
+
   // Vector of arrays
   std::vector<std::vector<double>> arrays_;
 

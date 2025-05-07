@@ -1,5 +1,3 @@
-find_package(ZLIB)
-
 add_library (SEAL_HEVM
  SHARED
  SEAL_HEVM.cpp)

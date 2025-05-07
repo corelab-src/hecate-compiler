@@ -3,6 +3,7 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <cstring>
 #include <stdexcept>
 
 namespace hecate {
@@ -37,20 +38,22 @@ void ConstData::load(const std::string &filename) {
     assert("Error: Unable to open file for reading");
   }
 
+  // Decompress the constant data to buffer
+  std::vector<char> buffer;
+  decompressData(inFile, buffer);
+
+  size_t offset = 0;
   // Read the start index
   int64_t startIndex;
-  inFile.read(reinterpret_cast<char *>(&startIndex), sizeof(int64_t));
-  if (!inFile) {
-    assert("Error: Unable to read start index");
-  }
+  std::memcpy(&startIndex, buffer.data() + offset, sizeof(int64_t));
+  offset += sizeof(int64_t);
+
 
   // Read the number of arrays
   int64_t arrayCount;
-  inFile.read(reinterpret_cast<char *>(&arrayCount), sizeof(int64_t));
-  if (!inFile) {
-    assert("Error: Unable to read array count");
-  }
-
+  std::memcpy(&arrayCount, buffer.data() + offset, sizeof(int64_t));
+  offset += sizeof(int64_t);
+  
   // Ensure the arrays_ vector is large enough
   size_t requiredSize = static_cast<size_t>(startIndex + arrayCount);
   if (arrays_.size() < requiredSize) {
@@ -60,10 +63,8 @@ void ConstData::load(const std::string &filename) {
   // Read each array
   for (int64_t i = 0; i < arrayCount; ++i) {
     int64_t innerSize;
-    inFile.read(reinterpret_cast<char *>(&innerSize), sizeof(int64_t));
-    if (!inFile) {
-      assert("Error: Unable to read inner array size");
-    }
+    std::memcpy(&innerSize, buffer.data() + offset, sizeof(int64_t));
+    offset += sizeof(int64_t);
 
     size_t index = static_cast<size_t>(startIndex + i);
 
@@ -75,11 +76,8 @@ void ConstData::load(const std::string &filename) {
 
     // Read the array data
     std::vector<double> data(static_cast<size_t>(innerSize));
-    inFile.read(reinterpret_cast<char *>(data.data()),
-                innerSize * sizeof(double));
-    if (!inFile) {
-      assert("Error: Unable to read array data");
-    }
+    std::memcpy(data.data(), buffer.data() + offset, innerSize * sizeof(double));
+    offset += innerSize * sizeof(double);
 
     arrays_[index] = std::move(data);
   }
@@ -91,16 +89,26 @@ void ConstData::save(const std::string &filename, size_t startIndex) {
   if (!outFile) {
     assert("Error: Unable to open file for writing");
   }
-
   size_t arrayCount = arrays_.size();
+
+  // Build the buffer to serialize the data
+  size_t totalSize = 2 * sizeof(int64_t); // StartIndex(8 bytes) and arrayCount(8 bytes)
+  for (auto &&vec : arrays_) {
+	totalSize += sizeof(int64_t); // innerSize (8 bytes)
+    totalSize += vec.size() * sizeof(double); // vector size
+  }
+  std::vector<char> buffer(totalSize, 0);
+  size_t offset = 0;
 
   // Write the start index
   int64_t startIndex64 = static_cast<int64_t>(startIndex);
-  outFile.write(reinterpret_cast<const char *>(&startIndex64), sizeof(int64_t));
+  std::memcpy(buffer.data() + offset, &startIndex64, sizeof(int64_t));
+  offset += sizeof(int64_t);
 
   // Write the number of arrays
   int64_t arrayCount64 = static_cast<int64_t>(arrayCount);
-  outFile.write(reinterpret_cast<const char *>(&arrayCount64), sizeof(int64_t));
+  std::memcpy(buffer.data() + offset, &arrayCount64, sizeof(int64_t));
+  offset += sizeof(int64_t);
 
   // Write each array
   for (size_t i = 0; i < arrays_.size(); ++i) {
@@ -108,13 +116,83 @@ void ConstData::save(const std::string &filename, size_t startIndex) {
     int64_t innerSize = static_cast<int64_t>(arr.size());
 
     // Write the inner size
-    outFile.write(reinterpret_cast<const char *>(&innerSize), sizeof(int64_t));
+    std::memcpy(buffer.data() + offset, &innerSize, sizeof(int64_t));
+    offset += sizeof(int64_t);
 
     // Write the array data
-    outFile.write(reinterpret_cast<const char *>(arr.data()),
-                  arr.size() * sizeof(double));
+    std::memcpy(buffer.data() + offset, arr.data(), arr.size() * sizeof(double));
+    offset += arr.size() * sizeof(double);
+
   }
+
+  // Compress the data from buffer
+  compressData(outFile, buffer);
+
+  // Write the all data with serialized form
+  outFile.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
   std::cout << filename << '\n';
+}
+
+// Compress the data structure with from start index to last index
+void ConstData::compressData(std::ofstream &outFile, std::vector<char>& serializedBuffer) {
+
+  // compress the constant data
+  size_t srcSize = serializedBuffer.size();
+  uLongf compressedSize = compressBound(srcSize * sizeof(char));
+  std::vector<Bytef> compressed(compressedSize);
+  int res = compress(compressed.data(), &compressedSize,
+                     (Bytef *)(serializedBuffer.data()),
+                     serializedBuffer.size() * sizeof(char));
+
+  // check compression is succeed
+  if (res != Z_OK) {
+    std::cerr << "Compression failed: " << res << "\n";
+    return;
+  }
+
+  // Store the compressed form of constant
+  serializedBuffer.resize(compressedSize);
+  serializedBuffer.assign(reinterpret_cast<char*>(compressed.data()),
+                            reinterpret_cast<char*>(compressed.data() + compressedSize));
+
+  // Write decompressed buffer size
+  outFile.write(reinterpret_cast<const char *>(&srcSize), sizeof(size_t));
+
+  // Write compressed buffer size
+  outFile.write(reinterpret_cast<const char *>(&compressedSize), sizeof(size_t));
+
+}
+
+// Decompress the constant data structure with all compressed data;
+void ConstData::decompressData(std::ifstream& inFile, std::vector<char>& result) {
+
+  // get compressed size
+  size_t decompressedSize;
+  inFile.read(reinterpret_cast<char *>(&decompressedSize), sizeof(size_t));
+  if (!inFile) {
+    assert("Error: Unable to read decompressed size");
+  }
+  result.resize(decompressedSize);
+
+  // get decompressed size
+  size_t compressedSize;
+  inFile.read(reinterpret_cast<char *>(&compressedSize), sizeof(size_t));
+  if (!inFile) {
+    assert("Error: Unable to read compressed size");
+  }
+
+  // Read the compressed data
+  std::vector<char> compressedBuffer(static_cast<size_t>(compressedSize));
+  inFile.read(reinterpret_cast<char *>(compressedBuffer.data()),
+              compressedSize * sizeof(char));
+
+
+  // Decompress the constant data
+  std::vector<char> decompressed(decompressedSize);
+  uncompress(reinterpret_cast<Bytef *>(result.data()), &decompressedSize,
+             reinterpret_cast<const Bytef *>(compressedBuffer.data()),
+             compressedBuffer.size());
+
 }
 
 // Overload the subscript operator to return a reference to
