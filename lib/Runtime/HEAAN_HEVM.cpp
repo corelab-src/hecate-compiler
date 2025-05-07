@@ -28,6 +28,8 @@ struct HEAAN_HEVM {
   ConfigBody config;
   /* std::vector<uint64_t> config_dats; */
   std::vector<HEVMOperation> ops;
+  std::vector<HEVMLoopOp> loops;
+  std::vector<std::vector<HEVMOperation>> loop_insts;
   std::vector<uint64_t> arg_scale;
   std::vector<uint64_t> arg_level;
   std::vector<uint64_t> res_scale;
@@ -39,8 +41,9 @@ struct HEAAN_HEVM {
   std::vector<HEaaN::Plaintext> plains;
   std::vector<double> scalep;
   std::vector<uint64_t> levelp;
-  std::vector<HEaaN::Message> msgs;
-  std::map<double *, int> msgMap;
+  std::vector<HEaaN::Message *> msgs;
+  std::map<uint16_t, HEaaN::Message> msgMap;
+  std::vector<int> integers;
   std::map<uint64_t, HEaaN::Plaintext> upscale_const;
 
   HEaaN::Context context;
@@ -54,6 +57,7 @@ struct HEAAN_HEVM {
   /* std::chrono::microseconds boot_time; */
   uint64_t boot_time = 0;
   uint64_t boot_cnt = 0;
+  bool isPrinted = false;
 
   static const int N = 17;
   static const int L = 16;
@@ -109,7 +113,7 @@ struct HEAAN_HEVM {
               << "\n";
   }
   void printInfo() {
-    int encodeOnline = 2;
+    /* int encodeOnline = 2; */
     /* std::cout << "polyDegree: " << N << '\n'; */
     /* std::cout << "encodeOnline: " << encodeOnline << "\n\n"; */
   }
@@ -176,9 +180,21 @@ struct HEAAN_HEVM {
 
     loadHeader(iff);
 
+    integers.resize(header.config_header.arg_length);
     ops.resize(config.num_operations);
     iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
 
+    loops.resize(config.num_loops);
+    loop_insts.resize(config.num_loops);
+    iff.read((char *)loops.data(), config.num_loops * sizeof(HEVMLoopOp));
+
+    for (size_t i = 0; i < loops.size(); i++) {
+      loop_insts[i].resize(loops[i].config_body.num_operations);
+      iff.read((char *)loop_insts[i].data(),
+               loop_insts[i].size() * sizeof(HEVMOperation));
+    }
+
+    integers.resize(config.num_int_buffer);
     ciphers.resize(config.num_ctxt_buffer, HEaaN::Ciphertext(context));
     if (togpu) {
       for (auto &&cipher : ciphers)
@@ -187,7 +203,8 @@ struct HEAAN_HEVM {
 
     HEaaN::u64 log_slot = N - 1;
     HEaaN::Message datas(log_slot, 0.0);
-    msgs.resize(config.num_ptxt_buffer, datas);
+    /* msgs.resize(config.num_ptxt_buffer, datas); */
+    msgs.resize(config.num_ptxt_buffer);
     if (preencode) {
       plains.resize(config.num_ptxt_buffer, HEaaN::Plaintext(context));
       if (togpu) {
@@ -233,9 +250,9 @@ struct HEAAN_HEVM {
     }
   }
 
-  void preprocess() {
+  void preprocess(std::vector<HEVMOperation> &heops) {
     std::vector<double> identity(1LL << (N - 1), 1.0);
-    for (HEVMOperation &op : ops) {
+    for (HEVMOperation &op : heops) {
       if (op.opcode == 0) {
         if (preencode) {
           encode_internal(plains[op.dst],
@@ -243,30 +260,47 @@ struct HEAAN_HEVM {
                                                          : constData[op.lhs],
                           op.rhs >> 10, op.rhs & 0x3FF);
         } else {
-          to_msg(op.dst,
-                 op.lhs == ((unsigned short)-1) ? identity : constData[op.lhs]);
+          // to_msg(op.dst,
+          //        op.lhs == ((unsigned short)-1) ? identity :
+          //        constData[op.lhs]);
+          to_msg(op.dst, op.lhs);
         }
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
       }
+      if (op.opcode == 11) {
+        std::vector<HEVMOperation> &loop_body = loop_insts[op.dst];
+        preprocess(loop_body);
+      }
     }
   }
 
-  void to_msg(int16_t dst, std::vector<double> src) {
-    auto &msg = msgs[dst];
-    for (size_t i = 0; i < msg.getSize(); i++) {
-      msg[i].real(src[i % src.size()]);
-      msg[i].imag(0);
+  void to_msg(int16_t dst, uint16_t lhs) {
+    HEaaN::u64 log_slot = N - 1;
+    std::vector<double> identity(1LL << (N - 1), 1.0);
+
+    if (!msgMap.count(lhs)) {
+      msgMap[lhs] = HEaaN::Message(log_slot, 0.0);
+      auto &msg = msgMap[lhs];
+      auto &src = lhs == ((unsigned short)-1) ? identity : constData[lhs];
+      for (size_t i = 0; i < msg.getSize(); i++) {
+        msg[i].real(src[i % src.size()]);
+        msg[i].imag(0);
+      }
+
+      if (togpu)
+        msgMap[lhs].to(HEaaN::getCurrentCudaDevice());
     }
-    if (togpu)
-      msg.to(HEaaN::getCurrentCudaDevice());
+    msgs[dst] = &msgMap[lhs];
+
     return;
   }
+
   void encode_online(int16_t dst) {
     /* if (togpu) */
     /*   msgs[dst].to(HEaaN::getCurrentCudaDevice()); */
     plains[0] =
-        endecoder->encode(msgs[dst], levelp[dst], std::pow(2.0, scalep[dst]));
+        endecoder->encode(*msgs[dst], levelp[dst], std::pow(2.0, scalep[dst]));
   }
 
   void encode_internal(HEaaN::Plaintext &dst, std::vector<double> src,
@@ -387,11 +421,40 @@ struct HEAAN_HEVM {
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
   }
 
-  void run() {
+  void heloop(int16_t dst) {
+    HEVMLoopOp &loop = loops[dst];
+    std::vector<HEVMOperation> &loop_body = loop_insts[dst];
+    auto lb = integers[loop.config_body.lb];
+    auto ub = integers[loop.config_body.ub];
+    auto step = integers[loop.config_body.step];
+    if (debug)
+      std::cout << dst << " loop : " << lb << " " << ub << " " << step << '\n';
+    for (int i = lb; i < ub; i += step)
+      run(loop_body);
+  }
+
+  void copyCipher(int16_t dst, int16_t lhs) {
+    ciphers[dst] = ciphers[lhs];
+    scalec[dst] = scalec[lhs];
+  }
+
+  void arithConstant(int16_t dst, int16_t lhs) { integers[dst] = lhs; }
+
+  void arithAddI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] + integers[rhs];
+  }
+  void arithSubI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] - integers[rhs];
+  }
+  void arithRemSI(int16_t dst, int16_t lhs, int16_t rhs) {
+    integers[dst] = integers[lhs] % integers[rhs];
+  }
+
+  void run(std::vector<HEVMOperation> &heops) {
     int i = (header.hevm_header_size + config.config_body_length) / 8;
     int j = 0;
     /* HEaaN::CudaTools::cudaDeviceSynchronize(); */
-    for (HEVMOperation &op : ops) {
+    for (HEVMOperation &op : heops) {
       if (debug) {
         std::cout << std::endl;
         std::cout << std::oct << i++ << " " << std::dec << j++ << std::endl;
@@ -445,13 +508,35 @@ struct HEAAN_HEVM {
         bootstrap(op.dst, op.lhs, op.rhs);
         break;
       }
+      case 11: { // loop
+        heloop(op.dst);
+        break;
+      }
+      case 200: {
+        copyCipher(op.dst, op.lhs);
+        break;
+      }
+      case 100: {
+        arithConstant(op.dst, op.lhs);
+        break;
+      }
+      case 101: {
+        arithAddI(op.dst, op.lhs, op.rhs);
+        break;
+      }
+      case 102: {
+        arithSubI(op.dst, op.lhs, op.rhs);
+        break;
+      }
+      case 103: {
+        arithRemSI(op.dst, op.lhs, op.rhs);
+        break;
+      }
       default: {
         break;
       }
       }
     }
-    /* std::cout << "boot_time : " << boot_time << '\n'; */
-    /* std::cout << "boot_cnt : " << boot_cnt << '\n'; */
   }
 };
 
@@ -488,6 +573,12 @@ void loadClient(void *vm, void *is) {
   std::istream &iss = *static_cast<std::istream *>(is);
   hevm->loadHeader(iss);
   hevm->resetResDst();
+}
+
+// set Epoch of loop
+void setEpoch(void *vm, int64_t i, int epoch) {
+  auto hevm = static_cast<HEAAN_HEVM *>(vm);
+  hevm->integers[i] = epoch;
 }
 
 // encryption and decryption uses internal buffer id
@@ -536,11 +627,17 @@ void *getCtxt(void *vm, int64_t id) {
 
 void preprocess(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->preprocess();
+  hevm->preprocess(hevm->ops);
 }
 void run(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->run();
+  hevm->boot_cnt = 0;
+  hevm->run(hevm->ops);
+  if (!hevm->isPrinted) {
+    std::cout << "boot_cnt: " << hevm->boot_cnt << '\n';
+    std::cout << "boot_time: " << hevm->boot_time << '\n';
+    hevm->isPrinted = true;
+  }
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
@@ -558,9 +655,12 @@ void setToGPU(void *vm, bool ongpu) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
   hevm->togpu = ongpu;
 }
-void printMem(void *vm) {
+void getRunInfo(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->printCudaMemInfo();
-  hevm->printInfo();
+  /* info[0] = hevm->tttt; */
+  /* info[1] = 0.0; */
+  /* hevm->boot_cnt; */
+  /* hevm->printCudaMemInfo(); */
+  /* hevm->printInfo(); */
 }
 };
