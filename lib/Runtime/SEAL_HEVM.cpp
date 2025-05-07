@@ -12,9 +12,9 @@
 
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
+// #include "hecate/Support/Support.h"
 
 struct SEAL_HEVM {
-  //std::vector<std::vector<double>> buffer;
   hecate::ConstData constData;
   HEVMHeader header;
   ConfigBody config;
@@ -184,23 +184,6 @@ struct SEAL_HEVM {
   void loadConstants(char *name) {
     std::string sname(name);
     constData.load(sname);
-    /*
-    std::ifstream iff(sname, std::ios::binary);
-    int64_t len;
-    iff.read((char *)&len, sizeof(int64_t));
-    buffer.resize(len);
-
-    for (size_t i = 0; i < len; i++) {
-      int64_t veclen;
-      iff.read((char *)&veclen, sizeof(int64_t));
-      std::vector<double> tmp;
-      tmp.resize(veclen);
-      iff.read((char *)tmp.data(), veclen * sizeof(double));
-      buffer[i] = tmp;
-    }
-    iff.close();
-    */
-    /* std::cerr << "Constant Loaded From" << sname << std::endl; */
   }
 
   void loadHEVM(char *name) {
