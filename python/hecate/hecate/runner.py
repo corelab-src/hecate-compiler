@@ -253,8 +253,8 @@ class HEVM :
             result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
             data = np.zeros(  1 << 14, dtype=np.float64)
         elif(run_library == "HEONGPU"):
-            result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
-            data = np.zeros(  1 << 14, dtype=np.float64)
+            result = np.zeros( (self.reslen, 1 << 15), dtype=np.float64)
+            data = np.zeros(  1 << 15, dtype=np.float64)
  
         for i in range(self.reslen) :
             # carr = npcl.as_ctypes(data) 
