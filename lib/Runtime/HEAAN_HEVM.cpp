@@ -6,6 +6,7 @@
 #include <any>
 #include <cassert>
 #include <chrono>
+using Clock = std::chrono::high_resolution_clock;
 #include <fstream>
 #include <iostream>
 
@@ -21,6 +22,21 @@
 #include "hecate/Support/ConstData.h"
 
 #include "hecate/Support/HEVMHeader.h"
+
+std::string padLeft(const std::string& s, size_t width) {
+    if (s.length() >= width) return s;
+    return s + std::string(width - s.length(), ' ');
+}
+
+std::string padRight(const std::string& s, size_t width) {
+    if (s.length() >= width) return s;
+    return std::string(width - s.length(), ' ') + s;
+}
+
+template <typename T>
+std::string toString(T val) {
+    return std::to_string(val);
+}
 
 struct HEAAN_HEVM {
   // std::vector<std::vector<double>> buffer;
@@ -64,7 +80,7 @@ struct HEAAN_HEVM {
   static const int L = 16;
 
   std::vector<int64_t> rotKeyOffset = {
-      1,     2,     3,     4,     5,     6,     7,     8,     16,    24,
+      1,     2,     3,     4,     5,     6,     7,     8,     14, 16,    24,
       32,    64,    96,    128,   160,   192,   224,   256,   512,   768,
       1024,  2048,  3072,  4096,  5120,  6144,  7168,  8192,  16384, 24576,
       32768, 40960, 49152, 57344, 61440, 63488, 64512, 64768, 65024, 65280,
@@ -81,6 +97,38 @@ struct HEAAN_HEVM {
   bool debug = false;
   bool togpu = true;
   bool preencode = false;
+  // bool preencode = true;
+
+  bool timeprint = true;
+  bool timeprint_detail = false;
+
+  uint64_t encode_time = 0;
+  uint64_t encode_cnt = 0;
+  uint64_t rotate_time = 0;
+  uint64_t rotate_cnt = 0;
+  uint64_t modswitch_time = 0;
+  uint64_t modswitch_cnt = 0;
+  uint64_t upscale_time = 0;
+  uint64_t upscale_cnt = 0;
+  uint64_t rescale_time = 0;
+  uint64_t rescale_cnt = 0;
+  uint64_t negate_time = 0;
+  uint64_t negate_cnt = 0;
+  uint64_t addcc_time = 0;
+  uint64_t addcc_cnt = 0;
+  uint64_t addcp_time = 0;
+  uint64_t addcp_cnt = 0;
+  uint64_t subcc_time = 0;
+  uint64_t subcc_cnt = 0;
+  uint64_t subcp_time = 0;
+  uint64_t subcp_cnt = 0;
+  uint64_t mulcc_time = 0;
+  uint64_t mulcc_cnt = 0;
+  uint64_t mulcp_time = 0;
+  uint64_t mulcp_cnt = 0;
+  uint64_t bootstrap_time = 0;
+  uint64_t bootstrap_cnt = 0;
+  uint64_t memory_usage = 0;
 
   static void create_context(char *dir) {
 
@@ -109,14 +157,14 @@ struct HEAAN_HEVM {
     auto MemUse = HEaaN::CudaTools::getCudaMemoryInfo().second -
                   HEaaN::CudaTools::getCudaMemoryInfo().first;
     auto TotalMemCapacity = HEaaN::CudaTools::getCudaMemoryInfo().second;
-    std::cout << "MemUsage: " << MemUse / std::pow(10, 9) << "GB";
+    std::cout << "GPU memory usage: " << MemUse / std::pow(10, 9) << "GB";
     std::cout << " (" << double(MemUse * 100) / double(TotalMemCapacity) << "%)"
               << "\n";
   }
   void printInfo() {
-    /* int encodeOnline = 2; */
-    /* std::cout << "polyDegree: " << N << '\n'; */
-    /* std::cout << "encodeOnline: " << encodeOnline << "\n\n"; */
+    // int encodeOnline = 2;
+    std::cout << "polyDegree: " << N << '\n';
+    // std::cout << "encodeOnline: " << encodeOnline << "\n\n";
   }
 
   void loadHEAAN(char *dir) {
@@ -139,13 +187,18 @@ struct HEAAN_HEVM {
     evaluator = std::make_unique<HEaaN::HomEvaluator>(context, *keypack);
     bootstrapper = std::make_unique<HEaaN::Bootstrapper>(*evaluator);
     if (togpu) {
-      /* printCudaMemInfo(); */
+      printCudaMemInfo();
       seckey->to(HEaaN::getCurrentCudaDevice());
+      printCudaMemInfo();
       keypack->to(HEaaN::getCurrentCudaDevice());
+      printCudaMemInfo();
       bootstrapper->makeBootConstants(HEaaN::getLogFullSlots(context));
+      printCudaMemInfo();
       bootstrapper->loadBootConstants(HEaaN::getLogFullSlots(context),
                                       HEaaN::getCurrentCudaDevice());
-      /* printCudaMemInfo(); */
+      printCudaMemInfo();
+      memory_usage = HEaaN::CudaTools::getCudaMemoryInfo().second -
+                  HEaaN::CudaTools::getCudaMemoryInfo().first;
     }
   }
 
@@ -323,9 +376,11 @@ struct HEAAN_HEVM {
   void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) { return; }
   void rotate(int16_t dst, int16_t src, int16_t offset) {
     if (debug)
-      std::cout << scalec[src] << std::endl;
+      std::cout << "rotate: src: scale " << scalec[src] << ", level " << ciphers[src].getLevel() << ", offset " << offset << ", dst: scale " << scalec[dst] << ", level " << ciphers[dst].getLevel() << std::endl;
     evaluator->leftRotate(ciphers[src], offset, ciphers[dst]);
     scalec[dst] = scalec[src];
+    if (debug)
+      std::cout << "rotate: src: scale " << scalec[src] << ", level " << ciphers[src].getLevel() << ", offset " << offset << ", dst: scale " << scalec[dst] << ", level " << ciphers[dst].getLevel() << std::endl;
   }
   void negate(int16_t dst, int16_t src) {
     if (debug) {
@@ -417,6 +472,10 @@ struct HEAAN_HEVM {
     auto time_end = std::chrono::high_resolution_clock::now();
     auto time_diff = std::chrono::duration_cast<std::chrono::microseconds>(
         time_end - time_start);
+    std::cout << "bootstrap" << std::endl;
+    std::cout << "src: " << src << " | src_level: " << ciphers[src].getLevel() << std::endl;
+    std::cout << "dst: " << dst << " | dst_level: " << ciphers[dst].getLevel() << std::endl;
+    std::cout << "time: " << time_diff.count() << " microseconds" << std::endl;
     boot_time += time_diff.count();
     boot_cnt++;
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
@@ -465,48 +524,155 @@ struct HEAAN_HEVM {
       }
       switch (op.opcode) {
       case 0: { // Encode
-        encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
+          auto end = std::chrono::high_resolution_clock::now();
+          encode_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          encode_cnt++;
+        }
+        else {
+          encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
+        }
         break;
       }
       case 1: { // RotateC
-        rotate(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          rotate(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          rotate_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          rotate_cnt++;
+          if (debug)
+            std::cout << "rotate time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
+        }
+        else {
+          rotate(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 2: { // NegateC
-        negate(op.dst, op.lhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          negate(op.dst, op.lhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          negate_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          negate_cnt++;
+        }
+        else {
+          negate(op.dst, op.lhs);
+        }
         break;
       }
       case 3: { // RescaleC
-        rescale(op.dst, op.lhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          rescale(op.dst, op.lhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          rescale_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          rescale_cnt++;
+          if (debug)
+            std::cout << "rescale time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
+        }
+        else {
+          rescale(op.dst, op.lhs);
+        }
         break;
       }
       case 4: { // ModswtichC
-        modswitch(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          modswitch(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          modswitch_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          modswitch_cnt++;
+        }
+        else {
+          modswitch(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 5: { // UpscaleC
-        upscale(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          upscale(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          upscale_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          upscale_cnt++;
+        }
+        else {
+          upscale(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 6: { // AddCC
-        addcc(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          addcc(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          addcc_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          addcc_cnt++;
+        }
+        else {
+          addcc(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 7: { // AddCP
-        addcp(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          addcp(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          addcp_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          addcp_cnt++;
+        }
+        else {
+          addcp(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 8: { // MulCC
-        mulcc(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          mulcc(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          mulcc_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          mulcc_cnt++;
+          if (debug)
+            std::cout << "mulcc time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
+        }
+        else {
+          mulcc(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 9: { // MulCP
-        mulcp(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          mulcp(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          mulcp_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          mulcp_cnt++;
+          if (debug)
+            std::cout << "mulcp time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
+        }
+        else {
+          mulcp(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 10: { // Bootstrap
         HEaaN::CudaTools::cudaDeviceSynchronize();
-        bootstrap(op.dst, op.lhs, op.rhs);
+        if (timeprint) {
+          auto start = std::chrono::high_resolution_clock::now();
+          bootstrap(op.dst, op.lhs, op.rhs);
+          auto end = std::chrono::high_resolution_clock::now();
+          bootstrap_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+          bootstrap_cnt++;
+        }
+        else {
+          bootstrap(op.dst, op.lhs, op.rhs);
+        }
         break;
       }
       case 11: { // loop
@@ -630,15 +796,104 @@ void preprocess(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
   hevm->preprocess(hevm->ops);
 }
+
+void printPerformanceStats(HEAAN_HEVM* hevm, double total_time, int total_cnt) {
+    const int nameWidth = 15;
+    const int countWidth = 10;
+    const int timeWidth = 15;
+    const int percentWidth = 15;
+
+    std::cout << "==================================================\n";
+    std::cout << padLeft("Operation", nameWidth)
+              << padLeft("Count", countWidth)
+              << padLeft("Time(ns)", timeWidth)
+              << padLeft("Percent", percentWidth)
+              // << "Average(ns)"
+              << "\n";
+    std::cout << "--------------------------------------------------\n";
+
+    auto printEntry = [&](const std::string& name, int cnt, double time) {
+        std::cout << padLeft(name, nameWidth)
+                  << padLeft(toString(cnt), countWidth)
+                  << padLeft(toString((long long)time), timeWidth)
+                  << padLeft(toString(time * 100.0 / total_time), percentWidth)
+                  // << padLeft(toString(time / cnt), timeWidth)
+                  << "\n";
+    };
+
+    printEntry("negate",    hevm->negate_cnt,    hevm->negate_time);
+    printEntry("addcc",     hevm->addcc_cnt,     hevm->addcc_time);
+    printEntry("addcp",     hevm->addcp_cnt,     hevm->addcp_time);
+    printEntry("subcc",     hevm->subcc_cnt,     hevm->subcc_time);
+    printEntry("subcp",     hevm->subcp_cnt,     hevm->subcp_time);
+    printEntry("mulcc",     hevm->mulcc_cnt,     hevm->mulcc_time);
+    printEntry("mulcp",     hevm->mulcp_cnt,     hevm->mulcp_time);
+    printEntry("encode",    hevm->encode_cnt,    hevm->encode_time);
+    printEntry("rotate",    hevm->rotate_cnt,    hevm->rotate_time);
+    printEntry("rescale",   hevm->rescale_cnt,   hevm->rescale_time);
+    printEntry("modswitch", hevm->modswitch_cnt, hevm->modswitch_time);
+    printEntry("upscale",   hevm->upscale_cnt,   hevm->upscale_time);
+    printEntry("bootstrap", hevm->bootstrap_cnt, hevm->bootstrap_time);
+
+    std::cout << "--------------------------------------------------\n";
+    std::cout << padLeft("total", nameWidth)
+              << padLeft(toString(total_cnt), countWidth)
+              << (total_time / 1000000.0) << "ms\n";
+    std::cout << "config.num_ptxt: " << hevm->config.num_ptxt_buffer << '\n';
+    std::cout << "config.num_ctxt: " << hevm->config.num_ctxt_buffer << '\n';
+    std::cout << "key_memory_usage: " << hevm->memory_usage / std::pow(10, 9) << "GB" << '\n';
+    auto MemUse = HEaaN::CudaTools::getCudaMemoryInfo().second -
+              HEaaN::CudaTools::getCudaMemoryInfo().first;
+    std::cout << "Total Memory Usage: " << MemUse / std::pow(10, 9) << "GB" << '\n';
+    std::cout << "Data Memory Usage: " << (MemUse - hevm->memory_usage) / std::pow(10, 9) << "GB" << '\n';
+    std::cout << "==================================================\n";
+}
+
 void run(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
   hevm->boot_cnt = 0;
+  if (hevm->timeprint) {
+    hevm->negate_cnt = 0;
+    hevm->addcc_cnt = 0;
+    hevm->addcp_cnt = 0;
+    hevm->mulcc_cnt = 0;
+    hevm->mulcp_cnt = 0;
+    hevm->subcc_cnt = 0;
+    hevm->subcp_cnt = 0;
+    hevm->encode_cnt = 0;
+    hevm->rotate_cnt = 0;
+    hevm->rescale_cnt = 0;
+    hevm->modswitch_cnt = 0;
+    hevm->upscale_cnt = 0;
+    hevm->bootstrap_cnt = 0;
+    hevm->negate_time = 0;
+    hevm->addcc_time = 0;
+    hevm->addcp_time = 0;
+    hevm->mulcc_time = 0;
+    hevm->mulcp_time = 0;
+    hevm->subcc_time = 0;
+    hevm->subcp_time = 0;
+    hevm->encode_time = 0;
+    hevm->rotate_time = 0;
+    hevm->rescale_time = 0;
+    hevm->modswitch_time = 0;
+    hevm->upscale_time = 0;
+    hevm->bootstrap_time = 0;
+  }
   hevm->run(hevm->ops);
   if (!hevm->isPrinted) {
     std::cout << "boot_cnt: " << hevm->boot_cnt << '\n';
     std::cout << "boot_time: " << hevm->boot_time << '\n';
     hevm->isPrinted = true;
   }
+  if (hevm->timeprint) {
+    uint64_t total_cnt = 0;
+    uint64_t total_time = 0;
+    total_cnt = hevm->negate_cnt + hevm->addcc_cnt + hevm->addcp_cnt + hevm->mulcc_cnt + hevm->mulcp_cnt + hevm->subcc_cnt + hevm->subcp_cnt + hevm->rescale_cnt + hevm->modswitch_cnt + hevm->upscale_cnt + hevm->boot_cnt + hevm->encode_cnt + hevm->rotate_cnt;
+    total_time = hevm->negate_time + hevm->addcc_time + hevm->addcp_time + hevm->mulcc_time + hevm->mulcp_time + hevm->subcc_time + hevm->subcp_time + hevm->rescale_time + hevm->modswitch_time + hevm->upscale_time + hevm->bootstrap_time + hevm->encode_time + hevm->rotate_time;
+    printPerformanceStats(hevm, total_time, total_cnt);
+  }
+
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
@@ -661,7 +916,7 @@ void getRunInfo(void *vm) {
   /* info[0] = hevm->tttt; */
   /* info[1] = 0.0; */
   /* hevm->boot_cnt; */
-  /* hevm->printCudaMemInfo(); */
-  /* hevm->printInfo(); */
+  hevm->printCudaMemInfo();
+  hevm->printInfo();
 }
 };
