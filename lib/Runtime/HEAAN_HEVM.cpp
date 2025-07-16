@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "hecate/Support/BackendInterface.h"
 #include "hecate/Support/ConstData.h"
 
 #include "hecate/Support/HEVMHeader.h"
