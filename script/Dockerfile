@@ -12,7 +12,6 @@ RUN wget https://cmake.org/files/v3.30/cmake-3.30.5.tar.gz
 RUN tar -xf cmake-3.30.5.tar.gz
 RUN cd cmake-3.30.5 && ./bootstrap --prefix=/usr/local
 RUN cd cmake-3.30.5 && make && make install
-
 ARG username_
 ENV username=${username_}
 ARG uid_
@@ -32,10 +31,13 @@ run mkdir -p /home/${username} && \
 
 USER $username_
 ENV HOME /home/$username_
+<<<<<<< HEAD
 ENV CC="clang"
 ENV CXX="clang++"
 ENV PATH="/usr/lib/ccache:/usr/local/cuda/bin:/usr/local/bin:/usr/local/nvidia/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:~/.local/bin"
 ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"
+=======
+>>>>>>> loop
 ENV CMAKE_GENERATOR=Ninja
 WORKDIR $HOME
 CMD /bin/bash
