@@ -16,117 +16,83 @@ from pathlib import Path
 
 import json
 
-
 hecate_dir = Path(os.environ["HECATE"])
 hecateBuild = hecate_dir / "build" 
-
 
 if not hecateBuild.is_dir() : # We expect that this is library path 
     hecateBuild  = hecate_dir
 
 libpath = hecateBuild / "lib"
-lw = ctypes.CDLL(libpath / "libSEAL_HEVM.so")
-lw = ctypes.CDLL(libpath / "libHEONGPU_HEVM.so")
-# lw = ctypes.CDLL(libpath / "libHEAAN_HEVM.so")
-# lw = ctypes.CDLL(libpath / "libTOY_HEVM.so")
 os.environ['PATH'] = str(libpath) + os.pathsep + os.environ['PATH']
 
+# Library Wrapper (lw)
+lw = None 
 
-# Init VM functions
-lw.initFullVM.argtypes = [ctypes.c_char_p, ctypes.c_bool]
-lw.initFullVM.restype = ctypes.c_void_p 
-lw.initClientVM.argtypes = [ctypes.c_char_p]
-lw.initClientVM.restype = ctypes.c_void_p 
-lw.initServerVM.argtypes = [ctypes.c_char_p]
-lw.initServerVM.restype = ctypes.c_void_p 
-
-# Init SEAL Contexts
-lw.create_context.argtypes = [ctypes.c_char_p]
-lw.load.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
-lw.loadClient.argtypes = [ctypes.c_void_p,  ctypes.c_void_p]
-lw.getArgLen.argtypes = [ctypes.c_void_p]
-lw.getArgLen.restype = ctypes.c_int64
-lw.getResLen.argtypes = [ctypes.c_void_p]
-lw.getResLen.restype = ctypes.c_int64
-
-# Encrypt/Decrypt Functions
-lw.encrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-lw.decrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
-lw.decrypt_result.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
-
-# Helper Functions for ciphertext access
-lw.getResIdx.argtypes = [ctypes.c_void_p, ctypes.c_int64]
-lw.getResIdx.restype = ctypes.c_int64 
-lw.getCtxt.argtypes = [ctypes.c_void_p, ctypes.c_int64]
-lw.getCtxt.restype = ctypes.c_void_p 
-
-# Runner Functions
-lw.preprocess.argtypes = [ctypes.c_void_p]
-lw.run.argtypes = [ctypes.c_void_p]
-
-#Debug Function
-lw.setDebug.argtypes = [ctypes.c_void_p, ctypes.c_bool]
-
-#ToGPU Function
-lw.setToGPU.argtypes = [ctypes.c_void_p, ctypes.c_bool]
-
-
-def reinit_lw():
-    global lw
-    if(run_library == "SEAL"):
-        lw = ctypes.CDLL(libpath / "libSEAL_HEVM.so")
-    elif(run_library == "HEAAN"):
-        lw = ctypes.CDLL(libpath / "libHEAAN_HEVM.so")
-    elif(run_library == "OPENFHE"):
-        lw = ctypes.CDLL(libpath / "libOPENFHE_HEVM.so")
-    elif(run_library == "HEONGPU"):
-        lw = ctypes.CDLL(libpath / "libHEONGPU_HEVM.so")
-    elif(run_library == "TOY"):
-        lw = ctypes.CDLL(libpath / "libTOY_HEVM.so")
-
+def set_lw_functions(lw_handle):
     # Init VM functions
-    lw.initFullVM.argtypes = [ctypes.c_char_p, ctypes.c_bool]
-    lw.initFullVM.restype = ctypes.c_void_p 
-    lw.initClientVM.argtypes = [ctypes.c_char_p]
-    lw.initClientVM.restype = ctypes.c_void_p 
-    lw.initServerVM.argtypes = [ctypes.c_char_p]
-    lw.initServerVM.restype = ctypes.c_void_p 
+    lw_handle.initFullVM.argtypes = [ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.c_bool]
+    lw_handle.initFullVM.restype = ctypes.c_void_p
+    lw_handle.initClientVM.argtypes = [ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.c_bool]
+    lw_handle.initClientVM.restype = ctypes.c_void_p
+    lw_handle.initServerVM.argtypes = [ctypes.c_char_p, ctypes.c_int64, ctypes.c_int64, ctypes.c_bool]
+    lw_handle.initServerVM.restype = ctypes.c_void_p
 
-    # Init SEAL Contexts
-    lw.create_context.argtypes = [ctypes.c_char_p]
-    lw.load.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
-    lw.loadClient.argtypes = [ctypes.c_void_p,  ctypes.c_void_p]
-    lw.getArgLen.argtypes = [ctypes.c_void_p]
-    lw.getArgLen.restype = ctypes.c_int64
-    lw.getResLen.argtypes = [ctypes.c_void_p]
-    lw.getResLen.restype = ctypes.c_int64
-    lw.setEpoch.argtypes = [ctypes.c_void_p, ctypes.c_int64,ctypes.c_int]
+    # Init Contexts
+    lw_handle.create_context.argtypes = [ctypes.c_char_p]
+    lw_handle.load.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+    lw_handle.loadClient.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    lw_handle.getArgLen.argtypes = [ctypes.c_void_p]
+    lw_handle.getArgLen.restype = ctypes.c_int64
+    lw_handle.getResLen.argtypes = [ctypes.c_void_p]
+    lw_handle.getResLen.restype = ctypes.c_int64
 
-    # Encrypt/Decrypt Functions
-    lw.encrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
-    lw.decrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
-    lw.decrypt_result.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
+    # Optional (only for some libraries)
+    if hasattr(lw_handle, "setEpoch"):
+        lw_handle.setEpoch.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.c_int]
 
-    # Helper Functions for ciphertext access
-    lw.getResIdx.argtypes = [ctypes.c_void_p, ctypes.c_int64]
-    lw.getResIdx.restype = ctypes.c_int64 
-    lw.getCtxt.argtypes = [ctypes.c_void_p, ctypes.c_int64]
-    lw.getCtxt.restype = ctypes.c_void_p 
+    # Encrypt/Decrypt
+    lw_handle.encrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+    lw_handle.decrypt.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
+    lw_handle.decrypt_result.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(ctypes.c_double)]
 
-    # Runner Functions
-    lw.preprocess.argtypes = [ctypes.c_void_p]
-    lw.run.argtypes = [ctypes.c_void_p]
+    # Ciphertext access
+    lw_handle.getResIdx.argtypes = [ctypes.c_void_p, ctypes.c_int64]
+    lw_handle.getResIdx.restype = ctypes.c_int64
+    lw_handle.getCtxt.argtypes = [ctypes.c_void_p, ctypes.c_int64]
+    lw_handle.getCtxt.restype = ctypes.c_void_p
 
-    #Debug Function
-    lw.setDebug.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+    # Runner
+    lw_handle.preprocess.argtypes = [ctypes.c_void_p]
+    lw_handle.run.argtypes = [ctypes.c_void_p]
 
+    # Debug
+    lw_handle.setDebug.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+
+    # GPU (optional)
+    if hasattr(lw_handle, "setToGPU"):
+        lw_handle.setToGPU.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+
+def init_lw():
+    global lw
+
+    libso_name = "lib" + run_library + "_HEVM.so"
+    if not os.path.exists(libpath / libso_name):
+        raise FileNotFoundError(f"Library {libso_name} not found in {libpath}")
+
+    lw = ctypes.CDLL(libpath / libso_name)
+    os.environ['PATH'] = str(libpath) + os.pathsep + os.environ['PATH']
+    set_lw_functions(lw)
 
 
 run_library="SEAL"
 run_hardware="CPU"
+config_N = 2 << 17
+config_L = 17
 def setLibnHW (argv=None):
     global run_library
     global run_hardware
+    global config_N
+    global config_L
     LibnHW_mapping = {
             "HEAAN" : ["GPU", "CPU"],
             "SEAL" : ["CPU"],
@@ -174,13 +140,21 @@ def setLibnHW (argv=None):
        # For default
        run_library = list(LibnHW_mapping.keys())[0]
        run_hardware = LibnHW_mapping[run_library][0]
+    config_name = f"profiled_{run_library}_{run_hardware}.json"
+    with open(str(hecate_dir) + "/" +config_name,'r') as f:
+       run_config = json.load(f)
+       config_N = run_config["polynomialDegree"]
+       config_L = run_config["levelUpperBound"] 
+
 
 
 class HEVM : 
     def __init__ (self, path = str((Path.home() / ".hevm" / "default").absolute()) , option= "full") :
         global run_library
         global run_hardware
-        reinit_lw()
+        global config_N
+        global config_L
+        init_lw()
 
         self.option = option
         self.boot_cnt = 0
@@ -195,13 +169,13 @@ class HEVM :
 
         if option == "full" :
             if(run_hardware == "GPU"):
-                self.vm = lw.initFullVM(path.encode('utf-8'), True)
+                self.vm = lw.initFullVM(path.encode('utf-8'), config_N, config_L, True)
             elif(run_hardware == "CPU"):
-                self.vm = lw.initFullVM(path.encode('utf-8'), False)
+                self.vm = lw.initFullVM(path.encode('utf-8'), config_N, config_L, False)
         elif option == "client" :
-            self.vm = lw.initClientVM(path.encode('utf-8'))
+            self.vm = lw.initClientVM(path.encode('utf-8'), config_N, config_L)
         elif  option == "server" :
-            self.vm = lw.initServerVM(path.encode('utf-8'))
+            self.vm = lw.initServerVM(path.encode('utf-8'), config_N, config_L)
 
     # def load (self, func,   preprocess=True, const_path =str( (Path(func_dir) / "_hecate_{func}.cst").absoluate() ), hevm_path = str(Path(func_dir) / "_hecate_{func}.hevm"), func_dir = str(Path.cwd()), ) :
     def load (self, const_path, hevm_path, preprocess=True) :
@@ -244,18 +218,10 @@ class HEVM :
         lw.setToGPU(self.vm, ongpu)
 
     def getOutput (self) : 
-        if(run_library == "HEAAN"):
-            result = np.zeros( (self.reslen, 1 << 16), dtype=np.float64)
-            data = np.zeros(  1 << 16, dtype=np.float64)
-            # result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
-            # data = np.zeros(  1 << 14, dtype=np.float64)
-        elif(run_library == "SEAL"):
-            result = np.zeros( (self.reslen, 1 << 14), dtype=np.float64)
-            data = np.zeros(  1 << 14, dtype=np.float64)
-        elif(run_library == "HEONGPU"):
-            result = np.zeros( (self.reslen, 1 << 15), dtype=np.float64)
-            data = np.zeros(  1 << 15, dtype=np.float64)
- 
+        slot_size = config_N >> 1;
+        result = np.zeros( (self.reslen, slot_size), dtype=np.float64)
+        data = np.zeros(slot_size, dtype=np.float64)
+
         for i in range(self.reslen) :
             # carr = npcl.as_ctypes(data) 
             carr =  data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))

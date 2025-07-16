@@ -14,17 +14,17 @@
 #include <type_traits>
 #include <vector>
 
+#include "hecate/Support/BackendInterface.h"
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 
+#define DEBUG false
+#define PREENCODE false
+
 constexpr auto Scheme = heongpu::Scheme::CKKS;
 using Message = std::vector<double>;
-struct HEONGPU_HEVM {
-  /* std::vector<std::vector<double>> buffer; */
-  hecate::ConstData constData;
-  HEVMHeader header;
-  ConfigBody config;
-  /* std::vector<uint64_t> config_dats; */
+struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
+  using HEVMInterface::HEVMInterface;
   std::vector<HEVMOperation> ops;
   std::vector<uint64_t> arg_scale;
   std::vector<uint64_t> arg_level;
@@ -42,7 +42,6 @@ struct HEONGPU_HEVM {
 
   std::map<uint64_t, heongpu::Plaintext<Scheme>> upscale_const;
 
-  /* heongpu::Parameters context; */
   std::unique_ptr<heongpu::HEContext<Scheme>> context;
   std::unique_ptr<heongpu::Secretkey<Scheme>> secret_key;
   std::unique_ptr<heongpu::Publickey<Scheme>> public_key;
@@ -54,15 +53,10 @@ struct HEONGPU_HEVM {
   std::unique_ptr<heongpu::HEDecryptor<Scheme>> decryptor;
   std::unique_ptr<heongpu::Bootstrap> booter;
 
-  static const int N = 16;
-  // static const int L = 18;
-  static const int L = 28;
-  // static const int N = 15;
-  // static const int L = 14;
+  uint64_t boot_cnt = 0;
 
-  bool debug = false;
+  // runConfig
   bool togpu = true;
-  bool preencode = false;
 
   static void create_context(char *dir) {}
 
@@ -90,7 +84,7 @@ struct HEONGPU_HEVM {
         // heongpu::sec_level_type::sec128);
         heongpu::sec_level_type::none);
 
-    context.set_poly_modulus_degree(1LL << N);
+    context.set_poly_modulus_degree(N);
 
     std::vector<int> q_prime_list(26, 52);
     q_prime_list.insert(q_prime_list.begin(), 52);
@@ -105,10 +99,11 @@ struct HEONGPU_HEVM {
 
     heongpu::HEKeyGenerator<Scheme> keygen(context);
 
-    // heongpu::Secretkey<Scheme> secret_key(context, 32);
+    // Hamming weight of secret key is 32
     secret_key = std::make_unique<heongpu::Secretkey<Scheme>>(context, 32);
     keygen.generate_secret_key(*secret_key);
 
+    // Hamming weight of sparse key is 32
     heongpu::Secretkey<Scheme> sparse_key(context, 32);
     keygen.generate_secret_key(sparse_key);
 
@@ -173,18 +168,21 @@ struct HEONGPU_HEVM {
     ops.resize(config.num_operations);
     iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
 
-    auto log_slot = N - 1;
     std::vector<std::complex<double>> datas;
-    for (int i = 0; i < (1 << log_slot); i++) {
+    for (int i = 0; i < slot_size; i++) {
       datas.push_back(std::complex<double>(0.0, 0.0));
     }
     msgs.resize(config.num_ptxt_buffer);
     ciphers.resize(config.num_ctxt_buffer,
                    heongpu::Ciphertext<Scheme>(*context));
+    visibleCiphers.resize(config.num_ctxt_buffer,
+                          std::vector<double>(slot_size, 0.0));
     scalep.resize(config.num_ptxt_buffer);
     levelp.resize(config.num_ptxt_buffer);
 
-    if (preencode) {
+    visiblePlains.resize(config.num_ptxt_buffer,
+                         std::vector<double>(slot_size, 0.0));
+    if (PREENCODE) {
       plains.resize(config.num_ptxt_buffer,
                     heongpu::Plaintext<Scheme>(*context));
     } else {
@@ -219,37 +217,37 @@ struct HEONGPU_HEVM {
   }
 
   void preprocess() {
-    std::vector<double> datas(1LL << (N - 1), 0.0);
-    std::vector<double> identity(1LL << (N - 1), 1.0);
+    std::vector<double> datas(slot_size, 0.0);
+    std::vector<double> identity(slot_size, 1.0);
     for (HEVMOperation &op : ops) {
       if (op.opcode == 0) {
-        if (preencode) {
-          if (debug) {
-            std::cout << std::endl;
-            std::cout << "encode \n";
-            std::cout << "opcode [" << op.opcode << "], dst [" << op.dst
-                      << "], lhs [" << op.lhs << "], rhs [" << op.rhs << "]"
-                      << std::endl;
-          }
+        levelp[op.dst] = op.rhs >> 10;
+        scalep[op.dst] = op.rhs & 0x3FF;
+        // std::cout << "dst: " << op.dst << " level: " << levelp[op.dst]
+        // << " scale: " << scalep[op.dst] << std::endl;
+        if (PREENCODE) {
           encode_internal(plains[op.dst],
                           op.lhs == ((unsigned short)-1) ? identity
                                                          : constData[op.lhs],
-                          op.rhs >> 10, op.rhs & 0x3FF);
+                          levelp[op.dst], scalep[op.dst]);
+          cudaDeviceSynchronize();
+          for (int i = L; i > levelp[op.dst]; i--) {
+            operators->mod_drop_inplace(plains[op.dst]);
+          }
+
         } else {
           to_msg(op.dst, op.lhs);
         }
-        levelp[op.dst] = op.rhs >> 10;
-        scalep[op.dst] = op.rhs & 0x3FF;
       }
     }
   }
 
   void to_msg(int16_t dst, uint16_t lhs) {
 
-    std::vector<double> identity(1LL << (N - 1), 1.0);
+    std::vector<double> identity(slot_size, 1.0);
 
     if (!msgMap.count(lhs)) {
-      msgMap[lhs] = Message(std::pow(2, N - 1), 0.0);
+      msgMap[lhs] = Message(slot_size, 0.0);
       auto &msg = msgMap[lhs];
       auto &src = lhs == ((unsigned short)-1) ? identity : constData[lhs];
       for (size_t i = 0; i < msg.size(); i++) {
@@ -261,229 +259,131 @@ struct HEONGPU_HEVM {
     return;
   }
 
-  void encode_online(int16_t dst) {
-    if (debug)
-      std::cout << scalep[dst] << " " << levelp[dst] << std::endl;
+  void encode_online(int16_t dst) override {
+    // if (debug)
+    // std::cout << scalep[dst] << " " << levelp[dst] << std::endl;
     // encoder->encode(plains[0], constData[dst], std::pow(2.0, scalep[dst]));
     encoder->encode(plains[0], *msgs[dst], std::pow(2.0, scalep[dst]));
-    for (int i = L - 1; i > levelp[dst]; i--) {
+    for (int i = L; i > levelp[dst]; i--) {
       operators->mod_drop_inplace(plains[0]);
     }
   }
 
   void encode_internal(heongpu::Plaintext<Scheme> &dst, std::vector<double> src,
-                       int8_t level, uint64_t scale) {
-    if (debug) {
-      std::cout << scale << " " << level << std::endl;
-    }
-    heongpu::HostVector<double> datas(1LL << (N - 1), 0.0);
+                       int16_t level, uint64_t scale) {
+
+    heongpu::HostVector<double> datas(slot_size, 0.0);
     for (int i = 0; i < datas.size(); i++) {
       datas[i] = src[i % src.size()];
     }
+
     encoder->encode(dst, datas, std::pow(2.0, scale));
     return;
   }
 
-  void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) { return; }
-  void rotate(int16_t dst, int16_t src, int16_t offset) {
-    if (debug)
-      std::cout << std::log2(ciphers[src].scale()) << std::endl;
-    ciphers[dst] = ciphers[src];
-    operators->rotate_rows_inplace(ciphers[dst], *galois_key, offset);
-    if (debug)
-      std::cout << std::log2(ciphers[dst].scale()) << std::endl;
+  void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) override {
+    return;
   }
-  void negate(int16_t dst, int16_t src) {
-    if (debug)
-      std::cout << std::log2(ciphers[src].scale()) << std::endl;
+  void rotate(int16_t dst, int16_t src, int16_t offset) override {
+
+    ciphers[dst] = ciphers[src];
+
+    // Adjust offset to be within the range of -slot_size to slot_size
+    if (-slot_size <= offset && offset < -(slot_size / 2))
+      offset += slot_size;
+    else if ((slot_size / 2) <= offset && offset < slot_size)
+      offset -= slot_size;
+
+    operators->rotate_rows_inplace(ciphers[dst], *galois_key, offset);
+  }
+  void negate(int16_t dst, int16_t src) override {
     operators->negate(ciphers[src], ciphers[dst]);
   }
-  void rescale(int16_t dst, int16_t src) {
-    if (debug)
-      std::cout << std::log2(ciphers[src].scale()) << std::endl;
+  void rescale(int16_t dst, int16_t src) override {
     // rescale_inplace can occur error
     ciphers[dst] = ciphers[src];
     operators->set_rescale_required(ciphers[dst], true);
     operators->rescale_inplace(ciphers[dst]);
   }
-  void modswitch(int16_t dst, int16_t src, int16_t downFactor) {
-    if (debug) {
-      std::cout << std::log2(ciphers[src].scale()) << std::endl;
-      std::cout << ciphers[src].depth() << std::endl;
-    }
+  void modswitch(int16_t dst, int16_t src, int16_t downFactor) override {
     ciphers[dst] = ciphers[src];
     for (int i = 0; i < downFactor; i++) {
       operators->mod_drop_inplace(ciphers[dst]);
     }
-    if (debug) {
-      std::cout << ciphers[dst].depth() << std::endl;
-    }
   }
-  void upscale(int16_t dst, int16_t src, int16_t upFactor) {
+  void upscale(int16_t dst, int16_t src, int16_t upFactor) override {
     assert(0 && "This VM does not support native upscale op");
   }
-  void addcc(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug) {
-      std::cout << std::log2(ciphers[lhs].scale())
-                << std::log2(ciphers[rhs].scale()) << std::endl;
-      std::cout << ciphers[lhs].depth() << " " << ciphers[rhs].depth() << '\n';
-    }
+  void addcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     operators->add(ciphers[lhs], ciphers[rhs], ciphers[dst]);
-    if (debug)
-      std::cout << std::log2(ciphers[dst].scale()) << std::endl;
   }
-  void addcp(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (preencode) {
-      if (debug) {
-        std::cout << std::log2(ciphers[lhs].scale())
-                  << std::log2(plains[rhs].scale()) << std::endl;
-        std::cout << ciphers[lhs].depth() << " " << plains[rhs].depth() << '\n';
-      }
-      operators->add_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
-    } else {
+  void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
+    if (!PREENCODE) {
       encode_online(rhs);
-      if (debug) {
-        std::cout << std::log2(ciphers[lhs].scale())
-                  << std::log2(plains[0].scale()) << std::endl;
-        std::cout << ciphers[lhs].depth() << " " << plains[0].depth() << '\n';
-      }
       operators->add_plain(ciphers[lhs], plains[0], ciphers[dst]);
-    }
+    } else
+      operators->add_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
   }
 
-  void mulcc(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug)
-      std::cout << std::log2(ciphers[lhs].scale())
-                << std::log2(ciphers[rhs].scale()) << std::endl;
+  void mulcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     operators->multiply(ciphers[lhs], ciphers[rhs], ciphers[dst]);
     operators->relinearize_inplace(ciphers[dst], *relin_key);
     operators->set_rescale_required(ciphers[dst], false);
   }
-  void mulcp(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (preencode) {
-      if (debug) {
-        std::cout << std::log2(ciphers[lhs].scale())
-                  << std::log2(plains[rhs].scale()) << std::endl;
-        std::cout << ciphers[lhs].depth() << " " << plains[rhs].depth()
-                  << std::endl;
-      }
-      operators->multiply_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
-
-    } else {
+  void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
+    if (!PREENCODE) {
       encode_online(rhs);
-      if (debug) {
-        std::cout << std::log2(ciphers[lhs].scale())
-                  << std::log2(plains[0].scale()) << std::endl;
-        std::cout << ciphers[lhs].depth() << " " << plains[0].depth()
-                  << std::endl;
-      }
       operators->multiply_plain(ciphers[lhs], plains[0], ciphers[dst]);
+    } else {
+      operators->multiply_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
     }
     operators->set_rescale_required(ciphers[dst], false);
   }
-  void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) {
-    if (debug) {
-      std::cout << std::log2(ciphers[src].scale()) << std::endl;
-      std::cout << ciphers[src].depth() << std::endl;
-    }
+  void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) override {
     ciphers[dst] = ciphers[src];
-    // auto gap = context.get()->get_ciphertext_modulus_count() -
-    //            ciphers[dst].depth() - 1;
-    // for (int i = 0; i < gap; i++) {
-    //   operators->mod_drop_inplace(ciphers[dst]);
-    // }
-    ciphers[dst] = booter->execute(ciphers[dst]);
+    heongpu::Plaintext<Scheme> ptxt(*context);
 
-    if (debug) {
-      std::cout << ciphers[dst].depth() << std::endl;
-    }
+    // TODO: fix the target level of bootstrapping
+    ciphers[dst] = booter->execute(ciphers[dst], 27);
+    boot_cnt++;
   }
 
-  void run() {
-    int i = (header.hevm_header_size + config.config_body_length) / 8;
-    int j = 0;
-    /* cudaDeviceSynchronize(); */
-    for (HEVMOperation &op : ops) {
-      if (debug) {
-        /* std::cout << std::oct << i++ << " " << std::dec << j++ << std::endl;
-         */
-        /* std::cout << op.opcode << " " << op.dst << " " << op.lhs << " " */
-        /* << op.rhs << std::endl; */
-        std::cout << std::endl;
-        std::cout << std::oct << i++ << " " << std::dec << j++ << std::endl;
-        std::cout << "opcode [" << op.opcode << "], dst [" << op.dst
-                  << "], lhs [" << op.lhs << "], rhs [" << op.rhs << "]"
-                  << std::endl;
-      }
-      switch (op.opcode) {
-      case 0: { // Encode
-        encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
-        break;
-      }
-      case 1: { // RotateC
-        rotate(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 2: { // NegateC
-        negate(op.dst, op.lhs);
-        break;
-      }
-      case 3: { // RescaleC
-        rescale(op.dst, op.lhs);
-        break;
-      }
-      case 4: { // ModswtichC
-        modswitch(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 5: { // UpscaleC
-        upscale(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 6: { // AddCC
-        addcc(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 7: { // AddCP
-        addcp(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 8: { // MulCC
-        mulcc(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 9: { // MulCP
-        mulcp(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 10: { // Bootstrap
-        bootstrap(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      default: {
-        break;
-      }
-      }
-    }
+  // Debugging functions
+  hecate::msg_t decrypt(int64_t dst) override {
+    heongpu::Plaintext<Scheme> ptxt(*context);
+    decryptor->decrypt(ptxt, ciphers[dst]);
+    hecate::msg_t msg(slot_size, 0.0);
+    encoder->decode(msg, ptxt);
+    return msg;
   }
-  /* std::cout << "boot_time : " << boot_time << '\n'; */
-  /* std::cout << "boot_cnt : " << boot_cnt << '\n'; */
+
+  double getCipherScale(int16_t i) override {
+    return std::log2(ciphers[i].scale());
+  }
+  double getPlainScale(int16_t i) override {
+    return std::log2(plains[i].scale());
+  }
+  int getCipherLevel(int16_t i) override {
+    return context->get_ciphertext_modulus_count() - ciphers[i].depth();
+  }
+  int getPlainLevel(int16_t i) override {
+    return context->get_ciphertext_modulus_count() - plains[i].depth();
+  }
 };
 
 extern "C" {
-void *initFullVM(char *dir, bool device = false) {
-  auto vm = new HEONGPU_HEVM();
-  /* vm->togpu = device; */
+void *initFullVM(char *dir, int64_t N, int64_t L, bool device = false) {
+  auto vm = new HEONGPU_HEVM(N, L);
   vm->loadHEONGPU(dir);
   return (void *)vm;
 }
-void *initClientVM(char *dir) {
-  auto vm = new HEONGPU_HEVM();
+void *initClientVM(char *dir, int64_t N, int64_t L) {
+  auto vm = new HEONGPU_HEVM(N, L);
   vm->loadClient(dir);
   return (void *)vm;
 }
-void *initServerVM(char *dir) {
-  auto vm = new HEONGPU_HEVM();
+void *initServerVM(char *dir, int64_t N, int64_t L) {
+  auto vm = new HEONGPU_HEVM(N, L);
   vm->loadServer(dir);
   return (void *)vm;
 }
@@ -517,28 +417,32 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   heongpu::Plaintext<Scheme> ptxt(*hevm->context);
   std::vector<double> dats(dat, dat + len);
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
+  for (int j = 0; j < hevm->slot_size; j++) {
+    hevm->visibleCiphers[i][j] = dats[j % len];
+  }
+
+  // ptxt should be zero depth before encryption in HEONGPU
+  //
   hevm->encryptor->encrypt(hevm->ciphers[i], ptxt);
-  for (int l = HEONGPU_HEVM::L - 1; l > hevm->arg_level[i]; l--) {
+  for (int l = hevm->L; l > hevm->arg_level[i]; l--) {
     hevm->operators->mod_drop_inplace(hevm->ciphers[i]);
   }
 }
 void decrypt(void *vm, int64_t i, double *dat) {
-  std::cout << "Decrypting " << i << std::endl;
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
   heongpu::Plaintext<Scheme> ptxt(*hevm->context);
-  cudaDeviceSynchronize();
+  // cudaDeviceSynchronize();
   hevm->decryptor->decrypt(ptxt, hevm->ciphers[i]);
-  cudaDeviceSynchronize();
-  std::vector<double> msg(1LL << (HEONGPU_HEVM::N - 1), 0.0);
-  std::cout << "Before Decode " << i << std::endl;
+  // cudaDeviceSynchronize();
+  std::vector<double> msg(hevm->slot_size, 0.0);
+  // hevm->encoder->decode(msg, ptxt, std::pow(2.0, hevm->scalep[i]));
   hevm->encoder->decode(msg, ptxt);
   std::cout << "After Decode " << i << std::endl;
-  for (int j = 0; j < (1LL << (HEONGPU_HEVM::N - 1)); j++) {
+  for (int j = 0; j < hevm->slot_size; j++) {
     /* for (size_t j = 0; j < msg.getSize(); j++) */
     dat[j] = msg[j];
   }
-  std::cout << "End of Decrypt " << i << std::endl;
 }
 // simple wrapper to elide getResIdx call
 // use res_idx for i
@@ -565,7 +469,9 @@ void preprocess(void *vm) {
 }
 void run(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->run();
+  hevm->runOptions.debug_ops = DEBUG;
+  hevm->runOptions.preencode = PREENCODE;
+  hevm->run(hevm->ops);
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
@@ -577,7 +483,7 @@ int64_t getResLen(void *vm) {
 }
 void setDebug(void *vm, bool enable) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->debug = enable;
+  // hevm->debug = enable;
 }
 void setToGPU(void *vm, bool ongpu) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
