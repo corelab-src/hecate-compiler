@@ -56,7 +56,7 @@ def AlexNet (ctxt) :
 
     initial_shapes = {
         # Constant
-        "nt" : 2**16,
+        "nt" : 2**15,
         # "nt" : 2**14,
         "bb" : 32,
         # Input Characteristics (Cascaded)
@@ -127,15 +127,15 @@ def AlexNet (ctxt) :
     block_in = avgpool_3_shapes
     
     print("fc_1")
-    out = HE_ReshapeLinear(close["OP"], out, model.module.fc_1, scale = 32.0, reshape = block_in)
+    out = HE_ReshapeLinear(close["OP"], out, model.module.fc_1, initial_shapes["nt"],scale = 32.0, reshape = block_in)
     out = hc.bootstrap(out)
     out = act(out)
     print("fc_2")
-    out = HE_Linear(close["OP"], out, model.module.fc_2, scale = 32.0)
+    out = HE_Linear(close["OP"], out, model.module.fc_2, initial_shapes["nt"], scale = 32.0)
     out = hc.bootstrap(out)
     out = act(out)
     print("fc_3")
-    out = HE_Linear(close["OP"], out, model.module.fc_3, scale = 32.0)
+    out = HE_Linear(close["OP"], out, model.module.fc_3, initial_shapes["nt"], scale = 32.0)
 
     return out
 

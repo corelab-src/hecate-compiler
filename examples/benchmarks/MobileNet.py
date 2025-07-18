@@ -54,8 +54,7 @@ def MobileNet (ctxt) :
         # return HE_ReLU(x)
     initial_shapes = {
         # Constant
-        "nt" : 2**16,
-        # "nt" : 2**14,
+        "nt" : 2**15,
         "bb" : 32,
         # Input Characteristics (Cascaded)
         "ko" : 1,
@@ -91,7 +90,7 @@ def MobileNet (ctxt) :
     out = HE_Pool(close, out)
     block_in = avgpool_1_shapes
     
-    out = HE_Linear(close["OP"], out, model.module.linear, scale = 32.0)
+    out = HE_Linear(close["OP"], out, model.module.linear, initial_shapes["nt"],scale = 32.0)
     
     print("end")
     return out

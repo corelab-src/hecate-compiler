@@ -45,10 +45,16 @@ def getModel():
 
 
 def preprocess(x):
-    # print(x.shape)
+    import json
+    lib_name = sys.argv[3]
+    hw_name = sys.argv[4]
+    config_name = f"profiled_{lib_name}_{hw_name}.json"
+    with open(str(source_dir)+"/../../"+config_name,'r') as f:
+        config = json.load(f)
+ 
     initial_shapes = {
     # Constant
-    "nt" : 2**16,
+    "nt" : config['polynomialDegree'] >> 1,
     "bb" : 32,
     # Input Characteristics (Cascaded)
     "ko" : 1,
@@ -72,7 +78,20 @@ def postprocess(res, torch_res) :
     return res[0,:torch_res_size].reshape(torch_res.shape) *32
     # return res[0,:torch_res_size].reshape(torch_res.shape)
 
+def pack_3d(x: np.ndarray, tile: int = 2) -> np.ndarray:
+    C, H, W = x.shape
+    assert C % (tile * tile) == 0, "C must be divisible by tile^2"
 
+    out_C = C // (tile * tile)
+    out_H = H * tile
+    out_W = W * tile
+
+    x = x.reshape(out_C, tile, tile, H, W)
+
+    x = x.transpose(0, 3, 1, 4, 2)  # (out_C, H, tile, W, tile)
+
+    x = x.reshape(out_C, out_H, out_W)
+    return x
 
 
 if __name__ == "__main__" :
@@ -104,9 +123,15 @@ if __name__ == "__main__" :
     hevm.run()
     timer = time.perf_counter_ns() -timer
     res = hevm.getOutput()
+    print("res size" , res.shape)
+    print("ref size" , reference.shape)
+    # res = res.reshape(16,32,32)
+    # print(res[0][:20:2] *32)
+    # res_mod = res[0][::2] * 32
+    # reference = pack_3d(reference, tile=4)
     res = postprocess(res, reference)
-    err = res - reference 
-    # print(res)
-    # print(reference)
+
+    # res = res_mod
+    err = res - reference
     rms = np.sqrt( np.sum(err*err) / res.shape[-1])
     hevm.printer(timer/pow(10, 9), rms)

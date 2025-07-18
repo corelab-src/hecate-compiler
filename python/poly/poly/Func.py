@@ -10,9 +10,9 @@ def HE_BN (close, mpp, bn, scale=1.0) :
     mpcb = close["BN"](mpp, G, H)
     return mpcb
 
-def HE_MPBN (mpp, bn, scale=1.0) :
+def HE_MPBN (mpp, bn, nt, scale=1.0) :
     G, H = MPCB.abstractBN(bn)
-    mpcb = MPCB.BN(mpp, G, H/scale, 2**16)
+    mpcb = MPCB.BN(mpp, G, H/scale, nt)
     return mpcb
 
 def HE_Conv (close, mpp, conv) :
@@ -52,13 +52,13 @@ def HE_DS (close, mpp) :
 def HE_Pool (close, mpp) :
     return close["AP"](mpp)
 
-def HE_Linear(close, mpp, linear, p = 1.0, scale = 1.0) :
-    mpcb = MPCB.Linear(mpp, linear.weight * p , linear.bias.cpu() / scale, 2**16)
+def HE_Linear(close, mpp, linear, nt, p = 1.0, scale = 1.0) :
+    mpcb = MPCB.Linear(mpp, linear.weight * p , linear.bias.cpu() / scale, nt)
     return mpcb
 
-def HE_ReshapeLinear(close, mpp, linear, p = 1.0, scale = 1.0, reshape = {}) :
+def HE_ReshapeLinear(close, mpp, linear, nt, p = 1.0, scale = 1.0, reshape = {}) :
     weight = MPCB.Reshape (linear.weight, reshape)
-    mpcb = MPCB.Linear(mpp, weight * p , linear.bias.cpu() / scale, 2**16)
+    mpcb = MPCB.Linear(mpp, weight * p , linear.bias.cpu() / scale, nt)
     return mpcb
 
 def HE_DwConv (close, mpp, conv, bn) :

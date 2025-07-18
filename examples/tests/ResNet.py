@@ -53,8 +53,6 @@ def preprocess(x):
         config = json.load(f)
     initial_shapes = {
     # Constant
-    # "nt" : 2**16,
-    # "nt" : 2**14,
     "nt" : config['polynomialDegree'] >> 1,
     "bb" : 32,
     # Input Characteristics (Cascaded)
