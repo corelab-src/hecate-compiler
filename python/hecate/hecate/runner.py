@@ -223,29 +223,26 @@ class HEVM :
         data = np.zeros(slot_size, dtype=np.float64)
 
         for i in range(self.reslen) :
-            # carr = npcl.as_ctypes(data) 
             carr =  data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
             lw.decrypt_result(self.vm, i, carr)
-            # result[i] = npcl.as_array(carr, shape= 1<<14)
             result[i] = data
         return result
     
     def printer(self, latency, rms, epoch = 10, mem_usage = 0.0) :
         import re
         bench = re.search(r"optimized/(.*)/(.*)\.(.*)\._", self.hevm_path)
-        print("======================================")
-        print("---------------Option-----------------")
+        print("==================================================")
+        print("---------------- Runtime Option ------------------")
         print("compiler:", bench.group(1))
         print("benchname:", bench.group(2))
         print("waterline:", bench.group(3))
         print("library:", run_library)
         print("device:", run_hardware)
         print("epoch:", epoch)
-        print("---------------Result-----------------")
-        print("latency:", latency)
+        print("----------------- Test Results -------------------")
+        print("latency (ms):", latency)
         print("rms:", rms)
-        # print("memory_usage:", mem_usage)
-        print("======================================")
+        print("==================================================")
         print()
 
 
