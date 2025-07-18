@@ -18,8 +18,11 @@
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 
-#define DEBUG false
-#define PREENCODE false
+#define PRINT_OPTYPES false
+#define PRINT_OPSTATS true
+#define PRINT_RANGE false
+
+#define USE_PREENCODE false
 
 constexpr auto Scheme = heongpu::Scheme::CKKS;
 using Message = std::vector<double>;
@@ -51,29 +54,26 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   std::unique_ptr<heongpu::HEEncryptor<Scheme>> encryptor;
   std::unique_ptr<heongpu::HEArithmeticOperator<Scheme>> operators;
   std::unique_ptr<heongpu::HEDecryptor<Scheme>> decryptor;
-  std::unique_ptr<heongpu::Bootstrap> booter;
-
-  uint64_t boot_cnt = 0;
+  std::unique_ptr<heongpu::Bootstrap> bootstrapper;
 
   // runConfig
-  bool togpu = true;
 
   static void create_context(char *dir) {}
 
-  void printCudaMemInfo() {
+  size_t getCurrentMemoryUsage() override {
     size_t free_mem, total_mem;
     cudaError_t err = cudaMemGetInfo(&free_mem, &total_mem);
-
     if (err != cudaSuccess) {
-      std::cerr << "CUDA Error: " << cudaGetErrorString(err) << std::endl;
-      return;
+      assert(std::cerr << "CUDA Error: " << cudaGetErrorString(err)
+                       << std::endl);
     }
-    std::cout << "Free Memory: " << free_mem / (1024.0 * 1024.0) << " MB"
-              << std::endl;
-    std::cout << "Total Memory: " << total_mem / (1024.0 * 1024.0) << " MB"
-              << std::endl;
+
+    // std::cout << "Free Memory: " << free_mem / (1024.0 * 1024.0) << " MB"
+    //           << std::endl;
+    // std::cout << "Total Memory: " << total_mem / (1024.0 * 1024.0) << " MB"
+    //           << std::endl;
+    return total_mem - free_mem;
   }
-  void printInfo() {}
 
   void loadHEONGPU(char *dir) {
     cudaSetDevice(0);
@@ -97,6 +97,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     context.generate();
     context.print_parameters();
 
+    getCurrentMemoryUsage();
     heongpu::HEKeyGenerator<Scheme> keygen(context);
 
     // Hamming weight of secret key is 32
@@ -120,6 +121,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     relin_key = std::make_unique<heongpu::Relinkey<Scheme>>(context);
     keygen.generate_relin_key(*relin_key, *secret_key);
 
+    key_memory_usage = getCurrentMemoryUsage();
     // heongpu::Galoiskey<Scheme> galois_key(context);
 
     galois_key = std::make_unique<heongpu::Galoiskey<Scheme>>(context);
@@ -142,7 +144,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
 
     galois_key->store_in_device();
 
-    booter = std::make_unique<heongpu::Bootstrap>(
+    bootstrapper = std::make_unique<heongpu::Bootstrap>(
         context, *secret_key, *relin_key, *galois_key, switch_key_d2s,
         switch_key_s2d, 3, 1.0, scale);
 
@@ -164,6 +166,12 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     std::ifstream iff(sname, std::ios::binary);
 
     loadHeader(iff);
+    hecate::RuntimeConfig runOptions;
+    runOptions.debug.printOpTypes = PRINT_OPTYPES;
+    runOptions.debug.printOpStats = PRINT_OPSTATS;
+    runOptions.debug.printRange = PRINT_RANGE;
+    runOptions.settings.usePreencode = USE_PREENCODE;
+    setRuntimeConfig(runOptions);
 
     ops.resize(config.num_operations);
     iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
@@ -175,19 +183,16 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     msgs.resize(config.num_ptxt_buffer);
     ciphers.resize(config.num_ctxt_buffer,
                    heongpu::Ciphertext<Scheme>(*context));
-    visibleCiphers.resize(config.num_ctxt_buffer,
-                          std::vector<double>(slot_size, 0.0));
     scalep.resize(config.num_ptxt_buffer);
     levelp.resize(config.num_ptxt_buffer);
 
-    visiblePlains.resize(config.num_ptxt_buffer,
-                         std::vector<double>(slot_size, 0.0));
-    if (PREENCODE) {
+    if (USE_PREENCODE) {
       plains.resize(config.num_ptxt_buffer,
                     heongpu::Plaintext<Scheme>(*context));
     } else {
       plains.resize(1, heongpu::Plaintext<Scheme>(*context));
     }
+    getCurrentMemoryUsage();
   }
 
   void loadHeader(std::istream &iff) {
@@ -223,9 +228,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
       if (op.opcode == 0) {
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
-        // std::cout << "dst: " << op.dst << " level: " << levelp[op.dst]
-        // << " scale: " << scalep[op.dst] << std::endl;
-        if (PREENCODE) {
+        if (USE_PREENCODE) {
           encode_internal(plains[op.dst],
                           op.lhs == ((unsigned short)-1) ? identity
                                                          : constData[op.lhs],
@@ -318,7 +321,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     operators->add(ciphers[lhs], ciphers[rhs], ciphers[dst]);
   }
   void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
-    if (!PREENCODE) {
+    if (!USE_PREENCODE) {
       encode_online(rhs);
       operators->add_plain(ciphers[lhs], plains[0], ciphers[dst]);
     } else
@@ -331,7 +334,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     operators->set_rescale_required(ciphers[dst], false);
   }
   void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
-    if (!PREENCODE) {
+    if (!USE_PREENCODE) {
       encode_online(rhs);
       operators->multiply_plain(ciphers[lhs], plains[0], ciphers[dst]);
     } else {
@@ -344,8 +347,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     heongpu::Plaintext<Scheme> ptxt(*context);
 
     // TODO: fix the target level of bootstrapping
-    ciphers[dst] = booter->execute(ciphers[dst], 27);
-    boot_cnt++;
+    ciphers[dst] = bootstrapper->execute(ciphers[dst], 27);
   }
 
   // Debugging functions
@@ -417,12 +419,14 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   heongpu::Plaintext<Scheme> ptxt(*hevm->context);
   std::vector<double> dats(dat, dat + len);
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
-  for (int j = 0; j < hevm->slot_size; j++) {
-    hevm->visibleCiphers[i][j] = dats[j % len];
-  }
 
+  // TODO: Hide the visibleCiphers from the user
+  if (hevm->runConfig.debug.printOpTypes) {
+    for (int j = 0; j < hevm->slot_size; j++) {
+      hevm->visibleCiphers[i][j] = dats[j % len];
+    }
+  }
   // ptxt should be zero depth before encryption in HEONGPU
-  //
   hevm->encryptor->encrypt(hevm->ciphers[i], ptxt);
   for (int l = hevm->L; l > hevm->arg_level[i]; l--) {
     hevm->operators->mod_drop_inplace(hevm->ciphers[i]);
@@ -430,15 +434,11 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
 }
 void decrypt(void *vm, int64_t i, double *dat) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  // cudaDeviceSynchronize();
   heongpu::Plaintext<Scheme> ptxt(*hevm->context);
-  // cudaDeviceSynchronize();
   hevm->decryptor->decrypt(ptxt, hevm->ciphers[i]);
-  // cudaDeviceSynchronize();
   std::vector<double> msg(hevm->slot_size, 0.0);
   // hevm->encoder->decode(msg, ptxt, std::pow(2.0, hevm->scalep[i]));
   hevm->encoder->decode(msg, ptxt);
-  std::cout << "After Decode " << i << std::endl;
   for (int j = 0; j < hevm->slot_size; j++) {
     /* for (size_t j = 0; j < msg.getSize(); j++) */
     dat[j] = msg[j];
@@ -469,9 +469,9 @@ void preprocess(void *vm) {
 }
 void run(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->runOptions.debug_ops = DEBUG;
-  hevm->runOptions.preencode = PREENCODE;
   hevm->run(hevm->ops);
+  if (hevm->runConfig.debug.printOpStats)
+    hevm->printPerformanceStats();
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
@@ -487,11 +487,9 @@ void setDebug(void *vm, bool enable) {
 }
 void setToGPU(void *vm, bool ongpu) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->togpu = ongpu;
 }
 void printMem(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->printCudaMemInfo();
-  hevm->printInfo();
+  // hevm->printMemoryUsage();
 }
 };

@@ -4,17 +4,38 @@
 namespace hecate {
 
 HEVMInterface::HEVMInterface(uint64_t N, uint64_t L)
-    : N(N), L(L), slot_size(N >> 1) {}
+    : N(N), L(L), slot_size(N >> 1) {
+  // Bootstrap opcode should be defined in the last
+  op_count.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
+  op_time.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
+}
+
+void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
+  runConfig = RunOptions;
+  if (runConfig.debug.printOpTypes) {
+    visibleCiphers.resize(config.num_ctxt_buffer,
+                          std::vector<double>(slot_size, 0.0));
+    visiblePlains.resize(config.num_ptxt_buffer,
+                         std::vector<double>(slot_size, 0.0));
+  }
+}
 
 // run the HEVM operations based on the opcode
 void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
+  bool printTypes = runConfig.debug.printOpTypes;
+  bool printStats = runConfig.debug.printOpStats;
+
   int i = (header.hevm_header_size + config.config_body_length) / 8;
   int j = 0;
+  std::chrono::high_resolution_clock::time_point start, end;
   for (HEVMOperation &op : heops) {
-    if (runOptions.debug_ops) {
-      debugOperandsType(op, j);
-    }
-    switch (static_cast<opcode_t>(op.opcode)) {
+    if (printTypes)
+      printOperandsType(op, j);
+    if (printStats)
+      start = std::chrono::high_resolution_clock::now();
+
+    opcode_t opcode = static_cast<opcode_t>(op.opcode);
+    switch (opcode) {
     case opcode_t::ENCODE: { // Encode
       encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
       break;
@@ -88,14 +109,24 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
       break;
     }
     }
-    if (runOptions.debug_ops) {
-      debugResultsType(op);
+    // std::cout << getOpName(opcode) << " "
+    // << getCurrentMemoryUsage() / std::pow(10, 9) << "GB" << '\n';
+    if (printStats) {
+      end = std::chrono::high_resolution_clock::now();
+      auto time_diff =
+          std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+              .count();
+      op_count[op.opcode]++;
+      op_time[op.opcode] += time_diff;
     }
+    if (printTypes)
+      printResultsType(op);
   }
 }
 
 // Debug the operands of an operation and print the type information
-void HEVMInterface::debugOperandsType(const HEVMOperation &op, int &num_op) {
+// TODO: Use a more structured way to handle the output
+void HEVMInterface::printOperandsType(const HEVMOperation &op, int &num_op) {
   // Find the opcode in the map
   auto opcode = static_cast<opcode_t>(op.opcode);
   auto op_name = getOpName(opcode);
@@ -121,9 +152,9 @@ void HEVMInterface::debugOperandsType(const HEVMOperation &op, int &num_op) {
 
   case opcode_t::ADDCP:
   case opcode_t::MULCP:
-    if (!runOptions.preencode) {
-      std::cout << ", (plains[" << op.rhs << "] <" << (op.rhs >> 10) << " * "
-                << (op.rhs & 0x3FF) << ">)";
+    if (!runConfig.settings.usePreencode) {
+      std::cout << ", (plains[" << op.rhs << "] <" << int16_t(op.rhs >> 10)
+                << " * " << uint64_t(op.rhs & 0x3FF) << ">)";
     } else {
       std::cout << ", (plains[" << op.rhs << "] <" << getPlainLevel(op.rhs)
                 << " * " << getPlainScale(op.rhs) << ">)";
@@ -223,7 +254,7 @@ msg_t HEVMInterface::runVisible(const HEVMOperation &op) {
 }
 
 // Debug the results of an operation and print the results
-void HEVMInterface::debugResultsType(const HEVMOperation &op) {
+void HEVMInterface::printResultsType(const HEVMOperation &op) {
   // Find the opcode in the map
   auto opcode = static_cast<opcode_t>(op.opcode);
   auto op_name = getOpName(opcode);
@@ -267,7 +298,6 @@ void HEVMInterface::checkPrecision(const msg_t &v1, const msg_t &v2) {
       maxDiff = absDiff;
       maxDiffIndex = i;
     }
-
     // double ref = std::max(std::abs(v1[i]), std::abs(v2[i]));
     double correctBits;
 
@@ -300,6 +330,72 @@ void HEVMInterface::checkPrecision(const msg_t &v1, const msg_t &v2) {
             << "] = " << v1[minPrecisionIndex] << "\n";
   std::cout << "  he_res[" << minPrecisionIndex
             << "] = " << v2[minPrecisionIndex] << "\n";
+}
+
+std::string HEVMInterface::padLeft(const std::string &s, size_t width) {
+  if (s.length() >= width)
+    return s;
+  return s + std::string(width - s.length(), ' ');
+}
+
+std::string HEVMInterface::padRight(const std::string &s, size_t width) {
+  if (s.length() >= width)
+    return s;
+  return std::string(width - s.length(), ' ') + s;
+}
+
+template <typename T> std::string HEVMInterface::toString(T val) {
+  return std::to_string(val);
+}
+
+void HEVMInterface::printPerformanceStats() {
+  const int nameWidth = 15;
+  const int countWidth = 10;
+  const int timeWidth = 15;
+  const int percentWidth = 15;
+
+  std::cout << "==================================================\n";
+  std::cout << padLeft("Operation", nameWidth) << padLeft("Count", countWidth)
+            << padLeft("Time(\u03BCs)", timeWidth) // microseconds
+            << padLeft("Percent", percentWidth)
+            // << "Average(ns)"
+            << "\n";
+  std::cout << "--------------------------------------------------\n";
+  double total_time = 0.0;
+  int total_cnt = 0;
+  for (size_t i = 0; i < op_count.size(); ++i) {
+    total_time += op_time[i];
+    total_cnt += op_count[i];
+  }
+
+  auto printEntry = [&](const std::string &name, int cnt, double time) {
+    std::cout << padLeft(name, nameWidth) << padLeft(toString(cnt), countWidth)
+              << padLeft(toString((long long)time), timeWidth)
+              << padLeft(toString(time * 100.0 / total_time), percentWidth)
+              // << padLeft(toString(time / cnt), timeWidth)
+              << "\n";
+  };
+
+  // Print "opname, count, time, and percentage
+  for (size_t i = 0; i < op_count.size(); ++i) {
+    printEntry(getOpName(static_cast<opcode_t>(i)), op_count[i], op_time[i]);
+  }
+  std::cout << "--------------------------------------------------\n";
+  std::cout << padLeft("total", nameWidth)
+            << padLeft(toString(total_cnt), countWidth)
+            << (total_time / 1000000.0) << "ms\n";
+  std::cout << "--------------------------------------------------\n";
+  std::cout << "config.num_ptxt: " << config.num_ptxt_buffer << '\n';
+  std::cout << "config.num_ctxt: " << config.num_ctxt_buffer << '\n';
+  std::cout << "key_memory_usage: " << key_memory_usage / std::pow(10, 9)
+            << "GB" << '\n';
+  total_memory_usage = getCurrentMemoryUsage();
+  std::cout << "Data Memory Usage: "
+            << (total_memory_usage - key_memory_usage) / std::pow(10, 9) << "GB"
+            << '\n';
+  std::cout << "Total Memory Usage: " << total_memory_usage / std::pow(10, 9)
+            << "GB" << '\n';
+  std::cout << "==================================================\n";
 }
 
 } // namespace hecate

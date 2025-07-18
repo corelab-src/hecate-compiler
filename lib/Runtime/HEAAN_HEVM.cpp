@@ -6,7 +6,6 @@
 #include <any>
 #include <cassert>
 #include <chrono>
-using Clock = std::chrono::high_resolution_clock;
 #include <fstream>
 #include <iostream>
 
@@ -20,30 +19,16 @@ using Clock = std::chrono::high_resolution_clock;
 
 #include "hecate/Support/BackendInterface.h"
 #include "hecate/Support/ConstData.h"
-
 #include "hecate/Support/HEVMHeader.h"
 
-std::string padLeft(const std::string& s, size_t width) {
-    if (s.length() >= width) return s;
-    return s + std::string(width - s.length(), ' ');
-}
+#define PRINT_OPTYPES false
+#define PRINT_OPSTATS true
+#define PRINT_RANGE false
 
-std::string padRight(const std::string& s, size_t width) {
-    if (s.length() >= width) return s;
-    return std::string(width - s.length(), ' ') + s;
-}
+#define USE_PREENCODE false
 
-template <typename T>
-std::string toString(T val) {
-    return std::to_string(val);
-}
-
-struct HEAAN_HEVM {
-  // std::vector<std::vector<double>> buffer;
-  hecate::ConstData constData;
-  HEVMHeader header;
-  ConfigBody config;
-  /* std::vector<uint64_t> config_dats; */
+struct HEAAN_HEVM : virtual hecate::HEVMInterface {
+  using HEVMInterface::HEVMInterface;
   std::vector<HEVMOperation> ops;
   std::vector<HEVMLoopOp> loops;
   std::vector<std::vector<HEVMOperation>> loop_insts;
@@ -71,20 +56,13 @@ struct HEAAN_HEVM {
   std::unique_ptr<HEaaN::Bootstrapper> bootstrapper;
   std::unique_ptr<HEaaN::Decryptor> decryptor;
   std::unique_ptr<HEaaN::EnDecoder> endecoder;
-  /* std::chrono::microseconds boot_time; */
-  uint64_t boot_time = 0;
-  uint64_t boot_cnt = 0;
-  bool isPrinted = false;
-
-  static const int N = 17;
-  static const int L = 16;
 
   std::vector<int64_t> rotKeyOffset = {
-      1,     2,     3,     4,     5,     6,     7,     8,     14, 16,    24,
-      32,    64,    96,    128,   160,   192,   224,   256,   512,   768,
-      1024,  2048,  3072,  4096,  5120,  6144,  7168,  8192,  16384, 24576,
-      32768, 40960, 49152, 57344, 61440, 63488, 64512, 64768, 65024, 65280,
-      65408, 65472, 65504, 65512, 65520, 65528, 65532, 65534, 65535,
+      1,     2,     3,     4,     5,     6,     7,     8,     14,    16,
+      24,    32,    64,    96,    128,   160,   192,   224,   256,   512,
+      768,   1024,  2048,  3072,  4096,  5120,  6144,  7168,  8192,  16384,
+      24576, 32768, 40960, 49152, 57344, 61440, 63488, 64512, 64768, 65024,
+      65280, 65408, 65472, 65504, 65512, 65520, 65528, 65532, 65534, 65535,
   };
   /* std::vector<int64_t> rotKeyOffset = { */
   /*     1,     2,     3,     4,     5,     6,     7,     8,     16, */
@@ -96,39 +74,7 @@ struct HEAAN_HEVM {
 
   bool debug = false;
   bool togpu = true;
-  bool preencode = false;
   // bool preencode = true;
-
-  bool timeprint = true;
-  bool timeprint_detail = false;
-
-  uint64_t encode_time = 0;
-  uint64_t encode_cnt = 0;
-  uint64_t rotate_time = 0;
-  uint64_t rotate_cnt = 0;
-  uint64_t modswitch_time = 0;
-  uint64_t modswitch_cnt = 0;
-  uint64_t upscale_time = 0;
-  uint64_t upscale_cnt = 0;
-  uint64_t rescale_time = 0;
-  uint64_t rescale_cnt = 0;
-  uint64_t negate_time = 0;
-  uint64_t negate_cnt = 0;
-  uint64_t addcc_time = 0;
-  uint64_t addcc_cnt = 0;
-  uint64_t addcp_time = 0;
-  uint64_t addcp_cnt = 0;
-  uint64_t subcc_time = 0;
-  uint64_t subcc_cnt = 0;
-  uint64_t subcp_time = 0;
-  uint64_t subcp_cnt = 0;
-  uint64_t mulcc_time = 0;
-  uint64_t mulcc_cnt = 0;
-  uint64_t mulcp_time = 0;
-  uint64_t mulcp_cnt = 0;
-  uint64_t bootstrap_time = 0;
-  uint64_t bootstrap_cnt = 0;
-  uint64_t memory_usage = 0;
 
   static void create_context(char *dir) {
 
@@ -153,19 +99,19 @@ struct HEAAN_HEVM {
       HEaaN::saveContextToFile(context, strdir + "/context.heaan");
     }
   }
-  void printCudaMemInfo() {
-    auto MemUse = HEaaN::CudaTools::getCudaMemoryInfo().second -
-                  HEaaN::CudaTools::getCudaMemoryInfo().first;
-    auto TotalMemCapacity = HEaaN::CudaTools::getCudaMemoryInfo().second;
-    std::cout << "GPU memory usage: " << MemUse / std::pow(10, 9) << "GB";
-    std::cout << " (" << double(MemUse * 100) / double(TotalMemCapacity) << "%)"
-              << "\n";
+  size_t getCurrentMemoryUsage() override {
+    return HEaaN::CudaTools::getCudaMemoryInfo().second -
+           HEaaN::CudaTools::getCudaMemoryInfo().first;
   }
-  void printInfo() {
-    // int encodeOnline = 2;
-    std::cout << "polyDegree: " << N << '\n';
-    // std::cout << "encodeOnline: " << encodeOnline << "\n\n";
-  }
+  // void printMemoryUsage() override {
+  //   auto MemUse = HEaaN::CudaTools::getCudaMemoryInfo().second -
+  //                 HEaaN::CudaTools::getCudaMemoryInfo().first;
+  //   auto TotalMemCapacity = HEaaN::CudaTools::getCudaMemoryInfo().second;
+  //   std::cout << "GPU memory usage: " << MemUse / std::pow(10, 9) << "GB";
+  //   std::cout << " (" << double(MemUse * 100) / double(TotalMemCapacity) <<
+  //   "%)"
+  //             << "\n";
+  // }
 
   void loadHEAAN(char *dir) {
     HEaaN::setUVM(HEaaN::getCurrentCudaDevice(), false);
@@ -187,18 +133,19 @@ struct HEAAN_HEVM {
     evaluator = std::make_unique<HEaaN::HomEvaluator>(context, *keypack);
     bootstrapper = std::make_unique<HEaaN::Bootstrapper>(*evaluator);
     if (togpu) {
-      printCudaMemInfo();
+      // printMemoryUsage();
       seckey->to(HEaaN::getCurrentCudaDevice());
-      printCudaMemInfo();
+      // printMemoryUsage();
       keypack->to(HEaaN::getCurrentCudaDevice());
-      printCudaMemInfo();
+      // printMemoryUsage();
       bootstrapper->makeBootConstants(HEaaN::getLogFullSlots(context));
-      printCudaMemInfo();
+      // printMemoryUsage();
       bootstrapper->loadBootConstants(HEaaN::getLogFullSlots(context),
                                       HEaaN::getCurrentCudaDevice());
-      printCudaMemInfo();
-      memory_usage = HEaaN::CudaTools::getCudaMemoryInfo().second -
-                  HEaaN::CudaTools::getCudaMemoryInfo().first;
+      // printMemoryUsage();
+      // memory_usage = HEaaN::CudaTools::getCudaMemoryInfo().second -
+      // HEaaN::CudaTools::getCudaMemoryInfo().first;
+      key_memory_usage = getCurrentMemoryUsage();
     }
   }
 
@@ -224,7 +171,6 @@ struct HEAAN_HEVM {
   void loadConstants(char *name) {
     std::string sname(name);
     constData.load(sname);
-    std::cerr << "Constant Loaded From" << sname << std::endl;
   }
 
   void loadHEVM(char *name) {
@@ -233,6 +179,12 @@ struct HEAAN_HEVM {
     std::ifstream iff(sname, std::ios::binary);
 
     loadHeader(iff);
+    hecate::RuntimeConfig runOptions;
+    runOptions.debug.printOpTypes = PRINT_OPTYPES;
+    runOptions.debug.printOpStats = PRINT_OPSTATS;
+    runOptions.debug.printRange = PRINT_RANGE;
+    runOptions.settings.usePreencode = USE_PREENCODE;
+    setRuntimeConfig(runOptions);
 
     integers.resize(header.config_header.arg_length);
     ops.resize(config.num_operations);
@@ -255,11 +207,11 @@ struct HEAAN_HEVM {
         cipher.to(HEaaN::getCurrentCudaDevice());
     }
 
-    HEaaN::u64 log_slot = N - 1;
+    HEaaN::u64 log_slot = std::log2(slot_size);
     HEaaN::Message datas(log_slot, 0.0);
     /* msgs.resize(config.num_ptxt_buffer, datas); */
     msgs.resize(config.num_ptxt_buffer);
-    if (preencode) {
+    if (USE_PREENCODE) {
       plains.resize(config.num_ptxt_buffer, HEaaN::Plaintext(context));
       if (togpu) {
         for (auto &&plain : plains)
@@ -305,10 +257,10 @@ struct HEAAN_HEVM {
   }
 
   void preprocess(std::vector<HEVMOperation> &heops) {
-    std::vector<double> identity(1LL << (N - 1), 1.0);
+    std::vector<double> identity(slot_size, 1.0);
     for (HEVMOperation &op : heops) {
       if (op.opcode == 0) {
-        if (preencode) {
+        if (USE_PREENCODE) {
           encode_internal(plains[op.dst],
                           op.lhs == ((unsigned short)-1) ? identity
                                                          : constData[op.lhs],
@@ -330,8 +282,8 @@ struct HEAAN_HEVM {
   }
 
   void to_msg(int16_t dst, uint16_t lhs) {
-    HEaaN::u64 log_slot = N - 1;
-    std::vector<double> identity(1LL << (N - 1), 1.0);
+    HEaaN::u64 log_slot = std::log2(slot_size);
+    std::vector<double> identity(slot_size, 1.0);
 
     if (!msgMap.count(lhs)) {
       msgMap[lhs] = HEaaN::Message(log_slot, 0.0);
@@ -350,7 +302,7 @@ struct HEAAN_HEVM {
     return;
   }
 
-  void encode_online(int16_t dst) {
+  void encode_online(int16_t dst) override {
     /* if (togpu) */
     /*   msgs[dst].to(HEaaN::getCurrentCudaDevice()); */
     plains[0] =
@@ -358,8 +310,8 @@ struct HEAAN_HEVM {
   }
 
   void encode_internal(HEaaN::Plaintext &dst, std::vector<double> src,
-                       int8_t level, uint64_t scale) {
-    HEaaN::u64 log_slot = N - 1;
+                       int16_t level, uint64_t scale) {
+    HEaaN::u64 log_slot = std::log2(slot_size);
     HEaaN::Message datas(log_slot, 0.0);
 
     for (size_t i = 0; i < datas.getSize(); i++) {
@@ -373,36 +325,25 @@ struct HEAAN_HEVM {
     return;
   }
 
-  void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) { return; }
-  void rotate(int16_t dst, int16_t src, int16_t offset) {
-    if (debug)
-      std::cout << "rotate: src: scale " << scalec[src] << ", level " << ciphers[src].getLevel() << ", offset " << offset << ", dst: scale " << scalec[dst] << ", level " << ciphers[dst].getLevel() << std::endl;
+  void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) override {
+    return;
+  }
+  void rotate(int16_t dst, int16_t src, int16_t offset) override {
     evaluator->leftRotate(ciphers[src], offset, ciphers[dst]);
     scalec[dst] = scalec[src];
-    if (debug)
-      std::cout << "rotate: src: scale " << scalec[src] << ", level " << ciphers[src].getLevel() << ", offset " << offset << ", dst: scale " << scalec[dst] << ", level " << ciphers[dst].getLevel() << std::endl;
   }
-  void negate(int16_t dst, int16_t src) {
-    if (debug) {
-      std::cout << scalec[src] << std::endl;
-    }
+  void negate(int16_t dst, int16_t src) override {
     evaluator->negate(ciphers[src], ciphers[dst]);
     scalec[dst] = scalec[src];
   }
-  void rescale(int16_t dst, int16_t src) {
-    if (debug)
-      std::cout << scalec[src] << std::endl;
+  void rescale(int16_t dst, int16_t src) override {
     ciphers[dst] = ciphers[src];
     scalec[dst] =
         scalec[src] - std::round(ciphers[src].getCurrentScaleFactor());
     ciphers[dst].setRescaleCounter(1);
     evaluator->rescale(ciphers[dst]);
   }
-  void modswitch(int16_t dst, int16_t src, int16_t downFactor) {
-    if (debug) {
-      std::cout << scalec[src] << " " << downFactor << std::endl;
-      std::cout << "before level : " << ciphers[src].getLevel() << std::endl;
-    }
+  void modswitch(int16_t dst, int16_t src, int16_t downFactor) override {
     if (downFactor > 0) {
       scalec[dst] =
           scalec[src] - std::round(ciphers[src].getCurrentScaleFactor());
@@ -415,45 +356,30 @@ struct HEAAN_HEVM {
       evaluator->levelDownOne(ciphers[dst], ciphers[dst]);
       scalec[dst] += std::round(ciphers[dst].getCurrentScaleFactor());
     }
-    if (debug) {
-      std::cout << scalec[dst] << " " << downFactor << std::endl;
-      std::cout << "after level : " << ciphers[dst].getLevel() << std::endl;
-    }
   }
-  void upscale(int16_t dst, int16_t src, int16_t upFactor) {
+  void upscale(int16_t dst, int16_t src, int16_t upFactor) override {
     assert(0 && "This VM does not support native upscale op");
   }
-  void addcc(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug)
-      std::cout << scalec[lhs] << " " << scalec[rhs] << std::endl;
+  void addcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     scalec[dst] = scalec[lhs];
     evaluator->add(ciphers[lhs], ciphers[rhs], ciphers[dst]);
   }
-  void addcp(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug)
-      std::cout << scalec[lhs] << " " << scalep[rhs] << std::endl;
+  void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
     scalec[dst] = scalec[lhs];
-    if (preencode) {
+    if (USE_PREENCODE) {
       evaluator->add(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
       encode_online(rhs);
       evaluator->add(ciphers[lhs], plains[0], ciphers[dst]);
     }
   }
-  void mulcc(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug)
-      std::cout << scalec[lhs] << " " << scalec[rhs] << std::endl;
+  void mulcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     evaluator->multWithoutRescale(ciphers[lhs], ciphers[rhs], ciphers[dst]);
     ciphers[dst].setRescaleCounter(0);
     scalec[dst] = scalec[lhs] + scalec[rhs];
   }
-  void mulcp(int16_t dst, int16_t lhs, int16_t rhs) {
-    if (debug) {
-      std::cout << scalec[lhs] << " " << scalep[rhs] << std::endl;
-      std::cout << "cipher level : " << ciphers[lhs].getLevel() << '\n';
-      std::cout << "plain level : " << levelp[rhs] << '\n';
-    }
-    if (preencode) {
+  void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
+    if (USE_PREENCODE) {
       evaluator->multWithoutRescale(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
       encode_online(rhs);
@@ -462,22 +388,9 @@ struct HEAAN_HEVM {
     ciphers[dst].setRescaleCounter(0);
     scalec[dst] = scalec[lhs] + scalep[rhs];
   }
-  void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) {
-    if (debug) {
-      std::cout << scalec[src] << " " << ciphers[src].getLevel() << std::endl;
-    }
-    auto time_start = std::chrono::high_resolution_clock::now();
+  void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) override {
     bootstrapper->bootstrap(ciphers[src], ciphers[dst], targetLevel, false);
-    HEaaN::CudaTools::cudaDeviceSynchronize();
-    auto time_end = std::chrono::high_resolution_clock::now();
-    auto time_diff = std::chrono::duration_cast<std::chrono::microseconds>(
-        time_end - time_start);
-    std::cout << "bootstrap" << std::endl;
-    std::cout << "src: " << src << " | src_level: " << ciphers[src].getLevel() << std::endl;
-    std::cout << "dst: " << dst << " | dst_level: " << ciphers[dst].getLevel() << std::endl;
-    std::cout << "time: " << time_diff.count() << " microseconds" << std::endl;
-    boot_time += time_diff.count();
-    boot_cnt++;
+    // HEaaN::CudaTools::cudaDeviceSynchronize();
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
   }
 
@@ -510,217 +423,42 @@ struct HEAAN_HEVM {
     integers[dst] = integers[lhs] % integers[rhs];
   }
 
-  void run(std::vector<HEVMOperation> &heops) {
-    int i = (header.hevm_header_size + config.config_body_length) / 8;
-    int j = 0;
-    /* HEaaN::CudaTools::cudaDeviceSynchronize(); */
-    for (HEVMOperation &op : heops) {
-      if (debug) {
-        std::cout << std::endl;
-        std::cout << std::oct << i++ << " " << std::dec << j++ << std::endl;
-        std::cout << "opcode [" << op.opcode << "], dst [" << op.dst
-                  << "], lhs [" << op.lhs << "], rhs [" << op.rhs << "]"
-                  << std::endl;
-      }
-      switch (op.opcode) {
-      case 0: { // Encode
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
-          auto end = std::chrono::high_resolution_clock::now();
-          encode_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          encode_cnt++;
-        }
-        else {
-          encode(op.dst, op.lhs, op.rhs >> 10, op.rhs & 0x3FF);
-        }
-        break;
-      }
-      case 1: { // RotateC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          rotate(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          rotate_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          rotate_cnt++;
-          if (debug)
-            std::cout << "rotate time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
-        }
-        else {
-          rotate(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 2: { // NegateC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          negate(op.dst, op.lhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          negate_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          negate_cnt++;
-        }
-        else {
-          negate(op.dst, op.lhs);
-        }
-        break;
-      }
-      case 3: { // RescaleC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          rescale(op.dst, op.lhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          rescale_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          rescale_cnt++;
-          if (debug)
-            std::cout << "rescale time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
-        }
-        else {
-          rescale(op.dst, op.lhs);
-        }
-        break;
-      }
-      case 4: { // ModswtichC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          modswitch(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          modswitch_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          modswitch_cnt++;
-        }
-        else {
-          modswitch(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 5: { // UpscaleC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          upscale(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          upscale_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          upscale_cnt++;
-        }
-        else {
-          upscale(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 6: { // AddCC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          addcc(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          addcc_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          addcc_cnt++;
-        }
-        else {
-          addcc(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 7: { // AddCP
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          addcp(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          addcp_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          addcp_cnt++;
-        }
-        else {
-          addcp(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 8: { // MulCC
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          mulcc(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          mulcc_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          mulcc_cnt++;
-          if (debug)
-            std::cout << "mulcc time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
-        }
-        else {
-          mulcc(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 9: { // MulCP
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          mulcp(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          mulcp_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          mulcp_cnt++;
-          if (debug)
-            std::cout << "mulcp time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / std::pow(10, 6) << "ms" << std::endl;
-        }
-        else {
-          mulcp(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 10: { // Bootstrap
-        HEaaN::CudaTools::cudaDeviceSynchronize();
-        if (timeprint) {
-          auto start = std::chrono::high_resolution_clock::now();
-          bootstrap(op.dst, op.lhs, op.rhs);
-          auto end = std::chrono::high_resolution_clock::now();
-          bootstrap_time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-          bootstrap_cnt++;
-        }
-        else {
-          bootstrap(op.dst, op.lhs, op.rhs);
-        }
-        break;
-      }
-      case 11: { // loop
-        heloop(op.dst);
-        break;
-      }
-      case 200: {
-        copyCipher(op.dst, op.lhs);
-        break;
-      }
-      case 100: {
-        arithConstant(op.dst, op.lhs);
-        break;
-      }
-      case 101: {
-        arithAddI(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 102: {
-        arithSubI(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      case 103: {
-        arithRemSI(op.dst, op.lhs, op.rhs);
-        break;
-      }
-      default: {
-        break;
-      }
-      }
+  // Debugging functions
+  hecate::msg_t decrypt(int64_t dst) override {
+    HEaaN::Plaintext ptxt(context);
+    decryptor->decrypt(ciphers[dst], *seckey, ptxt);
+    // encoder->decode(msg, ptxt);
+    HEaaN::Message msg_heaan =
+        endecoder->decode(ptxt, std::pow(2.0, std::round(scalec[dst])));
+    if (togpu)
+      msg_heaan.to(HEaaN::getDefaultDevice());
+    hecate::msg_t msg(slot_size, 0.0);
+    for (int i = 0; i < slot_size; i++) {
+      msg[i] = msg_heaan[i].real();
     }
+    return msg;
   }
+
+  double getCipherScale(int16_t i) override { return scalec[i]; }
+  double getPlainScale(int16_t i) override { return scalep[i]; }
+  int getCipherLevel(int16_t i) override { return ciphers[i].getLevel(); }
+  int getPlainLevel(int16_t i) override { return levelp[i]; }
 };
 
 extern "C" {
-void *initFullVM(char *dir, bool device = false) {
-  auto vm = new HEAAN_HEVM();
+void *initFullVM(char *dir, int64_t N, int64_t L, bool device = false) {
+  auto vm = new HEAAN_HEVM(N, L);
   vm->togpu = device;
   vm->loadHEAAN(dir);
   return (void *)vm;
 }
-void *initClientVM(char *dir) {
-  auto vm = new HEAAN_HEVM();
+void *initClientVM(char *dir, int64_t N, int64_t L) {
+  auto vm = new HEAAN_HEVM(N, L);
   vm->loadClient(dir);
   return (void *)vm;
 }
-void *initServerVM(char *dir) {
-  auto vm = new HEAAN_HEVM();
+void *initServerVM(char *dir, int64_t N, int64_t L) {
+  auto vm = new HEAAN_HEVM(N, L);
   vm->loadServer(dir);
   return (void *)vm;
 }
@@ -755,6 +493,12 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   std::vector<double> dats(dat, dat + len);
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
   hevm->encryptor->encrypt(ptxt, *hevm->seckey, hevm->ciphers[i]);
+  // TODO: Hide the visibleCiphers from the user
+  if (hevm->runConfig.debug.printOpTypes) {
+    for (int j = 0; j < hevm->slot_size; j++) {
+      hevm->visibleCiphers[i][j] = dats[j % len];
+    }
+  }
   if (hevm->togpu) {
     hevm->ciphers[i].to(HEaaN::getCurrentCudaDevice());
   }
@@ -768,7 +512,7 @@ void decrypt(void *vm, int64_t i, double *dat) {
       hevm->endecoder->decode(ptxt, std::pow(2.0, std::round(hevm->scalec[i])));
   if (hevm->togpu)
     msg.to(HEaaN::getDefaultDevice());
-  for (int i = 0; i < (1LL << (HEAAN_HEVM::N - 1)); i++) {
+  for (int i = 0; i < hevm->slot_size; i++) {
     /* for (size_t j = 0; j < msg.getSize(); j++) */
     dat[i] = msg[i].real();
   }
@@ -797,103 +541,11 @@ void preprocess(void *vm) {
   hevm->preprocess(hevm->ops);
 }
 
-void printPerformanceStats(HEAAN_HEVM* hevm, double total_time, int total_cnt) {
-    const int nameWidth = 15;
-    const int countWidth = 10;
-    const int timeWidth = 15;
-    const int percentWidth = 15;
-
-    std::cout << "==================================================\n";
-    std::cout << padLeft("Operation", nameWidth)
-              << padLeft("Count", countWidth)
-              << padLeft("Time(ns)", timeWidth)
-              << padLeft("Percent", percentWidth)
-              // << "Average(ns)"
-              << "\n";
-    std::cout << "--------------------------------------------------\n";
-
-    auto printEntry = [&](const std::string& name, int cnt, double time) {
-        std::cout << padLeft(name, nameWidth)
-                  << padLeft(toString(cnt), countWidth)
-                  << padLeft(toString((long long)time), timeWidth)
-                  << padLeft(toString(time * 100.0 / total_time), percentWidth)
-                  // << padLeft(toString(time / cnt), timeWidth)
-                  << "\n";
-    };
-
-    printEntry("negate",    hevm->negate_cnt,    hevm->negate_time);
-    printEntry("addcc",     hevm->addcc_cnt,     hevm->addcc_time);
-    printEntry("addcp",     hevm->addcp_cnt,     hevm->addcp_time);
-    printEntry("subcc",     hevm->subcc_cnt,     hevm->subcc_time);
-    printEntry("subcp",     hevm->subcp_cnt,     hevm->subcp_time);
-    printEntry("mulcc",     hevm->mulcc_cnt,     hevm->mulcc_time);
-    printEntry("mulcp",     hevm->mulcp_cnt,     hevm->mulcp_time);
-    printEntry("encode",    hevm->encode_cnt,    hevm->encode_time);
-    printEntry("rotate",    hevm->rotate_cnt,    hevm->rotate_time);
-    printEntry("rescale",   hevm->rescale_cnt,   hevm->rescale_time);
-    printEntry("modswitch", hevm->modswitch_cnt, hevm->modswitch_time);
-    printEntry("upscale",   hevm->upscale_cnt,   hevm->upscale_time);
-    printEntry("bootstrap", hevm->bootstrap_cnt, hevm->bootstrap_time);
-
-    std::cout << "--------------------------------------------------\n";
-    std::cout << padLeft("total", nameWidth)
-              << padLeft(toString(total_cnt), countWidth)
-              << (total_time / 1000000.0) << "ms\n";
-    std::cout << "config.num_ptxt: " << hevm->config.num_ptxt_buffer << '\n';
-    std::cout << "config.num_ctxt: " << hevm->config.num_ctxt_buffer << '\n';
-    std::cout << "key_memory_usage: " << hevm->memory_usage / std::pow(10, 9) << "GB" << '\n';
-    auto MemUse = HEaaN::CudaTools::getCudaMemoryInfo().second -
-              HEaaN::CudaTools::getCudaMemoryInfo().first;
-    std::cout << "Total Memory Usage: " << MemUse / std::pow(10, 9) << "GB" << '\n';
-    std::cout << "Data Memory Usage: " << (MemUse - hevm->memory_usage) / std::pow(10, 9) << "GB" << '\n';
-    std::cout << "==================================================\n";
-}
-
 void run(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
-  hevm->boot_cnt = 0;
-  if (hevm->timeprint) {
-    hevm->negate_cnt = 0;
-    hevm->addcc_cnt = 0;
-    hevm->addcp_cnt = 0;
-    hevm->mulcc_cnt = 0;
-    hevm->mulcp_cnt = 0;
-    hevm->subcc_cnt = 0;
-    hevm->subcp_cnt = 0;
-    hevm->encode_cnt = 0;
-    hevm->rotate_cnt = 0;
-    hevm->rescale_cnt = 0;
-    hevm->modswitch_cnt = 0;
-    hevm->upscale_cnt = 0;
-    hevm->bootstrap_cnt = 0;
-    hevm->negate_time = 0;
-    hevm->addcc_time = 0;
-    hevm->addcp_time = 0;
-    hevm->mulcc_time = 0;
-    hevm->mulcp_time = 0;
-    hevm->subcc_time = 0;
-    hevm->subcp_time = 0;
-    hevm->encode_time = 0;
-    hevm->rotate_time = 0;
-    hevm->rescale_time = 0;
-    hevm->modswitch_time = 0;
-    hevm->upscale_time = 0;
-    hevm->bootstrap_time = 0;
-  }
   hevm->run(hevm->ops);
-  if (!hevm->isPrinted) {
-    std::cout << "boot_cnt: " << hevm->boot_cnt << '\n';
-    std::cout << "boot_time: " << hevm->boot_time << '\n';
-    hevm->isPrinted = true;
-  }
-  if (hevm->timeprint) {
-    uint64_t total_cnt = 0;
-    uint64_t total_time = 0;
-    total_cnt = hevm->negate_cnt + hevm->addcc_cnt + hevm->addcp_cnt + hevm->mulcc_cnt + hevm->mulcp_cnt + hevm->subcc_cnt + hevm->subcp_cnt + hevm->rescale_cnt + hevm->modswitch_cnt + hevm->upscale_cnt + hevm->boot_cnt + hevm->encode_cnt + hevm->rotate_cnt;
-    total_time = hevm->negate_time + hevm->addcc_time + hevm->addcp_time + hevm->mulcc_time + hevm->mulcp_time + hevm->subcc_time + hevm->subcp_time + hevm->rescale_time + hevm->modswitch_time + hevm->upscale_time + hevm->bootstrap_time + hevm->encode_time + hevm->rotate_time;
-    printPerformanceStats(hevm, total_time, total_cnt);
-  }
-
+  if (hevm->runConfig.debug.printOpStats)
+    hevm->printPerformanceStats();
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
@@ -916,7 +568,7 @@ void getRunInfo(void *vm) {
   /* info[0] = hevm->tttt; */
   /* info[1] = 0.0; */
   /* hevm->boot_cnt; */
-  hevm->printCudaMemInfo();
-  hevm->printInfo();
+  // hevm->printMemoryUsage();
+  // hevm->printInfo();
 }
 };

@@ -4,6 +4,7 @@
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -12,6 +13,7 @@
 #include <vector>
 #pragma once
 
+// TODO: Better way to define opcodes for opcode scalaibility
 #define OPCODE_LIST(OP)                                                        \
   OP(ENCODE, 0, "Encode")                                                      \
   OP(ROTATE, 1, "Rotate")                                                      \
@@ -47,10 +49,25 @@ inline const char *getOpName(opcode_t op) {
 
 namespace hecate {
 using msg_t = std::vector<double>;
-struct RunOptions {
-  bool debug_ops;
-  bool debug_accuracy;
-  bool preencode;
+
+// Options for printing debug information
+struct DebugOptions {
+  bool printRange = false;
+  bool printOpTypes = false;
+  bool printOpStats = false;
+  // bool printMemoryUsage = false;
+};
+
+// Options for running environment
+struct ExecutionSettings {
+  bool usePreencode = false;
+  // std::string hwTarget = "CPU"; // or "GPU"
+};
+
+// Options for running the HEVM
+struct RuntimeConfig {
+  DebugOptions debug;
+  ExecutionSettings settings;
 };
 
 class HEVMInterface {
@@ -61,10 +78,19 @@ public:
   ConstData constData;
   HEVMHeader header;
   ConfigBody config;
-  RunOptions runOptions;
+
+  // Runtime configuration
+  RuntimeConfig runConfig;
+  void setRuntimeConfig(RuntimeConfig &config);
+  std::vector<int> op_count;
+  std::vector<uint64_t> op_time;
+  uint64_t key_memory_usage = 0;
+  uint64_t total_memory_usage = 0;
   uint64_t N;
   uint64_t L;
   uint64_t slot_size;
+
+  // Virtual functions to be implemented by derived classes
   virtual void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) = 0;
   virtual void encode_online(int16_t dst) = 0;
   virtual void rotate(int16_t dst, int16_t src, int16_t offset) = 0;
@@ -82,6 +108,7 @@ public:
 
   // virtual function to support getting type methods granularity
   virtual msg_t decrypt(int64_t dst) = 0;
+  // get scale form should be log2 of the scale
   virtual double getCipherScale(int16_t dst) = 0;
   virtual double getPlainScale(int16_t dst) = 0;
   virtual int getCipherLevel(int16_t dst) = 0;
@@ -92,9 +119,16 @@ public:
   std::vector<msg_t> visiblePlains;
   void loadVisibleBackend();
   msg_t runVisible(const HEVMOperation &op);
-  void debugOperandsType(const HEVMOperation &op, int &num_op);
-  void debugResultsType(const HEVMOperation &op);
+  void printOperandsType(const HEVMOperation &op, int &num_op);
+  void printResultsType(const HEVMOperation &op);
+  void printPerformanceStats();
+  virtual size_t getCurrentMemoryUsage() = 0;
   void checkPrecision(const msg_t &v1, const msg_t &v2);
+
+  // Helper Functions to format output
+  std::string padLeft(const std::string &s, size_t width);
+  std::string padRight(const std::string &s, size_t width);
+  template <typename T> std::string toString(T val);
 
 private:
 };
