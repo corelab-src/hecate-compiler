@@ -138,10 +138,16 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
 
         B[0] = A
         for j in range(1, fint(np.log2(m))+1) :
+            offset = -pow(2, j-1) * p
+            # if(offset == -32768):
+                # print("offset 1", -pow(2, j-1)* p)
             B[j] = B[j-1] + roll (B[j-1], -pow(2, j-1)* p)
         C = B[fint(np.log2(m))]
         for j in range(0, fint (np.log2(m))) :
             if ((m//pow(2, j))%2) == 1 :
+                offset = -(m//pow(2, j+1)) * pow(2, j+1)* p
+                # if(offset == -32768):
+                    # print("offset 2", -(m//pow(2, j+1)) * pow(2, j+1)* p)
                 C = C + roll (B[j], -(m//pow(2, j+1)) * pow(2, j+1)* p)
         return C
 
@@ -167,14 +173,20 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
         return C
 
     def DownSelecting() :
+        # I think this is wrong .. 
         S = torch.eye ( ki * ti, ki * ti, dtype=torch.double)
         S = einops.repeat (S, ' (ki1 ti1) (ki2 ti2) -> ki1 ti1 ti2 hi s1 ki2 wi s2 ki', ki1 = ki, ti1 = ti, ki2 = ki, ti2 = ti, hi = hi//s, wi = wi//s, ki = ki, s1 = 1, s2 =1)
         S = F.pad (S, (0, 0, 0, s-1, 0, 0, 0, 0, 0, s-1), mode = 'constant', value = 0)
+        # For every ki1 ki2 ti1 ti2 ki ho wo, there is s by s mask If ki1 = ki2 ti 1 = ti 2  
         S = einops. rearrange (S, 'ki1 ti1 ti2 hi s1 ki2 wi s2 ki -> ki1 ti1 ti2 (hi s1) ki2 (wi s2) ki')
+        # If there is no proper padding, add padding.  
         S = F.pad (S, (0, 0, 0, wi%s, 0, 0, 0, hi%s), mode = 'constant', value = 0)
+        # For every ki1 ki2 ti1 ti2 ki, there is h w mask 
         S = einops. rearrange (S, 'ki1 ti1 ti2 hi ki2 wi ki -> ki1 ti1 (ti2 hi ki2 wi ki)')
+        # Now form it to masks for block 
         S = F.pad (S, (0, ni *nt- S.shape[2]), mode = 'constant', value = 0)
         S = einops. rearrange (S, 'ki ti (ni A) -> ni ki ti A', ki = ki, ti=ti, ni=ni)
+        
         return S 
     
     def AvgMidSelecting() : 
@@ -271,26 +283,20 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
                     for i2 in range(fw) : 
                         B[ii] = B[ii] + roll (A[ii], -(ki * ki * wi * (i1 - (fh-1)//2 ) + ki * (i2 - (fw-1)//2) ))  * M[i1, i2]
 
-        
-        #C = torch.zeros(no, nt, dtype=torch.double)
         C = np.full( (no) ,Empty(), dtype = object)
         S = DownSelecting()
         for i1 in range (ki) :
             for i2 in range (ti) :
-                i3 = ((ki*i2 + i1)%(2*ko))//2
-                i4 = (ki*i2 + i1)%2
-                i5 = (ki*i2 + i1)//(2*ko)
-                i7 = (ki*i2 + i1) // (nt // (hi * wi))
-                i8 = (ki*i2 + i1) // (nt // (ho * wo))
-                #C[i8, :] = C[i8, :] + roll (B[i7, :] * (S[i7, i1, i2, :]/ (fh * fw) ), - (ki*ki*hi*wi * (i2-i5) + ki*wi * (i1-i3) - ki * i4 + (i8-i7)*nt)) 
-                C[i8] = C[i8] + roll (B[i7] * (S[i7, i1, i2, :]/ (fh * fw) ), - (ki*ki*hi*wi * (i2-i5) + ki*wi * (i1-i3) - ki * i4 + (i8-i7)*nt)) 
-        # print(no)        
-        for j in range(fint(np.log2(po))) :
-            C[0] = C[0] + roll (C[0], pow(2, j) * (nt // po))
-            # Temporary C[0]
-            #C = C + roll (C, pow(2, j) * (nt // po))
-        # print(C)
-        # print(C.shape)
+                i3 = ((ki*i2 + i1)%(s*ko))//s
+                i4 = (ki*i2 + i1)%s
+                i5 = (ki*i2 + i1)//(s*ko) 
+                i7 = (ki*i2 + i1) // (nt // (hi * wi) // ki)
+                i8 = (ki*i2 + i1) // (nt // (ho * wo) // ki)
+                C[i8] = C[i8] + roll (B[i7] * (S[i7, i1, i2, :] / (fh * fw) ), - (ki*ki*hi*wi * (i2-i5) + ki*wi * (i1-i3) - ki * i4 + (i8-i7)*nt)) 
+ 
+        for ii in range(no) :
+            for j in range(fint(np.log2(po))) :
+                C[ii] = C[ii] + roll (C[ii], pow(2, j) * (nt // po))
         return C
     
     def ConcatSelecting () : 
@@ -306,11 +312,11 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
         return FF, BB
     
     def Concat (A, B):
-        if ((ci * wi * hi) %nt) == 0 :
-            return np.concatenate ((A, B))
-        
         C = np.full((ni), Empty(), dtype=object)
         D = np.full((no), Empty(), dtype=object)
+        # if ((ci * wi * hi) %nt) == 0 :
+            # return np.concatenate ((A, B))
+        
         FF, BB = ConcatSelecting()
         tt = min (co * wo *ho , nt)
         for i in range (ni) : 
@@ -324,7 +330,11 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
             D[ni-1 +i] = first [i] * FF + second[i] * BB
         if ni != no : 
             D[no-1] = first[ni]
-            
+        # for ii in range(no) :
+        #     for j in range(fint(np.log2(po))) :
+        #         D[ii] = D[ii] + roll (D[ii], pow(2, j) * (nt // po))
+        #     D[ii] = D[ii] + ParBNConst(bias)[ii, :]/bb
+ 
         return D
         
     
@@ -436,12 +446,12 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
             for i1 in range(fh) :
                 for i2 in range(fw) : 
                     tmp[ii, i1, i2] = roll (A[ii], -(ki * ki * wi * (i1 - (fh-1)//2 ) + ki * (i2 - (fw-1)//2) ))
-        # B = np.full( (ni) ,hc.Empty(), dtype = object)
-        B = torch.zeros ( (nt) , dtype=torch.double)
+        B = np.full( (ni) , Empty(), dtype = object)
+        # B = torch.zeros ( (ni, nt) , dtype=torch.double)
         for ii in range(ni) :
             for i1 in range(fh) :
                 for i2 in range(fw) :
-                    B =  B + (tmp[ii,i1,i2] * U[ii, i1, i2, :])
+                    B[ii] =  B[ii] + (tmp[ii,i1,i2] * U[ii, i1, i2, :])
         C = np.full( (no) ,Empty(), dtype = object)
         # S = DownSelecting().cuda()
         S = DownSelecting()
@@ -450,13 +460,15 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
                 i3 = ((ki*i2 + i1)%(s*ko))//s
                 i4 = (ki*i2 + i1)%s
                 i5 = (ki*i2 + i1)//(s*ko)
-                i7 = (ki*i2 + i1) // cint(ci // ni)
-                i8 = (ki*i2 + i1) // cint(co // no)
-                C[i8] = C[i8] + roll (B * (S[i7, i1, i2, :] * P[i8] ), - (ki*ki*hi*wi * (i2-i5) + ki*wi * (i1-i3) - ki * i4 + (i8-i7)*nt)) 
+                # i7 = (ki*i2 + i1) // cint(ci // ni)
+                # i8 = (ki*i2 + i1) // cint(co // no)
+                i7 = (ki*i2 + i1) // (nt // (hi * wi) // ki)
+                i8 = (ki*i2 + i1) // (nt // (ho * wo) // ki)
+                C[i8] = C[i8] + roll (B[i7] * (S[i7, i1, i2, :] * P[i7] ), - (ki*ki*hi*wi * (i2-i5) + ki*wi * (i1-i3) - ki * i4 + (i8-i7)*nt)) 
                 
         for ii in range(no) :
             for j in range(fint(np.log2(po))) :
-                C[0] = C[ii] + roll (C[ii], pow(2, j) * (nt // po))
+                C[ii] = C[ii] + roll (C[ii], pow(2, j) * (nt // po))
             C[ii] = C[ii] + ParBNConst(H)[ii, :]/bb
         return C
     
@@ -491,7 +503,7 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
     #             B = hc.Empty()
                 for i1 in range(fh) :
                     for i2 in range(fw) :
-                        B =  B + (tmp[ii,i1,i2] * U[ii, i3, i1, i2, :])
+                        B =  B + (tmp[ii,i1,i2] * U[ii, i3, i1, i2, :] )
                 # T = roll(tmp, 1)
                 # T = roll(U, 1)
             C = SumSlots(B, ki, 1)
@@ -539,12 +551,16 @@ def shapeClosure(nt, bb, fh, fw, s , hi, ho, wi, wo, ni, no, ci, co, ki, ko, ti,
                 # T = roll(U, 1)
             C = SumSlots(B, ki, 1)
             C = SumSlots(C, ki, ki*wi)
-            C = SumSlots(C, ti, ki*ki*hi*wi)
+            C = SumSlots(C, min(ti, nt//ki//ki//hi//wi), ki*ki*hi*wi)
+            # C = SumSlots(C, ti, ki*ki*hi*wi)
             for i4 in range(min (pi, co-pi*i3)) :
                 i = pi*i3 + i4
                 i6 = i %  (ko * ko *nt // (hi * wi * ki *ki)) # tiled to 
                 i8 = i // (ko * ko * nt // (hi * wi * ki * ki)) # out no
                 D[i8] = D[i8] + roll (C, ((i6//(ko *ko))*ko *ko *ho * wo - (nt //pi) * (i6 % pi) +  ( (i6 % (ko *ko)) // ko) * ko * wo + (i6 %ko))- i8*nt) * (S[i8, i]* P[i8])
+                # i6 = i %  (nt // (hi * wi)) # tiled to 
+                # i8 = i // (nt // (hi * wi)) # out no
+                # D[i8] = D[i8] + roll (C, ((i6//(ko *ko))*ko *ko *ho * wo - (nt //pi) * (i6 % pi) +  ( (i6 % (ko *ko)) // ko) * ko * wo + (i6 %ko))- i8*nt) * (S[i8, i])
 
         for ii in range(no) :
             for j in range(fint(np.log2(po))) :
