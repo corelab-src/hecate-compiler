@@ -3,11 +3,13 @@
 
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
+#include "hecate/Support/RangeTracker.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <regex>
 #include <stdexcept>
 #include <variant>
 #include <vector>
@@ -124,6 +126,7 @@ public:
   void printPerformanceStats();
   virtual size_t getCurrentMemoryUsage() = 0;
   void checkPrecision(const msg_t &v1, const msg_t &v2);
+  RangeTracker rangeTracker;
 
   // Helper Functions to format output
   std::string padLeft(const std::string &s, size_t width);

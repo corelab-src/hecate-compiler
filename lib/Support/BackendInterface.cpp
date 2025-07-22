@@ -4,7 +4,7 @@
 namespace hecate {
 
 HEVMInterface::HEVMInterface(uint64_t N, uint64_t L)
-    : N(N), L(L), slot_size(N >> 1) {
+    : N(N), L(L), slot_size(N >> 1), rangeTracker(N, L) {
   // Bootstrap opcode should be defined in the last
   op_count.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
   op_time.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
@@ -24,6 +24,7 @@ void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
 void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
   bool printTypes = runConfig.debug.printOpTypes;
   bool printStats = runConfig.debug.printOpStats;
+  bool printRange = runConfig.debug.printRange;
 
   int i = (header.hevm_header_size + config.config_body_length) / 8;
   int j = 0;
@@ -119,6 +120,10 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
       op_count[op.opcode]++;
       op_time[op.opcode] += time_diff;
     }
+    if (printRange) {
+      rangeTracker.logOperation(op, j, getOpName(opcode), runVisible(op));
+    }
+
     if (printTypes)
       printResultsType(op);
   }
@@ -273,7 +278,8 @@ void HEVMInterface::printResultsType(const HEVMOperation &op) {
               << " * " << getCipherScale(op.dst) << ">) " << std::endl;
     he_result = decrypt(op.dst);
   }
-  checkPrecision(plain_result, he_result);
+  if (runConfig.debug.printPrecision)
+    checkPrecision(plain_result, he_result);
   std::cout << std::endl;
 }
 
