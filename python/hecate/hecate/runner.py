@@ -240,7 +240,7 @@ class HEVM :
         print("device:", run_hardware)
         print("epoch:", epoch)
         print("----------------- Test Results -------------------")
-        print("latency (ms):", latency)
+        print("latency (s):", latency)
         print("rms:", rms)
         print("==================================================")
         print()
