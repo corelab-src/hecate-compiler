@@ -389,7 +389,7 @@ void HEVMInterface::printPerformanceStats() {
   std::cout << "--------------------------------------------------\n";
   std::cout << padLeft("total", nameWidth)
             << padLeft(toString(total_cnt), countWidth)
-            << (total_time / 1000000.0) << "ms\n";
+            << (total_time / 1000000.0) << " s\n";
   std::cout << "--------------------------------------------------\n";
   std::cout << "config.num_ptxt: " << config.num_ptxt_buffer << '\n';
   std::cout << "config.num_ctxt: " << config.num_ctxt_buffer << '\n';
