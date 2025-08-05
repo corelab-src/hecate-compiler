@@ -124,7 +124,19 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     key_memory_usage = getCurrentMemoryUsage();
     // heongpu::Galoiskey<Scheme> galois_key(context);
 
-    galois_key = std::make_unique<heongpu::Galoiskey<Scheme>>(context);
+    std::vector<int> shifts;
+    for (int i = 0; i < MAX_SHIFT; i++) {
+      int power = pow(2, i);
+      shifts.push_back(power);
+      shifts.push_back(-power);
+    }
+    for (int i = 0; i < 16; i++) {
+      for (int j : {1, 32, 1024}) {
+        shifts.push_back(i * j);
+      }
+    }
+    galois_key = std::make_unique<heongpu::Galoiskey<Scheme>>(context, shifts);
+
     keygen.generate_galois_key(
         *galois_key,
         *secret_key); // This way will create 16(2x8) different power
@@ -347,7 +359,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     heongpu::Plaintext<Scheme> ptxt(*context);
 
     // TODO: fix the target level of bootstrapping
-    ciphers[dst] = bootstrapper->execute(ciphers[dst], 27);
+    bootstrapper->execute_hoisted(ciphers[dst], 27);
   }
 
   // Debugging functions

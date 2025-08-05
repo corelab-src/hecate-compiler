@@ -60,7 +60,7 @@ find_package(CUDAToolkit REQUIRED)
 
 # PACKAGE SETTING
 find_package(MLIR REQUIRED CONFIG)
-find_package(SEAL 4.0 REQUIRED CONFIG)
+find_package(SEAL 4.0 QUIET CONFIG)
 # find_package(HEaaN REQUIRED CONFIG)
 find_package(HEaaN)
 find_package(HEonGPU)
