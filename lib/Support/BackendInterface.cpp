@@ -1,3 +1,4 @@
+#include <cuda_runtime.h>
 #include <hecate/Support/BackendInterface.h>
 
 // Debug Configurations
@@ -31,8 +32,10 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
   for (HEVMOperation &op : heops) {
     if (printTypes)
       printOperandsType(op, j);
-    if (printStats)
+    if (printStats) {
+      cudaDeviceSynchronize();
       start = std::chrono::high_resolution_clock::now();
+    }
 
     opcode_t opcode = static_cast<opcode_t>(op.opcode);
     switch (opcode) {
@@ -112,6 +115,7 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
     // std::cout << getOpName(opcode) << " "
     // << getCurrentMemoryUsage() / std::pow(10, 9) << "GB" << '\n';
     if (printStats) {
+      cudaDeviceSynchronize();
       end = std::chrono::high_resolution_clock::now();
       auto time_diff =
           std::chrono::duration_cast<std::chrono::microseconds>(end - start)
