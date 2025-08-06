@@ -280,9 +280,9 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     // encoder->encode(plains[0], constData[dst], std::pow(2.0, scalep[dst]));
     encoder->encode(plains[0], *msgs[dst], std::pow(2.0, scalep[dst]),
                     L - levelp[dst]);
-    for (int i = L; i > levelp[dst]; i--) {
-      operators->mod_drop_inplace(plains[0]);
-    }
+    // for (int i = L; i > levelp[dst]; i--) {
+    // operators->mod_drop_inplace(plains[0]);
+    // }
   }
 
   void encode_internal(heongpu::Plaintext<Scheme> &dst, std::vector<double> src,
