@@ -174,7 +174,14 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
 
   void loadHEVM(char *name) {
     std::string sname(name);
-
+    // Extract benchmark name
+    std::smatch match;
+    std::regex pattern(R"(_hecate_[^\.]*(?=\.)|_hecate_[^\.]*$)");
+    if (std::regex_search(sname, match, pattern)) {
+      benchName = "HEON" + match.str();
+    } else {
+      std::cout << "No match found" << std::endl;
+    }
     std::ifstream iff(sname, std::ios::binary);
 
     loadHeader(iff);
