@@ -494,7 +494,7 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
   hevm->encryptor->encrypt(ptxt, *hevm->seckey, hevm->ciphers[i]);
   // TODO: Hide the visibleCiphers from the user
-  if (hevm->runConfig.debug.printOpTypes) {
+  if (hevm->runConfig.debug.printOpTypes || hevm->runConfig.debug.printRange) {
     for (int j = 0; j < hevm->slot_size; j++) {
       hevm->visibleCiphers[i][j] = dats[j % len];
     }
