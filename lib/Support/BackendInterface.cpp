@@ -13,7 +13,7 @@ HEVMInterface::HEVMInterface(uint64_t N, uint64_t L)
 
 void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
   runConfig = RunOptions;
-  if (runConfig.debug.printRange) {
+  if (runConfig.debug.printOpTypes || runConfig.debug.printRange) {
     visibleCiphers.resize(config.num_ctxt_buffer,
                           std::vector<double>(slot_size, 0.0));
     visiblePlains.resize(config.num_ptxt_buffer,
