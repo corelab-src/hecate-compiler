@@ -25,20 +25,12 @@ public:
          const std::vector<double> result)
       : op(op), ssa(ssa), opName(opName), result(result) {
 
-    if (!result.empty()) {
-      if (op.opcode == 0) {
-        minValue = result[0];
-        maxValue = result[0];
-        avgValue = result[0];
-      } else {
-        minValue = *std::min_element(result.begin(), result.end());
-        maxValue = *std::max_element(result.begin(), result.end());
-        // NEED TO CHECK result.size()
-        avgValue =
-            std::accumulate(result.begin(), result.end(), 0.0) / result.size();
-      }
-    }
-  }
+    minValue = *std::min_element(result.begin(), result.end());
+    maxValue = *std::max_element(result.begin(), result.end());
+    // NEED TO CHECK result.size()
+    avgValue =
+        std::accumulate(result.begin(), result.end(), 0.0) / result.size();
+  };
 };
 
 namespace hecate {
@@ -57,7 +49,7 @@ public:
   }
   virtual ~RangeTracker() = default;
 
-  void logOperation(HEVMOperation &op, int ssa, const std::string opName,
+  void logOperation(const HEVMOperation &op, int ssa, const std::string opName,
                     std::vector<double> result) {
     // Create OpInfo object and add it to the log
     OpInfo opInfo(op, ssa, opName, result);

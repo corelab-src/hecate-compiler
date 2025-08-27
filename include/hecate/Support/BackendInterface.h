@@ -63,7 +63,6 @@ struct DebugOptions {
 // Options for running environment
 struct ExecutionSettings {
   bool usePreencode = false;
-  std::string benchName = "default";
   // std::string hwTarget = "CPU"; // or "GPU"
 };
 
@@ -81,6 +80,7 @@ public:
   ConstData constData;
   HEVMHeader header;
   ConfigBody config;
+  std::string benchName;
 
   // Runtime configuration
   RuntimeConfig runConfig;
@@ -122,8 +122,9 @@ public:
   std::vector<msg_t> visiblePlains;
   void loadVisibleBackend();
   msg_t runVisible(const HEVMOperation &op);
-  void printOperandsType(const HEVMOperation &op, int &num_op);
+  void printOperandsType(const HEVMOperation &op);
   void printResultsType(const HEVMOperation &op);
+  void printValueRange(const HEVMOperation &op);
   void printPerformanceStats();
   virtual size_t getCurrentMemoryUsage() = 0;
   void checkPrecision(const msg_t &v1, const msg_t &v2);
@@ -135,6 +136,7 @@ public:
   template <typename T> std::string toString(T val);
 
 private:
+  int num_op_ = -1;
 };
 } // namespace hecate
 #endif

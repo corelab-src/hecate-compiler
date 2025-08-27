@@ -13,7 +13,7 @@ HEVMInterface::HEVMInterface(uint64_t N, uint64_t L)
 
 void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
   runConfig = RunOptions;
-  if (runConfig.debug.printOpTypes) {
+  if (runConfig.debug.printRange) {
     visibleCiphers.resize(config.num_ctxt_buffer,
                           std::vector<double>(slot_size, 0.0));
     visiblePlains.resize(config.num_ptxt_buffer,
@@ -28,11 +28,11 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
   bool printRange = runConfig.debug.printRange;
 
   int i = (header.hevm_header_size + config.config_body_length) / 8;
-  int j = 0;
   std::chrono::high_resolution_clock::time_point start, end;
   for (HEVMOperation &op : heops) {
+    num_op_++;
     if (printTypes)
-      printOperandsType(op, j);
+      printOperandsType(op);
     if (printStats) {
       cudaDeviceSynchronize();
       start = std::chrono::high_resolution_clock::now();
@@ -124,23 +124,28 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
       op_count[op.opcode]++;
       op_time[op.opcode] += time_diff;
     }
-    if (printRange) {
-      rangeTracker.logOperation(op, j, getOpName(opcode), runVisible(op));
-    }
-
     if (printTypes)
       printResultsType(op);
+    if (printRange)
+      printValueRange(op);
+  }
+  if (printRange) {
+    // Output the debug log to hecate-compiler/graphs/
+    std::string outputFilePath = "./../graphs";
+    std::string fileName = benchName + "_real.csv";
+    rangeTracker.exportOpLog(outputFilePath, fileName);
+    std::cout << "save operation log in " << fileName << '\n';
   }
 }
 
 // Debug the operands of an operation and print the type information
 // TODO: Use a more structured way to handle the output
-void HEVMInterface::printOperandsType(const HEVMOperation &op, int &num_op) {
+void HEVMInterface::printOperandsType(const HEVMOperation &op) {
   // Find the opcode in the map
   auto opcode = static_cast<opcode_t>(op.opcode);
   auto op_name = getOpName(opcode);
   std::cout << std::unitbuf; // Flush the output buffer immediately
-  std::cout << "%" << num_op++ << " " << op_name << "\n";
+  std::cout << "%" << num_op_ << " " << op_name << "\n";
   if (op_name == "EMPTY") {
     return;
   }
@@ -267,8 +272,6 @@ void HEVMInterface::printResultsType(const HEVMOperation &op) {
   // Find the opcode in the map
   auto opcode = static_cast<opcode_t>(op.opcode);
   auto op_name = getOpName(opcode);
-  msg_t plain_result = runVisible(op);
-  msg_t he_result;
   if (op_name == "EMPTY") {
     std::cout << std::endl;
     return;
@@ -276,14 +279,21 @@ void HEVMInterface::printResultsType(const HEVMOperation &op) {
     std::cout << std::endl;
     std::cout << std::endl;
     return;
-
   } else {
     std::cout << " --> (ciphers[" << op.dst << "] <" << getCipherLevel(op.dst)
               << " * " << getCipherScale(op.dst) << ">) " << std::endl;
-    he_result = decrypt(op.dst);
   }
-  if (runConfig.debug.printPrecision)
+  std::cout << std::endl;
+}
+
+void HEVMInterface::printValueRange(const HEVMOperation &op) {
+  auto opcode = static_cast<opcode_t>(op.opcode);
+  msg_t plain_result = runVisible(op);
+  rangeTracker.logOperation(op, num_op_, getOpName(opcode), plain_result);
+  if (opcode != opcode_t::ENCODE) {
+    msg_t he_result = decrypt(op.dst);
     checkPrecision(plain_result, he_result);
+  }
   std::cout << std::endl;
 }
 
@@ -330,6 +340,7 @@ void HEVMInterface::checkPrecision(const msg_t &v1, const msg_t &v2) {
 
   double rms = std::sqrt(sumSquares / v1.size());
 
+  // if (rms > 0.5) {
   std::cout << "RMS difference: " << rms << std::endl;
 
   std::cout << "Maximum precision: " << maxPrecision << " bits (at index "
