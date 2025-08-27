@@ -434,7 +434,7 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
   hevm->encode_internal(ptxt, dats, hevm->arg_level[i], hevm->arg_scale[i]);
 
   // TODO: Hide the visibleCiphers from the user
-  if (hevm->runConfig.debug.printOpTypes) {
+  if (hevm->runConfig.debug.printOpTypes || hevm->runConfig.debug.printRange) {
     for (int j = 0; j < hevm->slot_size; j++) {
       hevm->visibleCiphers[i][j] = dats[j % len];
     }
@@ -445,6 +445,7 @@ void encrypt(void *vm, int64_t i, double *dat, int len) {
     hevm->operators->mod_drop_inplace(hevm->ciphers[i]);
   }
 }
+
 void decrypt(void *vm, int64_t i, double *dat) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
   heongpu::Plaintext<Scheme> ptxt(*hevm->context);
