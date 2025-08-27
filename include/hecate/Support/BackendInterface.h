@@ -35,7 +35,7 @@ enum class opcode_t : uint16_t {
 #undef DEFINE_ENUM
 };
 
-inline const char *getOpName(opcode_t op) {
+inline std::string getOpName(opcode_t op) {
   switch (op) {
 #define CASE_STRING(name, val, str)                                            \
   case opcode_t::name:                                                         \
@@ -63,6 +63,7 @@ struct DebugOptions {
 // Options for running environment
 struct ExecutionSettings {
   bool usePreencode = false;
+  std::string benchName = "default";
   // std::string hwTarget = "CPU"; // or "GPU"
 };
 
@@ -74,7 +75,7 @@ struct RuntimeConfig {
 
 class HEVMInterface {
 public:
-  HEVMInterface(uint64_t L, uint64_t N);
+  HEVMInterface(uint64_t N, uint64_t L);
   virtual ~HEVMInterface() = default;
 
   ConstData constData;
