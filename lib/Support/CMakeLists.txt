@@ -5,7 +5,8 @@ add_library (ConstData
   )
 
 find_package(ZLIB)
-target_link_libraries(ConstData PUBLIC ZLIB::ZLIB)
+target_link_libraries(ConstData PUBLIC ZLIB::ZLIB CUDA::cudart)
+
 
 add_mlir_dialect_library (HecateSupport
   ConstData.cpp
@@ -20,6 +21,7 @@ add_mlir_dialect_library (HecateSupport
  EarthAnalysis
  MLIRIR
  ConstData
+   CUDA::cudart
  # MLIRFuncDialect
  # MLIRSupport
  # MLIRIR
