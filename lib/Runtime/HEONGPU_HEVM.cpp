@@ -18,11 +18,9 @@
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 
-#define PRINT_OPTYPES false
-#define PRINT_OPSTATS true
-#define PRINT_RANGE false
-
-#define USE_PREENCODE false
+hecate::RuntimeConfig run_config{
+    .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
+    .settings = {.usePreencode = false, .libName = "heongpu"}};
 
 constexpr auto Scheme = heongpu::Scheme::CKKS;
 using Message = std::vector<double>;
@@ -247,7 +245,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
       if (op.opcode == 0) {
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
-        if (USE_PREENCODE) {
+        if (run_config.settings.usePreencode) {
           encode_internal(plains[op.dst],
                           op.lhs == ((unsigned short)-1) ? identity
                                                          : constData[op.lhs],
@@ -341,11 +339,12 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     operators->add(ciphers[lhs], ciphers[rhs], ciphers[dst]);
   }
   void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
-    if (!USE_PREENCODE) {
+    if (run_config.settings.usePreencode) {
+      operators->add_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
+    } else {
       encode_online(rhs);
       operators->add_plain(ciphers[lhs], plains[0], ciphers[dst]);
-    } else
-      operators->add_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
+    }
   }
 
   void mulcc(int16_t dst, int16_t lhs, int16_t rhs) override {
@@ -354,11 +353,11 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     operators->set_rescale_required(ciphers[dst], false);
   }
   void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
-    if (!USE_PREENCODE) {
+    if (run_config.settings.usePreencode) {
+      operators->multiply_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
+    } else {
       encode_online(rhs);
       operators->multiply_plain(ciphers[lhs], plains[0], ciphers[dst]);
-    } else {
-      operators->multiply_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
     }
     operators->set_rescale_required(ciphers[dst], false);
   }
@@ -416,7 +415,7 @@ void create_context(char *dir) { HEONGPU_HEVM::create_context(dir); }
 void load(void *vm, char *constant, char *vmfile) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
   hevm->loadConstants(constant);
-  hevm->loadHEVM(vmfile);
+  hevm->loadHEVM(vmfile, run_config);
 }
 
 // Loader for client

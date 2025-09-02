@@ -21,11 +21,9 @@
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 
-#define PRINT_OPTYPES false
-#define PRINT_OPSTATS true
-#define PRINT_RANGE false
-
-#define USE_PREENCODE false
+hecate::RuntimeConfig run_config{
+    .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
+    .settings = {.usePreencode = false, .libName = "heaan"}};
 
 struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   using HEVMInterface::HEVMInterface;
@@ -211,7 +209,7 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     HEaaN::Message datas(log_slot, 0.0);
     /* msgs.resize(config.num_ptxt_buffer, datas); */
     msgs.resize(config.num_ptxt_buffer);
-    if (USE_PREENCODE) {
+    if (run_config.settings.usePreencode) {
       plains.resize(config.num_ptxt_buffer, HEaaN::Plaintext(context));
       if (togpu) {
         for (auto &&plain : plains)
@@ -259,8 +257,8 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   void preprocess(std::vector<HEVMOperation> &heops) {
     std::vector<double> identity(slot_size, 1.0);
     for (HEVMOperation &op : heops) {
-      if (op.opcode == 0) {
-        if (USE_PREENCODE) {
+      if (op.opcode == uint64_t(opcode_t::ENCODE)) {
+        if (run_config.settings.usePreencode) {
           encode_internal(plains[op.dst],
                           op.lhs == ((unsigned short)-1) ? identity
                                                          : constData[op.lhs],
@@ -273,8 +271,7 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
         }
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
-      }
-      if (op.opcode == 11) {
+      } else if (op.opcode == uint64_t(opcode_t::LOOP)) {
         std::vector<HEVMOperation> &loop_body = loop_insts[op.dst];
         preprocess(loop_body);
       }
@@ -366,7 +363,7 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   }
   void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
     scalec[dst] = scalec[lhs];
-    if (USE_PREENCODE) {
+    if (run_config.settings.usePreencode) {
       evaluator->add(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
       encode_online(rhs);
@@ -379,7 +376,7 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     scalec[dst] = scalec[lhs] + scalec[rhs];
   }
   void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
-    if (USE_PREENCODE) {
+    if (run_config.settings.usePreencode) {
       evaluator->multWithoutRescale(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
       encode_online(rhs);
@@ -469,7 +466,7 @@ void create_context(char *dir) { HEAAN_HEVM::create_context(dir); }
 void load(void *vm, char *constant, char *vmfile) {
   auto hevm = static_cast<HEAAN_HEVM *>(vm);
   hevm->loadConstants(constant);
-  hevm->loadHEVM(vmfile);
+  hevm->loadHEVM(vmfile, run_config);
 }
 
 // Loader for client
