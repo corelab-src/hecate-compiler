@@ -27,15 +27,6 @@ hecate::RuntimeConfig run_config{
 
 struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   using HEVMInterface::HEVMInterface;
-  std::vector<HEVMOperation> ops;
-  std::vector<HEVMLoopOp> loops;
-  std::vector<std::vector<HEVMOperation>> loop_insts;
-  std::vector<uint64_t> arg_scale;
-  std::vector<uint64_t> arg_level;
-  std::vector<uint64_t> res_scale;
-  std::vector<uint64_t> res_level;
-  std::vector<uint64_t> res_dst;
-
   std::vector<HEaaN::Ciphertext> ciphers;
   std::vector<double> scalec;
   std::vector<HEaaN::Plaintext> plains;
@@ -43,7 +34,6 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   std::vector<uint64_t> levelp;
   std::vector<HEaaN::Message *> msgs;
   std::map<uint16_t, HEaaN::Message> msgMap;
-  std::vector<int> integers;
   std::map<uint64_t, HEaaN::Plaintext> upscale_const;
 
   HEaaN::Context context;
@@ -166,39 +156,27 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     bootstrapper = std::make_unique<HEaaN::Bootstrapper>(*evaluator);
   }
 
-  void loadConstants(char *name) {
-    std::string sname(name);
-    constData.load(sname);
-  }
+  void loadHeader(std::istream &iff) override {
 
-  void loadHEVM(char *name) {
-    std::string sname(name);
+    iff.read((char *)&header, sizeof(HEVMHeader));
+    iff.read((char *)&config, sizeof(ConfigBody));
 
-    std::ifstream iff(sname, std::ios::binary);
+    arg_scale.resize(header.config_header.arg_length);
+    arg_level.resize(header.config_header.arg_length);
+    res_scale.resize(header.config_header.res_length);
+    res_level.resize(header.config_header.res_length);
+    res_dst.resize(header.config_header.res_length);
+    iff.read((char *)arg_scale.data(), arg_scale.size() * sizeof(uint64_t));
+    iff.read((char *)arg_level.data(), arg_level.size() * sizeof(uint64_t));
+    iff.read((char *)res_scale.data(), res_scale.size() * sizeof(uint64_t));
+    iff.read((char *)res_level.data(), res_level.size() * sizeof(uint64_t));
+    iff.read((char *)res_dst.data(), res_dst.size() * sizeof(uint64_t));
 
-    loadHeader(iff);
-    hecate::RuntimeConfig runOptions;
-    runOptions.debug.printOpTypes = PRINT_OPTYPES;
-    runOptions.debug.printOpStats = PRINT_OPSTATS;
-    runOptions.debug.printRange = PRINT_RANGE;
-    runOptions.settings.usePreencode = USE_PREENCODE;
-    setRuntimeConfig(runOptions);
+    ciphers.resize(header.config_header.arg_length +
+                       header.config_header.res_length,
+                   HEaaN::Ciphertext(context));
+    scalec.resize(config.num_ctxt_buffer);
 
-    integers.resize(header.config_header.arg_length);
-    ops.resize(config.num_operations);
-    iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
-
-    loops.resize(config.num_loops);
-    loop_insts.resize(config.num_loops);
-    iff.read((char *)loops.data(), config.num_loops * sizeof(HEVMLoopOp));
-
-    for (size_t i = 0; i < loops.size(); i++) {
-      loop_insts[i].resize(loops[i].config_body.num_operations);
-      iff.read((char *)loop_insts[i].data(),
-               loop_insts[i].size() * sizeof(HEVMOperation));
-    }
-
-    integers.resize(config.num_int_buffer);
     ciphers.resize(config.num_ctxt_buffer, HEaaN::Ciphertext(context));
     if (togpu) {
       for (auto &&cipher : ciphers)
@@ -224,28 +202,6 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     scalec.resize(config.num_ctxt_buffer);
     scalep.resize(config.num_ptxt_buffer);
     levelp.resize(config.num_ptxt_buffer);
-  }
-
-  void loadHeader(std::istream &iff) {
-
-    iff.read((char *)&header, sizeof(HEVMHeader));
-    iff.read((char *)&config, sizeof(ConfigBody));
-
-    arg_scale.resize(header.config_header.arg_length);
-    arg_level.resize(header.config_header.arg_length);
-    res_scale.resize(header.config_header.res_length);
-    res_level.resize(header.config_header.res_length);
-    res_dst.resize(header.config_header.res_length);
-    iff.read((char *)arg_scale.data(), arg_scale.size() * sizeof(uint64_t));
-    iff.read((char *)arg_level.data(), arg_level.size() * sizeof(uint64_t));
-    iff.read((char *)res_scale.data(), res_scale.size() * sizeof(uint64_t));
-    iff.read((char *)res_level.data(), res_level.size() * sizeof(uint64_t));
-    iff.read((char *)res_dst.data(), res_dst.size() * sizeof(uint64_t));
-
-    ciphers.resize(header.config_header.arg_length +
-                       header.config_header.res_length,
-                   HEaaN::Ciphertext(context));
-    scalec.resize(config.num_ctxt_buffer);
   }
 
   void resetResDst() {
@@ -391,33 +347,9 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     scalec[dst] = ciphers[dst].getCurrentScaleFactor();
   }
 
-  void heloop(int16_t dst) {
-    HEVMLoopOp &loop = loops[dst];
-    std::vector<HEVMOperation> &loop_body = loop_insts[dst];
-    auto lb = integers[loop.config_body.lb];
-    auto ub = integers[loop.config_body.ub];
-    auto step = integers[loop.config_body.step];
-    if (debug)
-      std::cout << dst << " loop : " << lb << " " << ub << " " << step << '\n';
-    for (int i = lb; i < ub; i += step)
-      run(loop_body);
-  }
-
-  void copyCipher(int16_t dst, int16_t lhs) {
+  void copyCipher(int16_t dst, int16_t lhs) override {
     ciphers[dst] = ciphers[lhs];
     scalec[dst] = scalec[lhs];
-  }
-
-  void arithConstant(int16_t dst, int16_t lhs) { integers[dst] = lhs; }
-
-  void arithAddI(int16_t dst, int16_t lhs, int16_t rhs) {
-    integers[dst] = integers[lhs] + integers[rhs];
-  }
-  void arithSubI(int16_t dst, int16_t lhs, int16_t rhs) {
-    integers[dst] = integers[lhs] - integers[rhs];
-  }
-  void arithRemSI(int16_t dst, int16_t lhs, int16_t rhs) {
-    integers[dst] = integers[lhs] % integers[rhs];
   }
 
   // Debugging functions

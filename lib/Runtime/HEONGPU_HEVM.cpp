@@ -26,16 +26,8 @@ constexpr auto Scheme = heongpu::Scheme::CKKS;
 using Message = std::vector<double>;
 struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   using HEVMInterface::HEVMInterface;
-  std::vector<HEVMOperation> ops;
-  std::vector<uint64_t> arg_scale;
-  std::vector<uint64_t> arg_level;
-  std::vector<uint64_t> res_scale;
-  std::vector<uint64_t> res_level;
-  std::vector<uint64_t> res_dst;
-
   std::vector<double> scalep;
   std::vector<uint64_t> levelp;
-  std::vector<int> integers;
   std::vector<heongpu::Ciphertext<Scheme>> ciphers;
   std::vector<heongpu::Plaintext<Scheme>> plains;
   std::vector<Message *> msgs;
@@ -165,54 +157,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
 
   void loadServer(char *dir) {}
 
-  void loadConstants(char *name) {
-    std::string sname(name);
-    constData.load(sname);
-  }
-
-  void loadHEVM(char *name) {
-    std::string sname(name);
-    // Extract benchmark name
-    std::smatch match;
-    std::regex pattern(R"(_hecate_[^\.]*(?=\.)|_hecate_[^\.]*$)");
-    if (std::regex_search(sname, match, pattern)) {
-      benchName = "HEON" + match.str();
-    } else {
-      std::cout << "No match found" << std::endl;
-    }
-    std::ifstream iff(sname, std::ios::binary);
-
-    loadHeader(iff);
-    hecate::RuntimeConfig runOptions;
-    runOptions.debug.printOpTypes = PRINT_OPTYPES;
-    runOptions.debug.printOpStats = PRINT_OPSTATS;
-    runOptions.debug.printRange = PRINT_RANGE;
-    runOptions.settings.usePreencode = USE_PREENCODE;
-    setRuntimeConfig(runOptions);
-
-    ops.resize(config.num_operations);
-    iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
-
-    std::vector<std::complex<double>> datas;
-    for (int i = 0; i < slot_size; i++) {
-      datas.push_back(std::complex<double>(0.0, 0.0));
-    }
-    msgs.resize(config.num_ptxt_buffer);
-    ciphers.resize(config.num_ctxt_buffer,
-                   heongpu::Ciphertext<Scheme>(*context));
-    scalep.resize(config.num_ptxt_buffer);
-    levelp.resize(config.num_ptxt_buffer);
-
-    if (USE_PREENCODE) {
-      plains.resize(config.num_ptxt_buffer,
-                    heongpu::Plaintext<Scheme>(*context));
-    } else {
-      plains.resize(1, heongpu::Plaintext<Scheme>(*context));
-    }
-    getCurrentMemoryUsage();
-  }
-
-  void loadHeader(std::istream &iff) {
+  void loadHeader(std::istream &iff) override {
     iff.read((char *)&header, sizeof(HEVMHeader));
     iff.read((char *)&config, sizeof(ConfigBody));
 
@@ -230,6 +175,18 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     ciphers.resize(header.config_header.arg_length +
                        header.config_header.res_length,
                    heongpu::Ciphertext<Scheme>(*context));
+    msgs.resize(config.num_ptxt_buffer);
+    ciphers.resize(config.num_ctxt_buffer,
+                   heongpu::Ciphertext<Scheme>(*context));
+    scalep.resize(config.num_ptxt_buffer);
+    levelp.resize(config.num_ptxt_buffer);
+
+    if (run_config.settings.usePreencode) {
+      plains.resize(config.num_ptxt_buffer,
+                    heongpu::Plaintext<Scheme>(*context));
+    } else {
+      plains.resize(1, heongpu::Plaintext<Scheme>(*context));
+    }
   }
 
   void resetResDst() {
@@ -238,11 +195,11 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     }
   }
 
-  void preprocess() {
+  void preprocess(std::vector<HEVMOperation> &heops) {
     std::vector<double> datas(slot_size, 0.0);
     std::vector<double> identity(slot_size, 1.0);
-    for (HEVMOperation &op : ops) {
-      if (op.opcode == 0) {
+    for (HEVMOperation &op : heops) {
+      if (op.opcode == uint64_t(opcode_t::ENCODE)) {
         levelp[op.dst] = op.rhs >> 10;
         scalep[op.dst] = op.rhs & 0x3FF;
         if (run_config.settings.usePreencode) {
@@ -258,6 +215,9 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
         } else {
           to_msg(op.dst, op.lhs);
         }
+      } else if (op.opcode == uint64_t(opcode_t::LOOP)) {
+        std::vector<HEVMOperation> &loop_body = loop_insts[op.dst];
+        preprocess(loop_body);
       }
     }
   }
@@ -363,10 +323,11 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   }
   void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) override {
     ciphers[dst] = ciphers[src];
-    heongpu::Plaintext<Scheme> ptxt(*context);
+    bootstrapper->execute_hoisted(ciphers[dst], targetLevel);
+  }
 
-    // TODO: fix the target level of bootstrapping
-    bootstrapper->execute_hoisted(ciphers[dst], 27);
+  void copyCipher(int16_t dst, int16_t lhs) override {
+    ciphers[dst] = ciphers[lhs];
   }
 
   // Debugging functions
@@ -485,7 +446,7 @@ void *getCtxt(void *vm, int64_t id) {
 
 void preprocess(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
-  hevm->preprocess();
+  hevm->preprocess(hevm->ops);
 }
 void run(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);

@@ -20,6 +20,51 @@ void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
   }
 }
 
+void HEVMInterface::loadConstants(char *name) {
+  std::string sname(name);
+  constData.load(sname);
+}
+
+void HEVMInterface::loadHEVM(char *name, RuntimeConfig &run_options) {
+  std::string sname(name);
+  // Extract benchmark name
+  std::smatch match;
+  std::regex pattern(R"(_hecate_[^\.]*(?=\.)|_hecate_[^\.]*$)");
+  if (std::regex_search(sname, match, pattern)) {
+    benchName = run_options.settings.libName + match.str();
+  } else {
+    std::cout << "No match found" << std::endl;
+  }
+  std::ifstream iff(sname, std::ios::binary);
+
+  loadHeader(iff);
+  setRuntimeConfig(run_options);
+
+  integers.resize(header.config_header.arg_length);
+  ops.resize(config.num_operations);
+  iff.read((char *)ops.data(), ops.size() * sizeof(HEVMOperation));
+
+  loops.resize(config.num_loops);
+  loop_insts.resize(config.num_loops);
+  iff.read((char *)loops.data(), config.num_loops * sizeof(HEVMLoopOp));
+
+  for (size_t i = 0; i < loops.size(); i++) {
+    loop_insts[i].resize(loops[i].config_body.num_operations);
+    iff.read((char *)loop_insts[i].data(),
+             loop_insts[i].size() * sizeof(HEVMOperation));
+  }
+  // debugs
+  // std::cout << "LOOP:\n";
+  // for (auto &op : loop_insts[0]) {
+  //   std::cout << op.opcode << " " << op.dst << " " << op.lhs << " " << op.rhs
+  //             << "\n";
+  // }
+  // std::cerr << "DONE PRINT\n";
+
+  integers.resize(config.num_int_buffer);
+  getCurrentMemoryUsage();
+}
+
 // run the HEVM operations based on the opcode
 void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
   bool printTypes = runConfig.debug.printOpTypes;
@@ -84,36 +129,42 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
       bootstrap(op.dst, op.lhs, op.rhs);
       break;
     }
-    // case 11: { // loop
-    //   hevm_->heloop(op.dst);
-    //   break;
-    // }
-    // case 200: {
-    //   hevm_->copyCipher(op.dst, op.lhs);
-    //   break;
-    // }
-    // case 100: {
-    //   hevm_->arithConstant(op.dst, op.lhs);
-    //   break;
-    // }
-    // case 101: {
-    //   hevm_->arithAddI(op.dst, op.lhs, op.rhs);
-    //   break;
-    // }
-    // case 102: {
-    //   hevm_->arithSubI(op.dst, op.lhs, op.rhs);
-    //   break;
-    // }
-    // case 103: {
-    //   arithRemSI(op.dst, op.lhs, op.rhs);
-    //   break;
-    // }
+    case opcode_t::LOOP: { // loop
+      HEVMLoopOp &loop = loops[op.dst];
+      std::vector<HEVMOperation> &loop_body = loop_insts[op.dst];
+      auto lb = integers[loop.config_body.lb];
+      auto ub = integers[loop.config_body.ub];
+      auto step = integers[loop.config_body.step];
+      for (int i = lb; i < ub; i += step) {
+        run(loop_body);
+      }
+      break;
+    }
+    case opcode_t::COPYC: {
+      copyCipher(op.dst, op.lhs);
+      break;
+    }
+    case opcode_t::CONSTINT: {
+      integers[op.dst] = op.lhs;
+      break;
+    }
+    case opcode_t::ADDINT: {
+      integers[op.dst] = integers[op.lhs] + integers[op.rhs];
+      break;
+    }
+    case opcode_t::SUBINT: {
+      integers[op.dst] = integers[op.lhs] - integers[op.rhs];
+      break;
+    }
+    case opcode_t::REMINT: {
+      integers[op.dst] = integers[op.lhs] % integers[op.rhs];
+      break;
+    }
     default: {
       break;
     }
     }
-    // std::cout << getOpName(opcode) << " "
-    // << getCurrentMemoryUsage() / std::pow(10, 9) << "GB" << '\n';
+
     if (printStats) {
       cudaDeviceSynchronize();
       end = std::chrono::high_resolution_clock::now();

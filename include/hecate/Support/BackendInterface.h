@@ -92,9 +92,23 @@ public:
   HEVMHeader header;
   ConfigBody config;
   std::string benchName;
+  std::vector<HEVMOperation> ops;
+  std::vector<HEVMLoopOp> loops;
+  std::vector<std::vector<HEVMOperation>> loop_insts;
+  std::vector<uint64_t> arg_scale;
+  std::vector<uint64_t> arg_level;
+  std::vector<uint64_t> res_scale;
+  std::vector<uint64_t> res_level;
+  std::vector<uint64_t> res_dst;
+  std::vector<int> integers;
 
+  std::vector<std::vector<int64_t>> arg_shape;
   // Runtime configuration
   RuntimeConfig runConfig;
+
+  virtual void loadHeader(std::istream &iff) = 0;
+  void loadConstants(char *name);
+  void loadHEVM(char *name, RuntimeConfig &run_options);
   void setRuntimeConfig(RuntimeConfig &config);
   std::vector<int> op_count;
   std::vector<uint64_t> op_time;
@@ -117,6 +131,7 @@ public:
   virtual void mulcc(int16_t dst, int16_t lhs, int16_t rhs) = 0;
   virtual void mulcp(int16_t dst, int16_t lhs, int16_t rhs) = 0;
   virtual void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) = 0;
+  virtual void copyCipher(int16_t dst, int16_t src) = 0;
 
   void run(std::vector<HEVMOperation> &heops);
 
