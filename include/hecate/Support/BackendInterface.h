@@ -9,60 +9,71 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <regex>
 #include <stdexcept>
 #include <variant>
 #include <vector>
 #pragma once
 
-// TODO: Better way to define opcodes for opcode scalaibility
-#define OPCODE_LIST(OP)                                                        \
-  OP(ENCODE, 0, "Encode")                                                      \
-  OP(ROTATE, 1, "Rotate")                                                      \
-  OP(NEGATE, 2, "Negate")                                                      \
-  OP(RESCALE, 3, "Rescale")                                                    \
-  OP(MODSWITCH, 4, "Modswtich")                                                \
-  OP(UPSCALE, 5, "Upscale")                                                    \
-  OP(ADDCC, 6, "AddCC")                                                        \
-  OP(ADDCP, 7, "AddCP")                                                        \
-  OP(MULCC, 8, "MulCC")                                                        \
-  OP(MULCP, 9, "MulCP")                                                        \
-  OP(BOOTSTRAP, 10, "Bootstrap")
-
 enum class opcode_t : uint16_t {
-#define DEFINE_ENUM(name, val, str) name = val,
-  OPCODE_LIST(DEFINE_ENUM)
-#undef DEFINE_ENUM
+  ENCODE = 0,
+  ROTATE = 1,
+  NEGATE = 2,
+  RESCALE = 3,
+  MODSWITCH = 4,
+  UPSCALE = 5,
+  ADDCC = 6,
+  ADDCP = 7,
+  MULCC = 8,
+  MULCP = 9,
+  BOOTSTRAP = 10,
+  LOOP = 11,
+  CONSTINT = 100,
+  ADDINT = 101,
+  SUBINT = 102,
+  REMINT = 103,
+  COPYC = 200,
 };
 
-inline std::string getOpName(opcode_t op) {
-  switch (op) {
-#define CASE_STRING(name, val, str)                                            \
-  case opcode_t::name:                                                         \
-    return str;
-    OPCODE_LIST(CASE_STRING)
-#undef CASE_STRING
-  default:
-    return "EMPTY";
-    // assert(0 && "Opcode not found in map");
-  }
+// global map for opcode to name
+inline const std::map<opcode_t, std::string> &opcode_name_map() {
+  static const std::map<opcode_t, std::string> m = {
+      {opcode_t::ENCODE, "Encode"},       {opcode_t::ROTATE, "Rotate"},
+      {opcode_t::NEGATE, "Negate"},       {opcode_t::RESCALE, "Rescale"},
+      {opcode_t::MODSWITCH, "Modswitch"}, {opcode_t::UPSCALE, "Upscale"},
+      {opcode_t::ADDCC, "AddCC"},         {opcode_t::ADDCP, "AddCP"},
+      {opcode_t::MULCC, "MulCC"},         {opcode_t::MULCP, "MulCP"},
+      {opcode_t::BOOTSTRAP, "Bootstrap"}, {opcode_t::LOOP, "Loop"},
+      {opcode_t::CONSTINT, "ConstInt"},   {opcode_t::ADDINT, "AddInt"},
+      {opcode_t::SUBINT, "SubInt"},       {opcode_t::REMINT, "RemInt"},
+      {opcode_t::COPYC, "CopyC"},
+  };
+  return m;
 }
-#undef OPCODE_LIST
+
+inline std::string getOpName(opcode_t op) {
+  const auto &m = opcode_name_map();
+  if (auto it = m.find(op); it != m.end())
+    return it->second;
+  return "EMPTY";
+}
 
 namespace hecate {
 using msg_t = std::vector<double>;
 
 // Options for printing debug information
 struct DebugOptions {
-  bool printRange = false;
-  bool printOpTypes = false;
   bool printOpStats = false;
+  bool printOpTypes = false;
+  bool printRange = false;
   // bool printMemoryUsage = false;
 };
 
 // Options for running environment
 struct ExecutionSettings {
   bool usePreencode = false;
+  std::string libName = "";
   // std::string hwTarget = "CPU"; // or "GPU"
 };
 

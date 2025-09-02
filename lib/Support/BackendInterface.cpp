@@ -6,9 +6,8 @@ namespace hecate {
 
 HEVMInterface::HEVMInterface(uint64_t N, uint64_t L)
     : N(N), L(L), slot_size(N >> 1), rangeTracker(N, L) {
-  // Bootstrap opcode should be defined in the last
-  op_count.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
-  op_time.resize(static_cast<int>(opcode_t::BOOTSTRAP) + 1, 0);
+  op_count.resize(opcode_name_map().size(), 0);
+  op_time.resize(opcode_name_map().size(), 0);
 }
 
 void HEVMInterface::setRuntimeConfig(RuntimeConfig &RunOptions) {
@@ -121,8 +120,10 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
       auto time_diff =
           std::chrono::duration_cast<std::chrono::microseconds>(end - start)
               .count();
-      op_count[op.opcode]++;
-      op_time[op.opcode] += time_diff;
+      if (opcode <= opcode_t::BOOTSTRAP) {
+        op_count[op.opcode]++;
+        op_time[op.opcode] += time_diff;
+      }
     }
     if (printTypes)
       printResultsType(op);
@@ -384,7 +385,7 @@ void HEVMInterface::printPerformanceStats() {
   std::cout << "--------------------------------------------------\n";
   double total_time = 0.0;
   int total_cnt = 0;
-  for (size_t i = 0; i < op_count.size(); ++i) {
+  for (size_t i = 0; i <= size_t(opcode_t::BOOTSTRAP); ++i) {
     total_time += op_time[i];
     total_cnt += op_count[i];
   }
@@ -398,7 +399,7 @@ void HEVMInterface::printPerformanceStats() {
   };
 
   // Print "opname, count, time, and percentage
-  for (size_t i = 0; i < op_count.size(); ++i) {
+  for (size_t i = 0; i <= size_t(opcode_t::BOOTSTRAP); ++i) {
     printEntry(getOpName(static_cast<opcode_t>(i)), op_count[i], op_time[i]);
   }
   std::cout << "--------------------------------------------------\n";
