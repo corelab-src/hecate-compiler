@@ -130,13 +130,6 @@ void HEVMInterface::run(std::vector<HEVMOperation> &heops) {
     if (printRange)
       printValueRange(op);
   }
-  if (printRange) {
-    // Output the debug log to hecate-compiler/graphs/
-    std::string outputFilePath = "./../graphs";
-    std::string fileName = benchName + "_real.csv";
-    rangeTracker.exportOpLog(outputFilePath, fileName);
-    std::cout << "save operation log in " << fileName << '\n';
-  }
 }
 
 // Debug the operands of an operation and print the type information
@@ -418,6 +411,18 @@ void HEVMInterface::printPerformanceStats() {
   std::cout << "Total Memory Usage: " << total_memory_usage / std::pow(10, 9)
             << "GB" << '\n';
   std::cout << "==================================================\n";
+}
+
+void HEVMInterface::printFinalResults() {
+  if (runConfig.debug.printRange) {
+    // Output the debug log to hecate-compiler/graphs/
+    std::string outputFilePath = "./../graphs";
+    std::string fileName = benchName + "_real.csv";
+    rangeTracker.exportOpLog(outputFilePath, fileName);
+    std::cout << "save operation log in " << fileName << '\n';
+  }
+  if (runConfig.debug.printOpStats)
+    printPerformanceStats();
 }
 
 } // namespace hecate

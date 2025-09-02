@@ -137,6 +137,7 @@ public:
   void printResultsType(const HEVMOperation &op);
   void printValueRange(const HEVMOperation &op);
   void printPerformanceStats();
+  void printFinalResults();
   virtual size_t getCurrentMemoryUsage() = 0;
   void checkPrecision(const msg_t &v1, const msg_t &v2);
   RangeTracker rangeTracker;

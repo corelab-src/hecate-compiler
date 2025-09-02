@@ -491,8 +491,7 @@ void preprocess(void *vm) {
 void run(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
   hevm->run(hevm->ops);
-  if (hevm->runConfig.debug.printOpStats)
-    hevm->printPerformanceStats();
+  hevm->printFinalResults();
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
