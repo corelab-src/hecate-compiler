@@ -2,6 +2,7 @@
 add_library (HecateFrontend
   SHARED
   frontend.cpp
+  FrontendScfIRGen.cpp
   )
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)

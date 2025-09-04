@@ -35,9 +35,15 @@ lt.createArithConstant.argtypes = [
         ]
 lt.createFunc.argtypes = [
         ctypes.c_void_p, ctypes.c_char_p, 
-        ctypes.POINTER(ctypes.c_int), ctypes.c_size_t, ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_char_p), ctypes.c_size_t, ctypes.c_char_p,
         ctypes.c_size_t
         ]
+lt.createCall.argtypes = [
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t),
+        ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t, ctypes.c_char_p,
+        ctypes.c_size_t
+        ]
+ 
 lt.initFunc.argtypes = [
         ctypes.c_void_p, ctypes.c_size_t,
         ctypes.POINTER(ctypes.c_size_t), ctypes.c_size_t
@@ -56,7 +62,7 @@ lt.setLoopCarriedVars.argtypes = [
         ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t), 
         ctypes.c_size_t, ctypes.c_char_p, ctypes.c_size_t
         ]
-lt.getInductionVar.argtypes = [
+lt.setInductionVar.argtypes = [
         ctypes.c_void_p, ctypes.c_size_t
         ]
 
@@ -358,10 +364,15 @@ class Func(metaclass=hecateMetaBase):
         self.fun = fun
 
         arg = paramstr.split(",")
-        inputs = [ a== "c" for a in arg]
-
+        self.inputlen = arg.count("c") 
+        # inputs = [ a== "c" for a in arg]
+        inputs = [s.encode('utf-8') for s in arg]
         self.inputlen = len(inputs)
-        inputTys = (ctypes.c_int * len(inputs))(*inputs)
+
+        # self.inputlen = len(inputs)
+        # print("inputlen", self.inputlen)
+        inputTys = (ctypes.c_char_p * len(inputs))(*inputs)
+        # inputTys = (ctypes.c_int * len(inputs))(*inputs)
         self.obj = lt.createFunc(ctxt, name.encode('utf-8'), inputTys,
                 len(inputs), filename.encode('utf-8'),
                 line_number)
@@ -374,6 +385,7 @@ class Func(metaclass=hecateMetaBase):
         if not isinstance (returns, Iterable) : 
             returns = [returns]
         outputs = [ x.obj for  x in returns]
+        self.outputlen = len(outputs)
         outputvec = (ctypes.c_size_t * len(outputs))(*outputs)
         lt.setOutput(ctxt, self.obj, outputvec, len(outputs))
 
@@ -382,11 +394,17 @@ class Func(metaclass=hecateMetaBase):
                 index) = getProperFrame()
         tmps = [resolveType(arg) for arg in args]
         argarr = (ctypes.c_size_t * len(args))(*[tmp.obj for tmp in tmps])
+ 
+        rets = (ctypes.c_size_t * self.outputlen)()
 
-        return Expr(
-                lt.createCall(ctxt, self.obj, argarr, len(args),
-                    filename.encode('utf-8'), line_number))
-
+        lt.createCall(ctxt, self.obj, argarr, rets, len(args),
+                    filename.encode('utf-8'), line_number)
+        # expr_rets = [Expr(x) for x in rets[:self.outputlen]]
+        #TODO: change to tuple if multiple returns
+        if self.outputlen > 1 :
+            return [Expr(x) for x in rets[:self.outputlen]]
+        else :
+            return Expr(rets[0])
 
 class WithScope(metaclass=hecateMetaBase):
 # class WithScope(object):
