@@ -10,6 +10,8 @@ add_mlir_dialect_library(EarthTransforms
  BootstrapPlacement.cpp
  CodeSegmentation.cpp
  Common.cpp
+ CallerBootstrapMgmt.cpp
+ CalleeBootstrapMgmt.cpp
  UpscaleBubbling.cpp
  EarlyModswitch.cpp
  FlexibleBootstrap.cpp

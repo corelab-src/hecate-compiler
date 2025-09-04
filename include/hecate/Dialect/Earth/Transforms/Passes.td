@@ -287,6 +287,18 @@ def UnrollFactorAnalysis : Pass<"find-optimized-unrollfactor", "::mlir::func::Fu
     This pass changes the loop structure through rotation and removes EraseOp.
   }];
 }
+def CallerBootstrapMgmt : Pass<"caller-level-mgmt", "::mlir::ModuleOp"> {
+  let summary = "Bootstrap Management at Caller-side";
+  let description = [{
+  This pass manages the ciphertext level at caller-side.
+  }];
+}
+def CalleeBootstrapMgmt : Pass<"callee-level-mgmt", "::mlir::func::FuncOp"> {
+  let summary = "Bootstrap Management at Callee-side";
+  let description = [{
+  This pass manages the ciphertext level at callee-side.
+  }];
+}
 /* def ScaleManagementStructuring : Pass<> */
 
 
