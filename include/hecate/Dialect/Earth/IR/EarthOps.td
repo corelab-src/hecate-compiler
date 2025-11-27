@@ -195,44 +195,6 @@ def ConstantOp : Earth_Op<"constant",[]> {
       }]>];
 }
 
-def VariableOp : Earth_Op<"variable",[]> {
-
-  let summary = "variable";
-
-  let arguments = (ins AnyAttr:$value);
-  // AnyAttr because of constant hoisting
-  let results = (outs ErasedTensor);
-
-  code extraClassDeclaration = [{
-    static bool isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs) ;
-    bool isConst();
-  }];
-
-  code extraClassDefinition = arithClassDefinition # [{
-    bool $cppClass::isConst(){
-      return false;
-    }
-    bool $cppClass::isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs){
-      return !rhs.back().dyn_cast<HEScaleTypeInterface>().isCipher();
-    }
-    bool $cppClass::isConsume() {
-      return false;
-    }
-    bool $cppClass::isSingle() {
-      return true;
-    }
-    ::llvm::SmallVector<double, 2> $cppClass::differentiate(::llvm::ArrayRef<double> gradient,
-        ::llvm::ArrayRef<double> estimation){
-      return {0 };
-    }
-    ::llvm::SmallVector<double, 1> $cppClass::estimateValue(::llvm::ArrayRef<double> estimation){
-      return {0};
-    }
-  }];
-}
-
-
-
 /* ######### Unary Operations ########## */
 
 class Unary_Earth_Op<string mnemonic, list<Trait> traits = []> :
