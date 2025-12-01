@@ -37,6 +37,16 @@ struct ScaleTypeTensorModel
       return false;
     }
   }
+  bool isErased(Type t) const {
+    if (auto scaleType = t.dyn_cast<mlir::RankedTensorType>()
+                             .getElementType()
+                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+      return scaleType.isErased();
+    } else {
+      return false;
+    }
+  }
+
   hecate::earth::HEScaleTypeInterface toCipher(Type t) const {
     auto tt = t.dyn_cast<RankedTensorType>();
     return dyn_cast<hecate::earth::HEScaleTypeInterface>(RankedTensorType::get(
@@ -50,13 +60,6 @@ struct ScaleTypeTensorModel
         tt.getShape(), tt.getElementType()
                            .dyn_cast<hecate::earth::HEScaleTypeInterface>()
                            .toPlain()));
-  }
-  hecate::earth::HEScaleTypeInterface toErased(Type t) const {
-    auto tt = t.dyn_cast<RankedTensorType>();
-    return dyn_cast<hecate::earth::HEScaleTypeInterface>(RankedTensorType::get(
-        tt.getShape(), tt.getElementType()
-                           .dyn_cast<hecate::earth::HEScaleTypeInterface>()
-                           .toErased()));
   }
   hecate::earth::HEScaleTypeInterface switchScale(Type t,
                                                   unsigned scale) const {
@@ -217,19 +220,49 @@ void hecate::earth::EarthDialect::setCKKSParameters(llvm::StringRef filename) {
     ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
     ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
   auto op = EraseTypeOpAdaptor(operands, attributes, properties, regions);
-  auto lScale = earth::getScaleType(op.getValue());
   inferredReturnTypes.push_back(mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context, 0, 0)));
+      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context)));
   return ::mlir::success();
 }
 void hecate::earth::EraseTypeOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   patterns.add<RescaleUpscalePattern>(context);
 }
+
+//===----------------------------------------------------------------------===//
+// CastOp
+//===----------------------------------------------------------------------===//
+
+bool hecate::earth::LevelCastOp::areCastCompatible(TypeRange inputs,
+                                                   TypeRange outputs) {
+  if (inputs.size() != 1 || outputs.size() != 1)
+    return false;
+
+  auto inputType = inputs[0].dyn_cast<hecate::earth::HEScaleTypeInterface>();
+  auto outputType = outputs[0].dyn_cast<hecate::earth::HEScaleTypeInterface>();
+
+  if (!inputType || !outputType)
+    return false;
+
+  return true;
+}
+
+void hecate::earth::LevelCastOp::getCanonicalizationPatterns(
+    RewritePatternSet &patterns, MLIRContext *context) {}
+
+//===----------------------------------------------------------------------===//
+// RescaleOp
+//===----------------------------------------------------------------------===//
+
 void hecate::earth::RescaleOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   patterns.add<RescaleUpscalePattern>(context);
 }
+
+//===----------------------------------------------------------------------===//
+// RotateOp
+//===----------------------------------------------------------------------===//
+
 void hecate::earth::RotateOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {
   patterns.add<RotateZeroOffsetPattern>(context);

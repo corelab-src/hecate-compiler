@@ -261,7 +261,10 @@ def HEScaleTypeInterface : TypeInterface<"HEScaleTypeInterface"> {
       /*desc=*/[{Check that there is only one ciphertext operand.
       }],
     /*retType=*/"bool",
-    /*methodName=*/"isCipher"
+    /*methodName=*/"isCipher",
+    /*args=*/(ins),
+    /*methodBody=*/[{}],
+    /*defaultImplementation=*/[{ return false; }]
       >,
     InterfaceMethod<
       /*desc=*/[{Check that there is only one ciphertext operand.
@@ -278,8 +281,11 @@ def HEScaleTypeInterface : TypeInterface<"HEScaleTypeInterface"> {
     InterfaceMethod<
       /*desc=*/[{Check that there is only one ciphertext operand.
       }],
-    /*retType=*/"::hecate::earth::HEScaleTypeInterface",
-    /*methodName=*/"toErased"
+    /*retType=*/"bool",
+    /*methodName=*/"isErased",
+    /*args=*/(ins),
+    /*methodBody=*/[{}],
+    /*defaultImplementation=*/[{ return false; }]
       >,
     InterfaceMethod<
       /*desc=*/[{Get a scale of a given type.
