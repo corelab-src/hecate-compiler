@@ -19,6 +19,7 @@ using namespace mlir;
 #include "hecate/Dialect/Earth/IR/EarthOpsTypes.cpp.inc"
 
 #define GET_OP_CLASSES
+#include "hecate/Dialect/Earth/IR/DynamicEarthOps.cpp.inc"
 #include "hecate/Dialect/Earth/IR/EarthOps.cpp.inc"
 
 #include "hecate/Dialect/Earth/IR/EarthOpsDialect.cpp.inc"
@@ -107,6 +108,7 @@ void hecate::earth::EarthDialect::initialize() {
   // Registers all the Operations into the EVADialect class
   addOperations<
 #define GET_OP_LIST
+#include "hecate/Dialect/Earth/IR/DynamicEarthOps.cpp.inc"
 #include "hecate/Dialect/Earth/IR/EarthOps.cpp.inc"
       >();
   mlir::RankedTensorType::attachInterface<ScaleTypeTensorModel>(*getContext());

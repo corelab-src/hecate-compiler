@@ -429,11 +429,7 @@ def MultIntOp: Unary_Earth_Op<"mult_int", [SameOperandsAndResultType]>  {
   let results = (outs HETensor);
   let hasCanonicalizer = 1;
 }
-def ScaleCastOp: Unary_Earth_Op<"scale_cast">  {
-  let arguments = (ins HETensor:$value, I64Attr:$integer);
-  let results = (outs HETensor);
-  let hasCanonicalizer = 1;
-}
+
 
 
 def ApplyScheduleOp : Unary_Earth_Op<"apply_schedule", [SameOperandsAndResultType]> {
