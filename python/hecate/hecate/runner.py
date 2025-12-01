@@ -195,6 +195,7 @@ class HEVM :
         self.arglen = lw.getArgLen(self.vm)
         self.reslen = lw.getResLen(self.vm)
         self.hevm_path = hevm_path
+        self.const_path = const_path
 
     def run (self) : 
         lw.run(self.vm)
@@ -232,7 +233,7 @@ class HEVM :
         import re
         bench = re.search(r"optimized/(.*)/(.*)\.(.*)\._", self.hevm_path)
         print("==================================================")
-        print("---------------- Runtime Option ------------------")
+        print("--------------- Runtime Option ------------------")
         print("compiler:", bench.group(1))
         print("benchname:", bench.group(2))
         print("waterline:", bench.group(3))
@@ -240,6 +241,8 @@ class HEVM :
         print("device:", run_hardware)
         print("epoch:", epoch)
         print("----------------- Test Results -------------------")
+        print("code size (bytes):", os.path.getsize(self.hevm_path))
+        print("const size (bytes):", os.path.getsize(self.const_path))
         print("latency (s):", latency)
         print("rms:", rms)
         print("==================================================")
