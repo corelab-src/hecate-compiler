@@ -221,18 +221,91 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   auto &&builder = *ctxt->builder;
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+
+  auto &&callee = ctxt->funcMap[fid];
+  MLIRContext *ctx = callee.getContext();
+  mlir::OpBuilder::InsertPoint ip = builder.saveInsertionPoint();
+  // Get existing 'call_count' attribute (if any)
+  IntegerAttr countAttr = callee->getAttrOfType<IntegerAttr>("call_count");
+  // If the attribute exists, increment it; otherwise start from 1
+  int64_t newCount = 1;
+  if (countAttr)
+    newCount = countAttr.getInt() + 1;
+
+  // Create a new i64 IntegerAttr with the updated count
+  auto callCountAttr = IntegerAttr::get(IntegerType::get(ctx, 64), newCount);
+
+  // Set (or overwrite) the 'call_count' attribute on the callee
+  callee->setAttr("call_count", callCountAttr);
+
+  // Prepare types
+  mlir::Type cipherTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::CipherType>(0, 0));
+  mlir::Type erasedTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::ErasedType>());
+
+  // callee-side
+  //  First time calling this function, set types as ErasedType/CipherType
+  if (!countAttr) {
+    // set function type ErasedType -> ErasedType
+    llvm::SmallVector<mlir::Type, 1> argTypes(callee.getNumArguments(),
+                                              erasedTy);
+    llvm::SmallVector<mlir::Type, 1> retTypes(callee.getNumResults(), erasedTy);
+    callee.setType(builder.getFunctionType(argTypes, retTypes));
+
+    // set argument types in function block
+    mlir::Block &entryBlock = callee.getBody().front();
+    for (auto arg : entryBlock.getArguments()) {
+      arg.setType(erasedTy);
+    }
+
+    // Arguments in function set as CipherType with level 0
+    builder.setInsertionPointToStart(&callee.front());
+    for (auto arg : callee.getArguments()) {
+      auto castOp =
+          builder.create<hecate::earth::LevelCastOp>(location, cipherTy, arg);
+      arg.replaceAllUsesExcept(castOp.getResult(), castOp);
+    }
+    // Results in function set as ErasedType
+    auto terminator = callee.front().getTerminator();
+    for (size_t i = 0; i < terminator->getNumOperands(); i++) {
+      builder.setInsertionPoint(callee.front().getTerminator());
+      auto castOp = builder.create<hecate::earth::LevelCastOp>(
+          location, erasedTy, terminator->getOperand(i));
+      terminator->setOperand(i, castOp);
+    }
+  }
+  builder.restoreInsertionPoint(ip);
+  // caller-side
+  // inputs set as ErasedType
   llvm::SmallVector<mlir::Value> inputs;
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[args[i]];
     inputs.push_back(v);
+    // auto castOp =
+    // builder.create<hecate::earth::LevelCastOp>(location, erasedTy, v);
+    // inputs.push_back(castOp);
   }
-
-  auto &&callee = ctxt->funcMap[fid];
   auto callOp = builder.create<mlir::func::CallOp>(
       location, callee.getFunctionType().getResults(), callee.getName(),
       inputs);
+  builder.setInsertionPoint(callOp);
+  for (size_t i = 0; i < callOp.getNumOperands(); i++) {
+    auto v = callOp.getOperand(i);
+    auto castOp =
+        builder.create<hecate::earth::LevelCastOp>(location, erasedTy, v);
+    callOp.setOperand(i, castOp);
+  }
+
+  //  Results set as ErasedType
+  builder.setInsertionPointAfter(callOp);
   for (size_t i = 0; i < callOp.getResults().size(); i++) {
-    ctxt->valueMap.push_back(callOp.getResult(i));
+    auto v = callOp.getResult(i);
+    auto castOp =
+        builder.create<hecate::earth::LevelCastOp>(location, cipherTy, v);
+    ctxt->valueMap.push_back(castOp);
     rets[i] = ctxt->valueMap.size() - 1;
   }
 }
@@ -245,6 +318,7 @@ void setOutput(Context *ctxt, funcID fun, valueID *ret, size_t len) {
     types.push_back(ctxt->valueMap[ret[i]].getType());
   }
   auto func = ctxt->funcMap[fun];
+  ctxt->builder->setInsertionPointToEnd(&func.front());
   ctxt->builder->create<mlir::func::ReturnOp>(func.getLoc(), rets);
   auto retType = func.getFunctionType();
   func.setFunctionType(
