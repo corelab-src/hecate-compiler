@@ -265,14 +265,14 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
     builder.setInsertionPointToStart(&callee.front());
     for (auto arg : callee.getArguments()) {
       auto castOp =
-          builder.create<hecate::earth::LevelCastOp>(location, cipherTy, arg);
+          builder.create<hecate::earth::CastOp>(location, cipherTy, arg);
       arg.replaceAllUsesExcept(castOp.getResult(), castOp);
     }
     // Results in function set as ErasedType
     auto terminator = callee.front().getTerminator();
     for (size_t i = 0; i < terminator->getNumOperands(); i++) {
       builder.setInsertionPoint(callee.front().getTerminator());
-      auto castOp = builder.create<hecate::earth::LevelCastOp>(
+      auto castOp = builder.create<hecate::earth::CastOp>(
           location, erasedTy, terminator->getOperand(i));
       terminator->setOperand(i, castOp);
     }
@@ -284,9 +284,6 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[args[i]];
     inputs.push_back(v);
-    // auto castOp =
-    // builder.create<hecate::earth::LevelCastOp>(location, erasedTy, v);
-    // inputs.push_back(castOp);
   }
   auto callOp = builder.create<mlir::func::CallOp>(
       location, callee.getFunctionType().getResults(), callee.getName(),
@@ -294,8 +291,7 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   builder.setInsertionPoint(callOp);
   for (size_t i = 0; i < callOp.getNumOperands(); i++) {
     auto v = callOp.getOperand(i);
-    auto castOp =
-        builder.create<hecate::earth::LevelCastOp>(location, erasedTy, v);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, erasedTy, v);
     callOp.setOperand(i, castOp);
   }
 
@@ -303,8 +299,7 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   builder.setInsertionPointAfter(callOp);
   for (size_t i = 0; i < callOp.getResults().size(); i++) {
     auto v = callOp.getResult(i);
-    auto castOp =
-        builder.create<hecate::earth::LevelCastOp>(location, cipherTy, v);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, cipherTy, v);
     ctxt->valueMap.push_back(castOp);
     rets[i] = ctxt->valueMap.size() - 1;
   }

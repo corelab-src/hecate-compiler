@@ -15,7 +15,7 @@ include "mlir/Interfaces/CastInterfaces.td"
 include "hecate/Dialect/Earth/IR/HEParameterInterface.td"
 include "hecate/Dialect/Earth/IR/ForwardManagementInterface.td"
 
-def LevelCastOp : Op<Earth_Dialect, "level_cast", [DeclareOpInterfaceMethods<OpAsmOpInterface>,DeclareOpInterfaceMethods<CastOpInterface>]> {
+def CastOp : Op<Earth_Dialect, "cast", [DeclareOpInterfaceMethods<OpAsmOpInterface>,DeclareOpInterfaceMethods<CastOpInterface>, Pure]> {
   let arguments = (ins AnyTensor:$source);
   let results = (outs AnyTensor:$dest);
   let summary = "Cast the type (scale, level, encrypted) of the tensor to the target type";
@@ -23,6 +23,7 @@ def LevelCastOp : Op<Earth_Dialect, "level_cast", [DeclareOpInterfaceMethods<OpA
   let hasCanonicalizer = 1;
 }
 
+// deprecated
 def ScaleCastOp: Unary_Earth_Op<"scale_cast">  {
   let arguments = (ins HETensor:$value, I64Attr:$integer);
   let results = (outs HETensor);

@@ -235,8 +235,8 @@ void hecate::earth::EraseTypeOp::getCanonicalizationPatterns(
 // CastOp
 //===----------------------------------------------------------------------===//
 
-bool hecate::earth::LevelCastOp::areCastCompatible(TypeRange inputs,
-                                                   TypeRange outputs) {
+bool hecate::earth::CastOp::areCastCompatible(TypeRange inputs,
+                                              TypeRange outputs) {
   if (inputs.size() != 1 || outputs.size() != 1)
     return false;
 
@@ -249,7 +249,7 @@ bool hecate::earth::LevelCastOp::areCastCompatible(TypeRange inputs,
   return true;
 }
 
-void hecate::earth::LevelCastOp::getCanonicalizationPatterns(
+void hecate::earth::CastOp::getCanonicalizationPatterns(
     RewritePatternSet &patterns, MLIRContext *context) {}
 
 //===----------------------------------------------------------------------===//
