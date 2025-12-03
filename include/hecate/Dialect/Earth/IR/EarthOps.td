@@ -436,11 +436,7 @@ def BootstrapOp : Unary_Earth_Op<"bootstrap"> {
 }
 
 /* ######## Scale Management Operations ####### */
-def EraseTypeOp : Unary_Earth_Op<"erase_type"> {
-   let arguments = (ins HETensor:$value);
-  let results = (outs HETensor);
-  let hasCanonicalizer = 1;
-}
+
 
 def DummyOp : Unary_Earth_Op<"dummy", [SameOperandsAndResultType]> {
   let arguments = (ins HETensor:$value);

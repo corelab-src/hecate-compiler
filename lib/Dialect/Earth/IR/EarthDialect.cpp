@@ -235,21 +235,6 @@ void hecate::earth::EarthDialect::setCKKSParameters(llvm::StringRef filename) {
 //   return ::mlir::success();
 // }
 
-::mlir::LogicalResult hecate::earth::EraseTypeOp::inferReturnTypes(
-    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
-    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
-    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
-    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
-  auto op = EraseTypeOpAdaptor(operands, attributes, properties, regions);
-  inferredReturnTypes.push_back(mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context, 0, 0)));
-  return ::mlir::success();
-}
-void hecate::earth::EraseTypeOp::getCanonicalizationPatterns(
-    RewritePatternSet &patterns, MLIRContext *context) {
-  patterns.add<RescaleUpscalePattern>(context);
-}
-
 //===----------------------------------------------------------------------===//
 // CastOp
 //===----------------------------------------------------------------------===//
