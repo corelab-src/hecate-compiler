@@ -313,6 +313,18 @@ def HEScaleTypeInterface : TypeInterface<"HEScaleTypeInterface"> {
     /*methodName=*/"switchLevel",
     /*args=*/(ins "unsigned":$level)
       >,
+    InterfaceMethod<
+      /*desc=*/[{Check that the level is unknown.
+      }],
+    /*retType=*/"bool",
+    /*methodName=*/"hasUnknownLevel"
+      >,
+    InterfaceMethod<
+      /*desc=*/[{Check that the Scale is unknown.
+      }],
+    /*retType=*/"bool",
+    /*methodName=*/"hasUnknownScale"
+      >,
     ];
 }
 

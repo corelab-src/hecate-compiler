@@ -48,6 +48,25 @@ struct ScaleTypeTensorModel
     }
   }
 
+  bool hasUnknownScale(Type t) const {
+    if (auto scaleType = t.dyn_cast<mlir::RankedTensorType>()
+                             .getElementType()
+                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+      return scaleType.hasUnknownScale();
+    } else {
+      return false;
+    }
+  }
+
+  bool hasUnknownLevel(Type t) const {
+    if (auto scaleType = t.dyn_cast<mlir::RankedTensorType>()
+                             .getElementType()
+                             .dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+      return scaleType.hasUnknownLevel();
+    } else {
+      return false;
+    }
+  }
   hecate::earth::HEScaleTypeInterface toCipher(Type t) const {
     auto tt = t.dyn_cast<RankedTensorType>();
     return dyn_cast<hecate::earth::HEScaleTypeInterface>(RankedTensorType::get(
@@ -223,7 +242,7 @@ void hecate::earth::EarthDialect::setCKKSParameters(llvm::StringRef filename) {
     ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
   auto op = EraseTypeOpAdaptor(operands, attributes, properties, regions);
   inferredReturnTypes.push_back(mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context)));
+      llvm::SmallVector<int64_t, 1>{1}, ErasedType::get(context, 0, 0)));
   return ::mlir::success();
 }
 void hecate::earth::EraseTypeOp::getCanonicalizationPatterns(
@@ -431,6 +450,11 @@ void hecate::earth::AddOp::getCanonicalizationPatterns(
     ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
     ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
   auto op = AddOpAdaptor(operands, attributes, properties, regions);
+  if (llvm::isa<hecate::earth::ErasedType>(op.getLhs().getType()) &&
+      llvm::isa<hecate::earth::ErasedType>(op.getRhs().getType())) {
+    inferredReturnTypes.push_back(op.getLhs().getType()); // ErasedType
+    return ::mlir::success();
+  }
   auto lScale = earth::getScaleType(op.getLhs());
   auto lTensor = earth::getTensorType(op.getLhs());
   auto rScale = earth::getScaleType(op.getRhs());
@@ -458,6 +482,11 @@ void hecate::earth::MulOp::getCanonicalizationPatterns(
     ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
     ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
   auto op = MulOpAdaptor(operands, attributes, properties, regions);
+  if (llvm::isa<hecate::earth::ErasedType>(op.getLhs().getType()) ||
+      llvm::isa<hecate::earth::ErasedType>(op.getRhs().getType())) {
+    inferredReturnTypes.push_back(op.getLhs().getType()); // ErasedType
+    return ::mlir::success();
+  }
   auto lScale = earth::getScaleType(op.getLhs());
   auto lTensor = earth::getTensorType(op.getLhs());
   auto rScale = earth::getScaleType(op.getRhs());

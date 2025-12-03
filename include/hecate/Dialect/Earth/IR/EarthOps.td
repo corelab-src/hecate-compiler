@@ -46,13 +46,9 @@ def CipherType :TypeDef<Earth_Dialect, "Cipher", [DeclareTypeInterfaceMethods<HE
   let parameters = (ins "unsigned":$scale, "unsigned":$level);
   let assemblyFormat = "`<` $scale `*` custom<Level>($level) `>`";
   let extraClassDeclaration = [{
-    bool hasUnknownLevel() const;
-    bool hasUnknownScale() const;
     bool isCipher() const;
     static ::mlir::ParseResult parseLevel(::mlir::AsmParser &parser, unsigned &level);
     void printLevel(::mlir::AsmPrinter &printer, unsigned level) const;
-    // ::hecate::earth::HEScaleTypeInterface switchScale(unsigned scale) const; 
-    // ::hecate::earth::HEScaleTypeInterface switchLevel(unsigned scale) const; 
   }];
   let extraClassDefinition = [{
     bool $cppClass::isCipher() const { return true;}
@@ -62,17 +58,17 @@ def CipherType :TypeDef<Earth_Dialect, "Cipher", [DeclareTypeInterfaceMethods<HE
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
     
     bool $cppClass::hasUnknownLevel() const {
-      return getLevel() == kUnknownLevel;
+      return getLevel() == hecate::earth::kUnknownLevel;
     }
 
     bool $cppClass::hasUnknownScale() const {
-      return getScale() == kUnknownScale;
+      return getScale() == hecate::earth::kUnknownScale;
     }
 
 
     ::mlir::ParseResult $cppClass::parseLevel(AsmParser &p, unsigned &lvl) {
       if (mlir::succeeded(p.parseOptionalQuestion())) 
-        { lvl = kUnknownLevel; return mlir::success(); }
+        { lvl = hecate::earth::kUnknownLevel; return mlir::success(); }
 
       uint64_t v = 0; 
       if (p.parseInteger(v)) 
@@ -83,7 +79,7 @@ def CipherType :TypeDef<Earth_Dialect, "Cipher", [DeclareTypeInterfaceMethods<HE
     }
 
     void $cppClass::printLevel(AsmPrinter &p, unsigned lvl) const {
-      if (lvl == kUnknownLevel) { p << "?"; } else { p << lvl; }
+      if (lvl == hecate::earth::kUnknownLevel) { p << "?"; } else { p << lvl; }
     }
   }];
   let genVerifyDecl = 0;
@@ -99,32 +95,29 @@ def PlainType :TypeDef<Earth_Dialect, "Plain", [DeclareTypeInterfaceMethods<HESc
   let parameters = (ins "unsigned":$scale, "unsigned":$level);
   let assemblyFormat = "`<` $scale `*` custom<Level>($level) `>`";
   let extraClassDeclaration = [{
-    bool hasUnknownLevel() const;
-    bool hasUnknownScale() const;
     static ::mlir::ParseResult parseLevel(::mlir::AsmParser &parser, unsigned &level);
     void printLevel(::mlir::AsmPrinter &printer, unsigned level) const;
-    // ::hecate::earth::HEScaleTypeInterface switchScale(unsigned scale) const; 
-    // ::hecate::earth::HEScaleTypeInterface switchLevel(unsigned scale) const; 
   }];
 
   let extraClassDefinition = [{
     ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return *this;}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const  {return ::hecate::earth::CipherType::get(this->getContext(), getScale(), getLevel());}
+ 
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const  {return get(this->getContext(), scale, getLevel()); }
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
 
     bool $cppClass::hasUnknownLevel() const {
-      return getLevel() == kUnknownLevel;
+      return getLevel() == hecate::earth::kUnknownLevel;
     }
 
    bool $cppClass::hasUnknownScale() const {
-      return getScale() == kUnknownScale;
+      return getScale() == hecate::earth::kUnknownScale;
     }
 
 
     ::mlir::ParseResult $cppClass::parseLevel(AsmParser &p, unsigned &lvl) {
       if (mlir::succeeded(p.parseOptionalQuestion())) 
-        { lvl = kUnknownLevel; return mlir::success(); }
+        { lvl = hecate::earth::kUnknownLevel; return mlir::success(); }
 
       uint64_t v = 0; 
       if (p.parseInteger(v)) 
@@ -135,7 +128,7 @@ def PlainType :TypeDef<Earth_Dialect, "Plain", [DeclareTypeInterfaceMethods<HESc
     }
 
     void $cppClass::printLevel(AsmPrinter &p, unsigned lvl) const {
-      if (lvl == kUnknownLevel) { p << "?"; } else { p << lvl; }
+      if (lvl == hecate::earth::kUnknownLevel) { p << "?"; } else { p << lvl; }
     }
 
   }];
@@ -146,32 +139,89 @@ def ErasedType :TypeDef<Earth_Dialect, "Erased", [DeclareTypeInterfaceMethods<HE
   let summary = "HE Type not being determined";
   let description = [{
     A type for Plain and Cipher Type conflict.
-      Type that implement this interface can be analyzed and managed by scale management scheme.
+    Types that implement this interface can be analyzed and managed by
+    the scale management scheme.
   }];
+
   let mnemonic = "er";
-  // let parameters = (ins "unsigned":$scale, "unsigned":$level);
-  // let assemblyFormat = "`<` `?` `>`";
-  // let assemblyFormat = "`<` $scale `*` $level `>`";
+  let parameters = (ins "unsigned":$scale, "unsigned":$level);
+  let hasCustomAssemblyFormat = 1;
+
   let extraClassDeclaration = [{
-    bool hasUnknownLevel() const;
-    bool hasUnknownScale() const;
     bool isErased() const;
-    static ::mlir::ParseResult parseLevel(::mlir::AsmParser &parser, unsigned &level);
-    void printLevel(::mlir::AsmPrinter &printer, unsigned level) const;
   }];
 
   let extraClassDefinition = [{
-    bool $cppClass::isErased() const { return true;}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return ::hecate::earth::PlainType::get(this->getContext(), 0, 0);}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const  {return ::hecate::earth::CipherType::get(this->getContext(), 0, 0);}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const  {return nullptr; }
-    ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return nullptr;}
-    unsigned $cppClass::getScale() const { return kUnknownScale; }
-    unsigned $cppClass::getLevel() const { return kUnknownLevel; }
+ 
+    ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return ::hecate::earth::PlainType::get(this->getContext(), getScale(), getLevel());}
+    ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const  {return ::hecate::earth::CipherType::get(this->getContext(), getScale(), getLevel());}
+
+    bool $cppClass::isErased() const { return true; }
+
+    bool $cppClass::hasUnknownScale() const {
+      return getScale() == hecate::earth::kUnknownScale;
+    }
+    bool $cppClass::hasUnknownLevel() const {
+      return getLevel() == hecate::earth::kUnknownLevel;
+    }
+    
+    // Only `earth.er<scale * level>`+ '?'(Dynamic)
+::mlir::Type $cppClass::parse(::mlir::AsmParser &parser) {
+  auto *ctx = parser.getContext();
+  unsigned scale = kUnknownScale;
+  unsigned level = kUnknownLevel;
+
+  if (parser.parseLess())
+    return {};  
+
+  // scale is dynamic(?) or integer
+  if (succeeded(parser.parseOptionalQuestion())) {
+    scale = kUnknownScale;
+  } else if (parser.parseInteger(scale)) {
+    return {};
+  }
+
+  // '*'
+  if (parser.parseStar())
+    return {};
+
+  // level is dynamic(?) or integer
+  if (succeeded(parser.parseOptionalQuestion())) {
+    level = kUnknownLevel;
+  } else if (parser.parseInteger(level)) {
+    return {};
+  }
+
+  if (parser.parseGreater())
+    return {};
+
+  return $cppClass::get(ctx, scale, level);
+}
+    void $cppClass::print(::mlir::AsmPrinter &printer) const {
+      printer << '<';
+
+      if (hasUnknownScale())
+        printer << '?';
+      else
+        printer << getScale();
+
+      printer << " * ";
+
+      if (hasUnknownLevel())
+        printer << '?';
+      else
+        printer << getLevel();
+
+      printer << '>';
+    }
+    ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const  {return get(this->getContext(), scale, getLevel()); }
+    ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
+
+
   }];
+
   let genVerifyDecl = 0;
 }
-
 
 def HETensor : TensorOf<[CipherType,PlainType, ErasedType]>;
 def CipherTensor : TensorOf<[CipherType]>;

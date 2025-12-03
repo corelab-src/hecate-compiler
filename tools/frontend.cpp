@@ -227,6 +227,7 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   mlir::OpBuilder::InsertPoint ip = builder.saveInsertionPoint();
   // Get existing 'call_count' attribute (if any)
   IntegerAttr countAttr = callee->getAttrOfType<IntegerAttr>("call_count");
+
   // If the attribute exists, increment it; otherwise start from 1
   int64_t newCount = 1;
   if (countAttr)
@@ -242,9 +243,10 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   mlir::Type cipherTy =
       RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
                             builder.getType<hecate::earth::CipherType>(0, 0));
-  mlir::Type erasedTy =
-      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
-                            builder.getType<hecate::earth::ErasedType>());
+  mlir::Type erasedTy = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 1>{1},
+      builder.getType<hecate::earth::ErasedType>(hecate::earth::kUnknownLevel,
+                                                 hecate::earth::kUnknownScale));
 
   // callee-side
   //  First time calling this function, set types as ErasedType/CipherType
