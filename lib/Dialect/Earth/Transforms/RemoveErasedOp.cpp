@@ -26,20 +26,42 @@ struct RemoveErasedOpPass
 
     auto func = getOperation();
     mlir::OpBuilder builder(func);
-
-    func.walk([&](hecate::earth::EraseTypeOp eop) {
-      eop.replaceAllUsesWith(eop.getOperand());
-      eop.erase();
-    });
+    llvm::SmallVector<hecate::earth::CastOp, 4> toErase;
 
     func.walk([&](scf::ForOp ForOp) {
-      auto inputTy = ForOp.getOperandTypes();
       mlir::Region &loop_body = ForOp.getBodyRegion();
       mlir::Block *loopBodyBlock = ForOp.getBody();
+
       for (size_t i = 0; i < loop_body.getNumArguments(); i++) {
-        loop_body.getArgument(i).setType(ForOp.getOperand(i + 2).getType());
+        size_t forOpArgIdx = i + 2;
+        auto operTy = ForOp.getOperand(forOpArgIdx).getType();
+        if (auto erTy =
+                operTy.dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+          if (erTy.isErased() && !erTy.hasUnknownScale() &&
+              !erTy.hasUnknownLevel()) {
+            // defOp should be CastOp
+            auto defOp = ForOp.getOperand(forOpArgIdx).getDefiningOp();
+            ForOp.setOperand(forOpArgIdx, defOp->getOperand(0));
+            defOp->erase();
+          }
+        }
+        loop_body.getArgument(i).setType(
+            ForOp.getOperand(forOpArgIdx).getType());
       }
+
+      // set yield op types as concrete types
       for (size_t i = 0; i < ForOp.getNumResults(); i++) {
+        auto yieldOper = loopBodyBlock->getTerminator()->getOperand(i);
+        if (auto erTy = yieldOper.getType()
+                            .dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
+          if (erTy.isErased() && !erTy.hasUnknownScale() &&
+              !erTy.hasUnknownLevel()) {
+            // defOp should be CastOp
+            auto defOp = yieldOper.getDefiningOp();
+            loopBodyBlock->getTerminator()->setOperand(i, defOp->getOperand(0));
+            defOp->erase();
+          }
+        }
         ForOp.getResult(i).setType(
             loopBodyBlock->getTerminator()->getOperand(i).getType());
       }
