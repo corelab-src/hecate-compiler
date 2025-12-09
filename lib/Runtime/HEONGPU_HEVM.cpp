@@ -26,8 +26,6 @@ constexpr auto Scheme = heongpu::Scheme::CKKS;
 using Message = std::vector<double>;
 struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   using HEVMInterface::HEVMInterface;
-  std::vector<double> scalep;
-  std::vector<uint64_t> levelp;
   std::vector<heongpu::Ciphertext<Scheme>> ciphers;
   std::vector<heongpu::Plaintext<Scheme>> plains;
   std::vector<Message *> msgs;
@@ -345,12 +343,8 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   double getPlainScale(int16_t i) override {
     return std::log2(plains[i].scale());
   }
-  int getCipherLevel(int16_t i) override {
-    return context->get_ciphertext_modulus_count() - ciphers[i].depth();
-  }
-  int getPlainLevel(int16_t i) override {
-    return context->get_ciphertext_modulus_count() - plains[i].depth();
-  }
+  int getCipherLevel(int16_t i) override { return L - ciphers[i].depth(); }
+  int getPlainLevel(int16_t i) override { return L - plains[i].depth(); }
 };
 
 extern "C" {

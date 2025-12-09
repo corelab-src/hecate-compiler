@@ -30,8 +30,6 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
   std::vector<HEaaN::Ciphertext> ciphers;
   std::vector<double> scalec;
   std::vector<HEaaN::Plaintext> plains;
-  std::vector<double> scalep;
-  std::vector<uint64_t> levelp;
   std::vector<HEaaN::Message *> msgs;
   std::map<uint16_t, HEaaN::Message> msgMap;
   std::map<uint64_t, HEaaN::Plaintext> upscale_const;
