@@ -586,8 +586,6 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
             earth::createElideConstant({dir + "/../../traced" + "/"}));
 
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-         */
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
 
@@ -988,8 +986,6 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
             earth::createElideConstant({dir + "/../../traced" + "/"}));
 
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
-        /* pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-         */
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createApplyDaCapoToLoop({waterline, output_val}));
 

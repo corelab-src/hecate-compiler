@@ -29,7 +29,7 @@
 
 namespace hecate {
 namespace earth {
-#define GEN_PASS_DEF_LOOPROTATION
+#define GEN_PASS_DEF_LOOPPEELFIRSTITERATION
 #include "hecate/Dialect/Earth/Transforms/Passes.h.inc"
 } // namespace earth
 } // namespace hecate
@@ -38,9 +38,10 @@ using namespace mlir;
 
 namespace {
 /// Pass to bufferize Arith ops.
-struct LoopRotationPass
-    : public hecate::earth::impl::LoopRotationBase<LoopRotationPass> {
-  LoopRotationPass() {}
+struct LoopPeelFirstIterationPass
+    : public hecate::earth::impl::LoopPeelFirstIterationBase<
+          LoopPeelFirstIterationPass> {
+  LoopPeelFirstIterationPass() {}
 
   mlir::SmallVector<scf::ForOp, 4> scfForQueue;
   void schedulePeelForOp(mlir::scf::ForOp &op) {

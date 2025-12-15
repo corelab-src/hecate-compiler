@@ -213,10 +213,10 @@ def BootstrappingLowering : Pass<"boot-lowering", "::mlir::func::FuncOp"> {
     Lowering the bootstrap operations with the arithmetic operations.
   }];
 }
-def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
-  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+def LoopPeelFirstIteration : Pass<"loop-peel-first", "::mlir::func::FuncOp"> {
+  let summary = "Peeling the first iteration of the loop and remove EraseType from arguments";
   let description = [{
-    This pass changes the loop structure through rotation and removes EraseOp.
+    This pass peels the first iteration of the loop and removes EraseType from loop arguments.
   }];
 }
 def LoopUnroll : Pass<"loop-unrolling", "::mlir::func::FuncOp"> {

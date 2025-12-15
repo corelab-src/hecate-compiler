@@ -108,11 +108,15 @@ char *save(Context *c, char *const_name, char *mlir_name) {
                                   c->builder->getStringAttr(mlir_name));
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
+#if DEBUG
+  llvm::errs() << "Before optimization:\n";
+  c->mod->dump();
+#endif
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-  /* pm.addNestedPass<func::FuncOp>( */
-  /*     earth::createElideConstant({s_const_name + "/"})); */
+  pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopPeelFirstIteration());
+  // pm.addNestedPass<func::FuncOp>(
+  // earth::createElideConstant({s_const_name + "/"}));
   pm.addNestedPass<func::FuncOp>(earth::createPrivatizeConstant());
   pm.addPass(createCanonicalizerPass());
 

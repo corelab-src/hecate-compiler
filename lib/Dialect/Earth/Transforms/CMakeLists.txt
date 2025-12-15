@@ -20,7 +20,7 @@ add_mlir_dialect_library(EarthTransforms
  CoverageRecorder.cpp
  BypassDetection.cpp
  CandidateSelection.cpp
- LoopRotation.cpp
+ LoopPeelFirstIteration.cpp
  LoopUnroll.cpp
  SMUChecker.cpp
  SNRRescaling.cpp
