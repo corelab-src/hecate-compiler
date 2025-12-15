@@ -275,12 +275,6 @@ def WrapUpLoopBody : Pass<"wrapup-loop-body", "::mlir::func::FuncOp"> {
     "The maximum result value bits of return value">,
   ];
 }
-def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
-  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
-  let description = [{
-    This pass changes the loop structure through rotation and removes EraseOp.
-  }];
-}
 def UnrollFactorAnalysis : Pass<"find-optimized-unrollfactor", "::mlir::func::FuncOp"> {
   let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
   let description = [{

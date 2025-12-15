@@ -16,7 +16,6 @@ add_mlir_dialect_library(EarthTransforms
  EarlyModswitch.cpp
  FlexibleBootstrap.cpp
  RemoveBootstrap.cpp
- RemoveErasedOp.cpp
  DaCapoPlanner.cpp
  CoverageRecorder.cpp
  BypassDetection.cpp
