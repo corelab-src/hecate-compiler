@@ -1,7 +1,7 @@
 import hecate as hc
 import sys
 import poly
-from poly.models.SqueezeNet import *
+from poly.models.ResNet import *
 from poly.MPCB import *
 
 import torch
@@ -26,7 +26,7 @@ source_path = Path(__file__).resolve()
 source_dir = source_path.parent
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 val_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=str(source_dir)+"/../data/CIFAR10", train=False, download=True, transform=transforms.Compose([
+        datasets.CIFAR10(root=str(source_dir)+"/../../data/CIFAR10", train=False, download=True, transform=transforms.Compose([
         transforms.ToTensor(),
         normalize,
 ])),
@@ -37,9 +37,10 @@ num_workers=4, pin_memory=True)
 # def roll(A, i) :
 #     return A.rotate(-i)
 def getModel():
-    model = torch.nn.DataParallel(squeezenet())
-    model_dict = torch.load(str(source_dir)+"/../data/squeezeNet_silu_avgpool_model", map_location=torch.device('cpu'))
-    model.module.load_state_dict(model_dict)
+    model = torch.nn.DataParallel(resnet20())
+    model_dict = torch.load(str(source_dir)+"/../../data/resnet20.silu.model", map_location=torch.device('cpu'))
+    model.load_state_dict(model_dict['state_dict'])
+    model = model.cuda()  # Move model to GPU
     model = model.eval()
     return model
 
@@ -49,9 +50,8 @@ def preprocess(x):
     lib_name = sys.argv[3]
     hw_name = sys.argv[4]
     config_name = f"profiled_{lib_name}_{hw_name}.json"
-    with open(str(source_dir)+"/../../"+config_name,'r') as f:
+    with open(str(source_dir)+"/../../../"+config_name,'r') as f:
         config = json.load(f)
- 
     initial_shapes = {
     # Constant
     "nt" : config['polynomialDegree'] >> 1,
@@ -61,7 +61,7 @@ def preprocess(x):
     "ho" : 32,
     "wo" : 32
     }
-    conv1_shapes = CascadeConv(initial_shapes, model.module.conv_1.Conv2d)
+    conv1_shapes = CascadeConv(initial_shapes, model.module.conv1)
     close = shapeClosure(**conv1_shapes)
     return close["MPP"](x)[0]
 
@@ -78,20 +78,7 @@ def postprocess(res, torch_res) :
     return res[0,:torch_res_size].reshape(torch_res.shape) *32
     # return res[0,:torch_res_size].reshape(torch_res.shape)
 
-def pack_3d(x: np.ndarray, tile: int = 2) -> np.ndarray:
-    C, H, W = x.shape
-    assert C % (tile * tile) == 0, "C must be divisible by tile^2"
 
-    out_C = C // (tile * tile)
-    out_H = H * tile
-    out_W = W * tile
-
-    x = x.reshape(out_C, tile, tile, H, W)
-
-    x = x.transpose(0, 3, 1, 4, 2)  # (out_C, H, tile, W, tile)
-
-    x = x.reshape(out_C, out_H, out_W)
-    return x
 
 
 if __name__ == "__main__" :
@@ -108,7 +95,6 @@ if __name__ == "__main__" :
     a_compile_opt = int(sys.argv[2])
     hc.setLibnHW(sys.argv)
     stem = Path(__file__).stem
-    
     hevm = hc.HEVM()
     stem = Path(__file__).stem
     hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
@@ -123,15 +109,9 @@ if __name__ == "__main__" :
     hevm.run()
     timer = time.perf_counter_ns() -timer
     res = hevm.getOutput()
-    print("res size" , res.shape)
-    print("ref size" , reference.shape)
-    # res = res.reshape(16,32,32)
-    # print(res[0][:20:2] *32)
-    # res_mod = res[0][::2] * 32
-    # reference = pack_3d(reference, tile=4)
     res = postprocess(res, reference)
-
-    # res = res_mod
-    err = res - reference
+    err = res - reference 
+    # print(res)
+    # print(reference)
     rms = np.sqrt( np.sum(err*err) / res.shape[-1])
     hevm.printer(timer/pow(10, 9), rms)

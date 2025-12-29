@@ -1,7 +1,7 @@
 import hecate as hc
 import sys
 import poly
-from poly.models.AlexNet import *
+from poly.models.MobileNet import *
 from poly.MPCB import *
 
 import torch
@@ -37,9 +37,10 @@ num_workers=4, pin_memory=True)
 # def roll(A, i) :
 #     return A.rotate(-i)
 def getModel():
-    model = torch.nn.DataParallel(alexnet())
-    model_dict = torch.load(str(source_dir)+"/../data/alexNet_silu_avgpool_model", map_location=torch.device('cpu'))
+    model = torch.nn.DataParallel(mobilenet())
+    model_dict = torch.load(str(source_dir)+"/../data/mobileNet_silu_model", map_location=torch.device('cpu'))
     model.module.load_state_dict(model_dict)
+    model = model.cuda()
     model = model.eval()
     return model
 
@@ -49,7 +50,7 @@ def preprocess(x):
     lib_name = sys.argv[3]
     hw_name = sys.argv[4]
     config_name = f"profiled_{lib_name}_{hw_name}.json"
-    with open(str(source_dir)+"/../../"+config_name,'r') as f:
+    with open(str(source_dir)+"/../../../"+config_name,'r') as f:
         config = json.load(f)
  
     initial_shapes = {
@@ -61,7 +62,7 @@ def preprocess(x):
     "ho" : 32,
     "wo" : 32
     }
-    conv1_shapes = CascadeConv(initial_shapes, model.module.Conv2d_1)
+    conv1_shapes = CascadeConv(initial_shapes, model.module.pre_layer.Conv2d)
     close = shapeClosure(**conv1_shapes)
     return close["MPP"](x)[0]
 
@@ -95,7 +96,6 @@ if __name__ == "__main__" :
     a_compile_opt = int(sys.argv[2])
     hc.setLibnHW(sys.argv)
     stem = Path(__file__).stem
-    
     hevm = hc.HEVM()
     stem = Path(__file__).stem
     hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
