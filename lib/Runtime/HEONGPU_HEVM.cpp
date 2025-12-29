@@ -1,4 +1,5 @@
 #include <HEonGPU-1.1/heongpu.cuh>
+#include <HEonGPU-1.1/memorypool.cuh>
 #include <any>
 #include <cassert>
 #include <chrono>
@@ -19,7 +20,11 @@
 #include "hecate/Support/HEVMHeader.h"
 
 hecate::RuntimeConfig run_config{
+#ifdef ENABLE_PRINT_OPSTATS
     .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
+#else
+    .debug = {.printOpStats = false, .printOpTypes = false, .printRange = false},
+#endif
     .settings = {.usePreencode = false, .libName = "heongpu"}};
 
 constexpr auto Scheme = heongpu::Scheme::CKKS;
@@ -57,7 +62,6 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
       assert(std::cerr << "CUDA Error: " << cudaGetErrorString(err)
                        << std::endl);
     }
-
     // std::cout << "Free Memory: " << free_mem / (1024.0 * 1024.0) << " MB"
     //           << std::endl;
     // std::cout << "Total Memory: " << total_mem / (1024.0 * 1024.0) << " MB"
@@ -65,10 +69,60 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     return total_mem - free_mem;
   }
 
+  size_t getMemoryPoolUsage() {
+    return MemoryPool::instance().get_current_device_pool_memory_usage();
+  }
+
+void printDetailedMemoryUsage() {
+  size_t cuda_free_mem, cuda_total_mem;
+  cudaError_t err = cudaMemGetInfo(&cuda_free_mem, &cuda_total_mem);
+  if (err != cudaSuccess) {
+    std::cerr << "CUDA Error: " << cudaGetErrorString(err) << std::endl;
+    return;
+  }
+
+  double mb_size = 1024.0 * 1024.0;
+  double gb_size = 1024.0 * 1024.0 * 1024.0;
+  size_t device_pool_usage = MemoryPool::instance().get_current_device_pool_memory_usage();
+  size_t device_pool_free_mem = MemoryPool::instance().get_free_device_pool_memory();
+  size_t host_pool_free_mem = MemoryPool::instance().get_free_host_pool_memory();
+  size_t host_pool_usage = MemoryPool::instance().get_current_host_pool_memory_usage();
+  total_memory_usage = getCurrentMemoryUsage();
+
+  std::cout << std::fixed << std::setprecision(2);
+  std::cout << "==================================================\n";
+  std::cout << "GPU Memory Usage Report\n";
+  std::cout << "==================================================\n";
+  std::cout << "CUDA Memory:     " 
+            << std::setw(6) << total_memory_usage / gb_size << " GB / " 
+            << std::setw(6) << cuda_total_mem / gb_size << " GB "
+            << "(" << std::setw(2) << (static_cast<double>(total_memory_usage) / cuda_total_mem) * 100.0 << "%)\n";
+  std::cout << "                 " 
+            << std::setw(6) << cuda_free_mem / gb_size << " GB Available\n";
+
+  std::cout << "--------------------------------------------------\n";
+  std::cout << "Total Memory Pool Usage: " << std::setw(2) << total_memory_pool_usage / gb_size << " GB\n";
+  std::cout << "  Current Available:     " << std::setw(2) << device_pool_free_mem / gb_size << " GB\n";
+  std::cout << "  Key Memory Pool:       " << std::setw(2) << key_memory_pool_usage / gb_size << " GB\n";
+  std::cout << "  Data Memory Pool:      " << std::setw(2) << data_memory_pool_usage / mb_size << " MB\n";
+  std::cout << "--------------------------------------------------\n";
+  std::cout << "Host Pool Usage:         " << std::setw(2) << host_pool_usage / gb_size << " GB\n";
+  std::cout << "  Host Pool Available:   " << std::setw(2) << host_pool_free_mem / gb_size << " GB\n";
+  std::cout << "==================================================\n";
+
+  MemoryPool::instance().print_memory_pool_status();
+  std::cout << "==================================================\n";
+}
+
   void loadHEONGPU(char *dir) {
     cudaSetDevice(0);
     auto strdir = std::string(dir);
-
+    // Initialize MemoryPool
+    MemoryPool::instance().initialize();
+    MemoryPool::instance().use_memory_pool(true);
+    // Capture the initial memory state
+    size_t initial_memory = getMemoryPoolUsage();
+    
     heongpu::HEContext<Scheme> context(
         heongpu::keyswitching_type::KEYSWITCHING_METHOD_II,
         // heongpu::sec_level_type::sec128);
@@ -87,7 +141,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     context.generate();
     context.print_parameters();
 
-    getCurrentMemoryUsage();
+    // getCurrentMemoryUsage();
     heongpu::HEKeyGenerator<Scheme> keygen(context);
 
     // Hamming weight of secret key is 32
@@ -111,9 +165,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     relin_key = std::make_unique<heongpu::Relinkey<Scheme>>(context);
     keygen.generate_relin_key(*relin_key, *secret_key);
 
-    key_memory_usage = getCurrentMemoryUsage();
     // heongpu::Galoiskey<Scheme> galois_key(context);
-
     std::vector<int> shifts;
     for (int i = 0; i < MAX_SHIFT; i++) {
       int power = pow(2, i);
@@ -151,6 +203,9 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
         switch_key_s2d, 3, 1.0, scale);
 
     cudaDeviceSynchronize();
+    key_memory_pool_usage = static_cast<uint64_t>(getMemoryPoolUsage() - initial_memory);
+    std::cout << "Key generation completed. Key memory usage: " 
+              << key_memory_pool_usage / (1024.0 * 1024.0) << " MB" << std::endl;
   }
 
   void loadClient(char *dir) {}
@@ -222,7 +277,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     }
   }
 
-  void to_msg(int16_t dst, uint16_t lhs) {
+  void to_msg(uint16_t dst, uint16_t lhs) {
 
     std::vector<double> identity(slot_size, 1.0);
 
@@ -239,7 +294,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     return;
   }
 
-  void encode_online(int16_t dst) override {
+  void encode_online(uint16_t dst) override {
     // if (debug)
     // std::cout << scalep[dst] << " " << levelp[dst] << std::endl;
     // encoder->encode(plains[0], constData[dst], std::pow(2.0, scalep[dst]));
@@ -452,6 +507,7 @@ void run(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
   hevm->run(hevm->ops);
   hevm->printFinalResults();
+  hevm->printDetailedMemoryUsage();
 }
 int64_t getArgLen(void *vm) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);

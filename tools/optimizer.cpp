@@ -479,7 +479,8 @@ void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
         }
         if (enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-
+        pm.addNestedPass<func::FuncOp>(
+            earth::createElideConstant({dir + "/../../traced" + "/"}));
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createProactiveRescaling({waterline, output_val}));
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
