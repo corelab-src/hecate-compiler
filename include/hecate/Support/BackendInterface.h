@@ -112,7 +112,9 @@ public:
   void setRuntimeConfig(RuntimeConfig &config);
   std::vector<int> op_count;
   std::vector<uint64_t> op_time;
-  uint64_t key_memory_usage = 0;
+  uint64_t key_memory_pool_usage = 0;
+  uint64_t data_memory_pool_usage = 0;
+  uint64_t total_memory_pool_usage = 0;
   uint64_t total_memory_usage = 0;
   uint64_t N;
   uint64_t L;
@@ -120,7 +122,7 @@ public:
 
   // Virtual functions to be implemented by derived classes
   virtual void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) = 0;
-  virtual void encode_online(int16_t dst) = 0;
+  virtual void encode_online(uint16_t dst) = 0;
   virtual void rotate(int16_t dst, int16_t src, int16_t offset) = 0;
   virtual void negate(int16_t dst, int16_t src) = 0;
   virtual void rescale(int16_t dst, int16_t src) = 0;

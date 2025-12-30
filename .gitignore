@@ -27,8 +27,11 @@ python/hecate/dist
 python/hecate/hecate.egg-info
 python/poly/dist
 python/poly/poly.egg-info
+python/hetorch/dist
+python/hetorch/hetorch.egg-info
 examples/optimized
 examples/traced
 examples/data
 Session.vim
 .venv
+examples/benchinputs

@@ -62,7 +62,7 @@ void HEVMInterface::loadHEVM(char *name, RuntimeConfig &run_options) {
   // std::cerr << "DONE PRINT\n";
 
   integers.resize(config.num_int_buffer);
-  getCurrentMemoryUsage();
+  // getCurrentMemoryUsage();
 }
 
 // run the HEVM operations based on the opcode
@@ -424,7 +424,7 @@ void HEVMInterface::printPerformanceStats() {
   std::cout << padLeft("Operation", nameWidth) << padLeft("Count", countWidth)
             << padLeft("Time(\u03BCs)", timeWidth) // microseconds
             << padLeft("Percent", percentWidth)
-            // << "Average(ns)"
+            << padLeft("Average(\u03BCs)", timeWidth)
             << "\n";
   std::cout << "--------------------------------------------------\n";
   double total_time = 0.0;
@@ -438,7 +438,7 @@ void HEVMInterface::printPerformanceStats() {
     std::cout << padLeft(name, nameWidth) << padLeft(toString(cnt), countWidth)
               << padLeft(toString((long long)time), timeWidth)
               << padLeft(toString(time * 100.0 / total_time), percentWidth)
-              // << padLeft(toString(time / cnt), timeWidth)
+              << padLeft(toString(time / cnt), timeWidth)
               << "\n";
   };
 
@@ -446,22 +446,28 @@ void HEVMInterface::printPerformanceStats() {
   for (size_t i = 0; i <= size_t(opcode_t::BOOTSTRAP); ++i) {
     printEntry(getOpName(static_cast<opcode_t>(i)), op_count[i], op_time[i]);
   }
+  double total_time_without_bootstrap = total_time - op_time[static_cast<int>(opcode_t::BOOTSTRAP)];
   std::cout << "--------------------------------------------------\n";
   std::cout << padLeft("total", nameWidth)
             << padLeft(toString(total_cnt), countWidth)
             << (total_time / 1000000.0) << " s\n";
+  std::cout << padLeft("total w/o boot", nameWidth)
+            << padLeft(toString(total_cnt), countWidth)
+            << (total_time_without_bootstrap / 1000000.0) << " s\n";
   std::cout << "--------------------------------------------------\n";
-  std::cout << "config.num_ptxt: " << config.num_ptxt_buffer << '\n';
-  std::cout << "config.num_ctxt: " << config.num_ctxt_buffer << '\n';
-  std::cout << "key_memory_usage: " << key_memory_usage / std::pow(10, 9)
-            << "GB" << '\n';
-  total_memory_usage = getCurrentMemoryUsage();
-  std::cout << "Data Memory Usage: "
-            << (total_memory_usage - key_memory_usage) / std::pow(10, 9) << "GB"
-            << '\n';
-  std::cout << "Total Memory Usage: " << total_memory_usage / std::pow(10, 9)
-            << "GB" << '\n';
-  std::cout << "==================================================\n";
+  std::cout << "Configuration:\n";
+  std::cout << "  config.num_ptxt: " << config.num_ptxt_buffer << '\n';
+  std::cout << "  config.num_ctxt: " << config.num_ctxt_buffer << '\n';
+  std::cout << "--------------------------------------------------\n";
+  // std::cout << "key_memory_usage: " << key_memory_usage / std::pow(10, 9)
+  //           << "GB" << '\n';
+  // total_memory_usage = getCurrentMemoryUsage();
+  // std::cout << "Data Memory Usage: "
+  //           << (total_memory_usage - key_memory_usage) / std::pow(10, 9) << "GB"
+  //           << '\n';
+  // std::cout << "Total Memory Usage: " << total_memory_usage / std::pow(10, 9)
+  //           << "GB" << '\n';
+  // std::cout << "==================================================\n";
 }
 
 void HEVMInterface::printFinalResults() {

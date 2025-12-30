@@ -71,7 +71,7 @@ def MLP(image) :
 
     source_path = Path(__file__).resolve()
     source_dir = source_path.parent
-    model = torch.load(str(source_dir)+"/../data/mlp.model", map_location=torch.device('cpu'))
+    model = torch.load(str(source_dir)+"/../../data/mlp.model", map_location=torch.device('cpu'))
     W1 = model["linear1.weight"].cpu().detach().numpy()
     b1 = model["linear1.bias"].cpu().detach().numpy()
     W2 = model["linear2.weight"].cpu().detach().numpy()

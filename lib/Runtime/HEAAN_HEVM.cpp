@@ -22,7 +22,11 @@
 #include "hecate/Support/HEVMHeader.h"
 
 hecate::RuntimeConfig run_config{
+#ifdef ENABLE_PRINT_OPSTATS
     .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
+#else
+    .debug = {.printOpStats = false, .printOpTypes = false, .printRange = false},
+#endif
     .settings = {.usePreencode = false, .libName = "heaan"}};
 
 struct HEAAN_HEVM : virtual hecate::HEVMInterface {
@@ -133,7 +137,6 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
       // printMemoryUsage();
       // memory_usage = HEaaN::CudaTools::getCudaMemoryInfo().second -
       // HEaaN::CudaTools::getCudaMemoryInfo().first;
-      key_memory_usage = getCurrentMemoryUsage();
     }
   }
 
@@ -255,7 +258,7 @@ struct HEAAN_HEVM : virtual hecate::HEVMInterface {
     return;
   }
 
-  void encode_online(int16_t dst) override {
+  void encode_online(uint16_t dst) override {
     /* if (togpu) */
     /*   msgs[dst].to(HEaaN::getCurrentCudaDevice()); */
     plains[0] =

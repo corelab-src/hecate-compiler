@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hetorch"
+version = "1.0.0"
+description = "PYPI package for hetorch binding"
+authors = [
+    {name = "seongho", email = "seongho-kim@yonsei.ac.kr"}
+]
+requires-python = ">=3.6"
+dependencies = [
+    "numpy",
+    "torch",
+    "einops",
+    "hecate"
+]
+keywords = ["seongho", "homomorphic encryption", "ckks", "hetorch", "hecate"]
+classifiers = [
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hetorch*"]
+exclude = []

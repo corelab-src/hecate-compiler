@@ -93,6 +93,12 @@ set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
 
 # HECATE DIRECTORY
 
+# Option for enabling operation statistics printing
+option(ENABLE_PRINT_OPSTATS "Enable operation statistics printing" OFF)
+if(ENABLE_PRINT_OPSTATS)
+  add_definitions(-DENABLE_PRINT_OPSTATS)
+endif()
+
 add_compile_options(-fno-rtti)
 add_compile_options(-fno-exceptions)
 add_compile_options(-fPIC)
