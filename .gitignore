@@ -35,3 +35,5 @@ examples/data
 Session.vim
 .venv
 examples/benchinputs
+examples/rmm_log.txt
+examples/data/cache_*
