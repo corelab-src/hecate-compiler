@@ -57,9 +57,8 @@ pip uninstall -y poly 2>/dev/null || true
 pip install dist/poly-0.0.1.tar
 
 cd $HECATE/python/hetorch
-python setup.py sdist --format=tar
 pip uninstall -y hetorch 2>/dev/null || true
-pip install dist/hetorch-0.0.1.tar
+pip install -e .
 
 cd
 

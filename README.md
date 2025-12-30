@@ -118,6 +118,9 @@ cmake --build build
 ### Configure Hecate 
 ```bash
 python3 -m venv .venv
+# if use nvidia-docker, use this command
+python3 -m venv --system-site-packages .venv
+
 source .venv/bin/activate
 source config.sh 
 ```
