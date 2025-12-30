@@ -287,6 +287,12 @@ def UnrollFactorAnalysis : Pass<"find-optimized-unrollfactor", "::mlir::func::Fu
     This pass changes the loop structure through rotation and removes EraseOp.
   }];
 }
+def RescaleHoisting : Pass<"rescale-hoisting", "::mlir::func::FuncOp"> {
+  let summary = "Hoist rescalec operation to backwards";
+  let description = [{
+    This pass relocates the rescalec operation when operands of an operation are all from the rescalec.
+  }];
+}
 /* def ScaleManagementStructuring : Pass<> */
 
 

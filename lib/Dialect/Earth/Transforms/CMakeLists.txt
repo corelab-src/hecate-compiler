@@ -24,6 +24,7 @@ add_mlir_dialect_library(EarthTransforms
  SMUChecker.cpp
  SNRRescaling.cpp
  ProactiveRescaling.cpp
+ RescaleHoisting.cpp
  ScaleManagementScheduler.cpp
  ELASMExplorer.cpp
  SMUEmbedding.cpp
