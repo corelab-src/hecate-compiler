@@ -34,7 +34,7 @@ def getModel():
  
     model = torch.nn.DataParallel(mobilenet())
 
-    model_dict = torch.load(str(source_dir)+"../../data/mobileNet_silu_model", map_location=torch.device('cpu'))
+    model_dict = torch.load(str(source_dir)+"/../../data/mobileNet_silu_model", map_location=torch.device('cpu'))
     # model_dict = torch.load(str(source_dir)+"/../data/mobileNet_relu_model", map_location=torch.device('cpu'))
     model.module.load_state_dict(model_dict)
     model = model.eval()

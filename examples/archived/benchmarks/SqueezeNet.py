@@ -29,7 +29,7 @@ def getModel():
     source_dir = source_path.parent
     model = torch.nn.DataParallel(squeezenet())
 
-    model_dict = torch.load(str(source_dir)+"../../data/squeezeNet_silu_avgpool_model", map_location=torch.device('cpu'))
+    model_dict = torch.load(str(source_dir)+"/../../data/squeezeNet_silu_avgpool_model", map_location=torch.device('cpu'))
     # model_dict = torch.load(str(source_dir)+"/../data/squeezeNet_relu_maxpool_model", map_location=torch.device('cpu'))
     # There is no state_dict with checkpoint
     #model.load_state_dict(model_dict['state_dict'])
