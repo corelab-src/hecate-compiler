@@ -7,7 +7,6 @@ import torch
 import numpy as np
 import time
 import os
-import psutil
 
 import hecate as hc
 import hetorch as ht

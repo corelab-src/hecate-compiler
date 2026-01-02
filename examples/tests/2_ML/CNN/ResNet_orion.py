@@ -12,6 +12,7 @@ import time
 from random import seed
 import einops
 import math
+import os
 
 # Import necessary functions
 import hecate as hc
@@ -25,17 +26,18 @@ compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
 seed(100)
 source_path = Path(__file__).resolve()
 source_dir = source_path.parent
+hecate_dir = os.environ["HECATE"]
 
 # Data loading
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 val_loader = torch.utils.data.DataLoader(
-    datasets.CIFAR10(root=str(source_dir)+"/../../data/CIFAR10", train=False, download=True,
+    datasets.CIFAR10(root=str(hecate_dir)+"/examples/data/CIFAR10", train=False, download=True,
                      transform=transforms.Compose([transforms.ToTensor(), normalize])),
     batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
 
 def getModel():
     model = resnet20()
-    model_dict = torch.load(str(source_dir)+"/../../data/resnet20_silu_model", 
+    model_dict = torch.load(str(hecate_dir)+"/examples/data/resnet20_silu_model", 
                            map_location=torch.device('cpu'))
     model.load_state_dict(model_dict['state_dict'])
     return model.eval()
