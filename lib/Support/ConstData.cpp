@@ -1,7 +1,10 @@
 #include <hecate/Support/ConstData.h>
 
 #include <cassert>
+#include <cerrno>
 #include <cstring>
+#include <fcntl.h>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -10,6 +13,17 @@ namespace hecate {
 // Constructor
 ConstData::ConstData() {}
 
+ConstData::ConstData(std::string cst_path) {
+  namespace fs = std::filesystem;
+  fs::path p(cst_path);
+
+  cst_filename_ = cst_path;
+
+  // Load the constant data if the file exists
+  if (fs::exists(cst_filename_) && fs::is_regular_file(cst_filename_)) {
+    load(cst_filename_);
+  }
+};
 // Destructor
 ConstData::~ConstData() { clear(); }
 
@@ -43,18 +57,13 @@ void ConstData::load(const std::string &filename) {
   decompressData(inFile, buffer);
 
   size_t offset = 0;
-  // Read the start index
-  int64_t startIndex;
-  std::memcpy(&startIndex, buffer.data() + offset, sizeof(int64_t));
-  offset += sizeof(int64_t);
-
   // Read the number of arrays
   int64_t arrayCount;
   std::memcpy(&arrayCount, buffer.data() + offset, sizeof(int64_t));
   offset += sizeof(int64_t);
 
   // Ensure the arrays_ vector is large enough
-  size_t requiredSize = static_cast<size_t>(startIndex + arrayCount);
+  size_t requiredSize = static_cast<size_t>(arrayCount);
   if (arrays_.size() < requiredSize) {
     arrays_.resize(requiredSize);
   }
@@ -65,7 +74,8 @@ void ConstData::load(const std::string &filename) {
     std::memcpy(&innerSize, buffer.data() + offset, sizeof(int64_t));
     offset += sizeof(int64_t);
 
-    size_t index = static_cast<size_t>(startIndex + i);
+    // size_t index = static_cast<size_t>(startIndex + i);
+    size_t index = static_cast<size_t>(i);
 
     if (innerSize < 0) {
       // Empty array; store an empty vector
@@ -81,12 +91,14 @@ void ConstData::load(const std::string &filename) {
 
     arrays_[index] = std::move(data);
   }
-  std::cerr << "Constant Loaded From " << filename << std::endl;
 }
 
 // Save the data structure to a binary file with the given start index
-void ConstData::save(const std::string &filename, size_t startIndex) {
+void ConstData::save(const std::string &filename) {
+
+  // Open the file in binary mode
   std::ofstream outFile(filename, std::ios::binary | std::ios::trunc);
+
   if (!outFile) {
     assert("Error: Unable to open file for writing");
   }
@@ -101,11 +113,6 @@ void ConstData::save(const std::string &filename, size_t startIndex) {
   }
   std::vector<char> buffer(totalSize, 0);
   size_t offset = 0;
-
-  // Write the start index
-  int64_t startIndex64 = static_cast<int64_t>(startIndex);
-  std::memcpy(buffer.data() + offset, &startIndex64, sizeof(int64_t));
-  offset += sizeof(int64_t);
 
   // Write the number of arrays
   int64_t arrayCount64 = static_cast<int64_t>(arrayCount);
@@ -130,9 +137,13 @@ void ConstData::save(const std::string &filename, size_t startIndex) {
   // Compress the data from buffer
   compressData(outFile, buffer);
 
+  // Write buffer size
+  outFile.write(reinterpret_cast<const char *>(&totalSize), sizeof(size_t));
+
   // Write the all data with serialized form
   outFile.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
-  std::cout << filename << '\n';
+
+  std::cout << "Constant data saved to " << filename << "\n";
 }
 
 // Compress the data structure with from start index to last index
@@ -165,6 +176,10 @@ void ConstData::compressData(std::ofstream &outFile,
   // Write compressed buffer size
   outFile.write(reinterpret_cast<const char *>(&compressedSize),
                 sizeof(size_t));
+
+  // Write the compressed data
+  outFile.write(reinterpret_cast<const char *>(compressed.data()),
+                compressedSize * sizeof(char));
 }
 
 // Decompress the constant data structure with all compressed data;
@@ -219,6 +234,9 @@ const std::vector<double> &ConstData::operator[](size_t index) const {
 void ConstData::push_back(const std::vector<double> &arr) {
   arrays_.push_back(arr);
 }
+
+// Resize the data structure to hold newSize arrays
+void ConstData::resize(size_t newSize) { arrays_.resize(newSize); }
 
 // Get the number of arrays stored (size of the vector)
 size_t ConstData::size() const { return arrays_.size(); }
