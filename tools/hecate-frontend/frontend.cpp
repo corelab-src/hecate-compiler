@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 using namespace mlir;
+#define DEBUG 0
 
 void handler(int sig) {
   void *array[10];
@@ -51,6 +52,18 @@ valueID createConstant(Context *ctxt, double *data, int64_t len, char *filename,
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
 }
+valueID createEncode(Context *ctxt, valueID lhs, int64_t len, char *filename,
+                     size_t line) {
+  // EncodeOp is used to encode a index value into a plaintext
+  auto &&builder = *ctxt->builder;
+  auto &&source = ctxt->valueMap[lhs];
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  // auto cons = builder.create<hecate::earth::EncodeOp>(location, source);
+  // ctxt->valueMap.push_back(cons);
+  return ctxt->valueMap.size() - 1;
+}
+
 valueID createArithConstant(Context *ctxt, int data, char *filename,
                             size_t line) {
   auto &&builder = *ctxt->builder;
@@ -101,6 +114,11 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
       args[i++] = valueMap.size() - 1;
     }
   }
+#if DEBUG
+  llvm::errs() << "Function " << funcOp.getName().str() << " created.\n";
+  llvm::errs() << "funcID: " << fun << "\n";
+  funcOp.dump();
+#endif
 }
 
 char *save(Context *c, char *const_name, char *mlir_name) {
@@ -153,6 +171,9 @@ valueID createUnary(Context *ctxt, size_t opcode, valueID lhs, char *filename,
     if (source.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
       auto res = builder.create<hecate::earth::NegateOp>(location, source);
       valueMap.push_back(res);
+    } else {
+      auto res = builder.create<mlir::arith::NegFOp>(location, source);
+      valueMap.push_back(res);
     }
     break;
   }
@@ -173,6 +194,11 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
   auto &&srcl = valueMap[lhs];
   auto &&srcr = valueMap[rhs];
 
+#if DEBUG
+  llvm::errs() << "Creating Binary Operation: " << opcode << "\n";
+  srcl.dump();
+  srcr.dump();
+#endif
   switch (opcode) {
   case 6: {
     auto res = builder.create<hecate::earth::AddOp>(location, srcl, srcr);
@@ -202,10 +228,20 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
     valueMap.push_back(res);
     break;
   }
+  case 102: {
+    auto res = builder.create<mlir::arith::DivFOp>(location, srcl, srcr);
+    valueMap.push_back(res);
+    break;
+  }
 
   default:
     assert(0 && "Binary Operation type is wrong");
   }
+#if DEBUG
+  llvm::errs() << "Binary Operation created.\n";
+  valueMap[valueMap.size() - 1].dump();
+  llvm::errs() << location << '\n';
+#endif
   return valueMap.size() - 1;
 }
 
@@ -311,6 +347,14 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
     ctxt->valueMap.push_back(castOp);
     rets[i] = ctxt->valueMap.size() - 1;
   }
+#if DEBUG
+  llvm::errs() << "Creating Call Operation to function: \n";
+  for (auto oper : callOp.getOperands()) {
+    oper.dump();
+  }
+  callOp.dump();
+
+#endif
 }
 
 void setOutput(Context *ctxt, funcID fun, valueID *ret, size_t len) {
