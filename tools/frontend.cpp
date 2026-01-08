@@ -115,14 +115,16 @@ char *save(Context *c, char *const_name, char *mlir_name) {
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopPeelFirstIteration());
-  // pm.addNestedPass<func::FuncOp>(
-  // earth::createElideConstant({s_const_name + "/"}));
+  pm.addPass(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(
+      earth::createElideConstant({s_const_name + "/" + "cst/"}));
   pm.addNestedPass<func::FuncOp>(earth::createPrivatizeConstant());
   pm.addPass(createCanonicalizerPass());
 
   auto ret = pm.run(*c->mod);
   std::error_code EC;
   llvm::raw_fd_ostream outputFile(mlir_name, EC);
+
   c->mod->print(outputFile, mlir::OpPrintingFlags()
                                 .printGenericOpForm()
                                 .enableDebugInfo()
