@@ -1,27 +1,14 @@
-add_subdirectory(hecate-opt)
-# add_subdirectory(hecate-frontend)
-add_library (HecateFrontend
-  SHARED
-  frontend.cpp
-  FrontendScfIRGen.cpp
+add_executable (hecate-opt
+  HecatePipeline.cpp
+  PrototypePipeline.cpp
+  HecateOptMain.cpp
   )
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 
-target_link_libraries(HecateFrontend
-  EarthDialect
-  EarthTransforms
-  HecateSupport
-  ${dialect_libs}
-  ${conversion_libs}
-  )
 
-add_executable (boot-test
-  BootstrapGenTest.cpp
-  )
-
-target_link_libraries(boot-test
+target_link_libraries(hecate-opt
   HecateSupport
   MLIREmitCDialect
   MLIROptLib
@@ -35,3 +22,4 @@ target_link_libraries(boot-test
   ${dialect_libs}
   ${conversion_libs}
   )
+
