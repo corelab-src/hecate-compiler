@@ -538,7 +538,7 @@ def AddOp: Earth_Op<"add", [Commutative]> {
       if (!(isOperandCipher(0) && isOperandCipher(1))){
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
-        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx));
+        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain());
         return;
       }
       if (getOperandScale(0) != getOperandScale(1)){
@@ -559,7 +559,7 @@ def AddOp: Earth_Op<"add", [Commutative]> {
       if (!(isOperandCipher(0) && isOperandCipher(1))){
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
-        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx));
+        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain());
         return;
       }
       for(int i = 0 ; i < 2; i++){
@@ -585,9 +585,9 @@ def AddOp: Earth_Op<"add", [Commutative]> {
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
         if (getOperandScaleType(higherIdx).getScale() > param)
-          getOperand(lowerIdx).setType(getOperandScaleType(higherIdx));
+          getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain());
         else{
-          getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).switchScale(param));
+          getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain().switchScale(param));
           getOperation()->setOperand(higherIdx, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(higherIdx), param - getOperandScale(higherIdx)));
         }
         return;
@@ -637,7 +637,7 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
       if (!(isOperandCipher(0) && isOperandCipher(1))){
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
-        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).switchScale(param));
+        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain().switchScale(param));
         return;
       }
       if (getOperandLevel(0) != getOperandLevel(1)){
@@ -651,7 +651,7 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
       if (!(isOperandCipher(0) && isOperandCipher(1))){
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
-        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).switchScale(param));
+        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain().switchScale(param));
       }
 
       for(int i = 0 ; i < 2; i++){
@@ -683,17 +683,9 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
       if (!(isOperandCipher(0) && isOperandCipher(1))){
         int lowerIdx = isOperandCipher(1) ? 0 : 1;
         int higherIdx = 1-lowerIdx;
-        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).switchScale(param));
+        getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain().switchScale(param));
         return;
       }
-      /* if (getOperandScale(0)+getOperandScale(1) < param ){ */
-      /*   OpBuilder builder(getOperation()); */
-      /*   getOperation()->setOperand(0, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(0), param - getOperandScale(0))); */
-      /* } */
-      /* if (getOperandScale(1) < param ){ */
-      /*   OpBuilder builder(getOperation()); */
-      /*   getOperation()->setOperand(1, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(1), param - getOperandScale(1))); */
-      /* } */
       processOperandsPARS(param);
     }
 
