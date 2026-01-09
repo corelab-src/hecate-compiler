@@ -19,36 +19,15 @@ cd $HECATE/build-debug
 ninja
 )
 
-archived-trace()(
-    cd $HECATE/examples
-    echo "Command: python3 $HECATE/examples/archived/benchmarks/$1.py ${@:3}"
-    python3 $HECATE/examples/archived/benchmarks/$1.py ${@:3}
-)
-
-archived-test()(
-    cd $HECATE/examples
-    echo "Command: python3 $HECATE/examples/archived/tests/$3.py $1 $2 ${@:4}"
-    python3 $HECATE/examples/archived/tests/$3.py $1 $2 ${@:4}
-)
-
 hc-trace()(
     # check if --opt is in the arguments
     has_opt=0
-    for arg in "$@"; do
-        if [ "$arg" = "--opt" ]; then
-            has_opt=1
-            break
-        fi
-    done
-    # if --opt is in the arguments, run with new command
-    if [ "$has_opt" -eq 1 ]; then
-        echo "Detected --opt > running with new command"
-    else
-        echo "No --opt > running with archived command"
-        archived-trace ${@:1}
-        exit 1
-    fi
-
+    # for arg in "$@"; do
+    #     if [ "$arg" = "--opt" ]; then
+    #         has_opt=1
+    #         break
+    #     fi
+    # done
     cd $HECATE/examples
     found_file=$(find $HECATE/examples/benchmarks -mindepth 2 -name "$1.py" -type f | head -n 1)
     if [ -z "$found_file" ]; then
@@ -70,14 +49,6 @@ hc-opt()(
             break
         fi
     done
-    # if --opt is in the arguments, run with new command
-    if [ "$has_opt" -eq 1 ]; then
-        echo "Detected --opt > running with new command"
-    else
-        echo "No --opt > running with archived command"
-        hbt ${@:1}
-        exit 0
-    fi
 
     cd $HECATE/examples
     echo "Command: python3 $HECATE/examples/hc_opt.py ${@:1}"
@@ -94,14 +65,6 @@ hc-test()(
             break
         fi
     done
-    # if --opt is in the arguments, run with new command
-    if [ "$has_opt" -eq 1 ]; then
-        echo "Detected --opt > running with new command"
-    else
-        echo "No --opt > running with archived command"
-        archived-test ${@:1}
-        exit 0
-    fi
 
     cd $HECATE/examples
     found_file=$(find $HECATE/examples/tests -mindepth 2 -name "$1.py" -type f | head -n 1)
@@ -226,68 +189,4 @@ hc-eval()(
     echo "======================================"
 )
 
-hopt-print(){
-hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-timing -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
 
-hopt-debug-print(){
-hopt-debug --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading  --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hopt-debug-print-all(){
-hopt-debug --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading  --mlir-timing --mlir-print-ir-after-failure --debug -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hopt-timing-only(){
-hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 $HECATE/examples/traced/$3.mlir --mlir-timing -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-# hopt-silent(){
-# hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 $HECATE/examples/traced/$3.mlir -o $HECATE/examples/optimized/$1/$3.$2.mlir
-# }
-hopt-silent(){
-hopt --$1 --ckks-config="$HECATE/profiled_$4_$5.json" --waterline=$2 $HECATE/examples/traced/$3.mlir -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hc-opt-test() {
-hopt-silent $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
-}
-
-hc-opt-test-timing() {
-hopt-timing-only $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5
-}
-
-hopt-lib-hw() {
-hopt --$1 --ckks-config="$HECATE/profiled_$4_$5.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hopt-lib-hww() {
-hopt --$1 --ckks-config="$HECATE/profiled_$4_$5.json" --waterline=$2 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hopt-unroll() {
-hopt --$1 --ckks-config="$HECATE/config.json" --waterline=$2 --unroll-factor=$6 --enable-debug-printer $HECATE/examples/traced/$3.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o $HECATE/examples/optimized/$1/$3.$2.mlir
-}
-
-hc-back-opt-test(){
-hopt-lib-hww $1 $2 $3 $4 $5 && hc-test $1 $2 $3 $4 $5 $6 $7
-}
-
-hc-back-opt(){
-hopt-lib-hww $1 $2 $3 $4 $5
-}
-
-# alias hopts-heaan-cpu=hopt-heaan-cpu
-# alias hopts-heaan-gpu=hopt-heaan-gpu
-# alias hopts-seal=hopt-seal
-alias hbcot=hc-back-opt-test
-alias hbt=hc-back-opt
-alias hur=hopt-unroll
-
-alias hoptd=hopt-debug-print
-alias hopta=hopt-debug-print-all
-alias hopts=hopt-silent
-alias hoptt=hopt-timing-only
-alias hoptp=hopt-print
-alias hcot=hc-opt-test
-alias hcott=hc-opt-test-timing
