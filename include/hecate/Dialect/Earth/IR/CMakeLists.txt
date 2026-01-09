@@ -8,6 +8,7 @@
 add_hecate_interface(HEParameterInterface earth)
 add_hecate_interface(ForwardManagementInterface earth)
 add_hecate_dialect(EarthOps earth)
+add_hecate_dialect(DynamicEarthOps earth)
 add_hecate_pattern(EarthCanonicalizer earth)
 add_dependencies(HecateEarthOpsIncGen HecateHEParameterInterfaceIncGen)
 

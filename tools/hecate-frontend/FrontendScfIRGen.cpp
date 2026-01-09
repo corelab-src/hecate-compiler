@@ -1,5 +1,6 @@
 #include "frontend.h"
 
+#define DEBUG 0
 using namespace mlir;
 namespace hecate {
 extern "C" {
@@ -9,15 +10,21 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
   auto &&builder = *ctxt->builder;
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  mlir::Type erasedTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::ErasedType>(0, 0));
 
   // Set initial inputs for the loop
   llvm::SmallVector<mlir::Value> inputarr;
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[inputs[i]];
-    auto er = builder.create<hecate::earth::EraseTypeOp>(
-        location, ctxt->valueMap[inputs[i]]);
-    inputarr.push_back(er);
-    ctxt->valueMap.push_back(er);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, erasedTy, v);
+#if DEBUG
+    v.dump();
+    castOp.dump();
+#endif
+    inputarr.push_back(castOp);
+    ctxt->valueMap.push_back(castOp);
   }
 
   // rng = {lower, upper, step}
@@ -31,6 +38,12 @@ loopID createLoop(Context *ctxt, size_t *rng, valueID *indvar, valueID *inputs,
   auto step = builder.create<mlir::arith::ConstantIndexOp>(location, rng[2]);
   auto loop = builder.create<mlir::scf::ForOp>(location, lowerBound, upperBound,
                                                step, inputarr);
+#if DEBUG
+  lowerBound.dump();
+  upperBound.dump();
+  step.dump();
+  loop.dump();
+#endif
   for (auto res : loop.getResults()) {
     hecate::setIntegerAttr("num_elements", res, num_elements);
   }
@@ -67,14 +80,18 @@ loopID createLoopParse(Context *ctxt, valueID *bounds, valueID *inputs,
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
   llvm::SmallVector<mlir::Value> inputarr;
+  mlir::Type erasedTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::ErasedType>(0, 0));
 
   // Erase Input Types for initial inputs
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[inputs[i]];
-    auto er = builder.create<hecate::earth::EraseTypeOp>(
-        location, ctxt->valueMap[inputs[i]]);
-    inputarr.push_back(er);
-    ctxt->valueMap.push_back(er);
+    // auto er = builder.create<hecate::earth::EraseTypeOp>(
+    // location, ctxt->valueMap[inputs[i]]);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, erasedTy, v);
+    inputarr.push_back(castOp);
+    ctxt->valueMap.push_back(castOp);
   }
 
   // Set the bounds for the loop
@@ -141,15 +158,26 @@ void setYield(Context *ctxt, valueID loopID, valueID *ret, size_t len,
   mlir::Region &loop_body = loop.getBodyRegion();
   mlir::Block &loop_block = loop_body.front();
   llvm::SmallVector<mlir::Value> rets;
+  mlir::Type erasedTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::ErasedType>(0, 0));
 
   // Set Induction Variable
   Value iv = loop.getInductionVar();
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[ret[i]];
-    auto er = builder.create<hecate::earth::EraseTypeOp>(location, v);
-    rets.push_back(er);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, erasedTy, v);
+#if DEBUG
+    v.dump();
+    castOp.dump();
+#endif
+    rets.push_back(castOp);
   }
   auto loopYield = builder.create<mlir::scf::YieldOp>(location, rets);
+#if DEBUG
+  loopYield.dump();
+#endif
+
   for (size_t i = 0; i < len; i++) {
     ctxt->valueMap.push_back(loop->getResult(i));
     ret[i] = ctxt->valueMap.size() - 1;

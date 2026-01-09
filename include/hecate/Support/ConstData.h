@@ -10,6 +10,7 @@ namespace hecate {
 class ConstData {
 public:
   ConstData();
+  ConstData(std::string cst_path);
   ~ConstData();
 
   // Disable copy constructor and copy assignment
@@ -22,16 +23,21 @@ public:
 
   // Load the data structure from a binary file, integrating arrays according to
   // start index
+  void load() { load(cst_filename_); }
   void load(const std::string &filename);
 
   // Save the data structure to a binary file with the given start index
-  void save(const std::string &filename, size_t startIndex);
+  void save() { save(cst_filename_); }
+  void save(const std::string &filename);
 
   // Compress the data structure with from start index to last index
-  void compressData(std::ofstream &outFile, std::vector<char>& serializedBuffer);
+  void compressData(std::ofstream &outFile,
+                    std::vector<char> &serializedBuffer);
+  // void compressData(std::string &filename);
 
   // Decompress the constant data structure with all compressed data;
-  void decompressData(std::ifstream& inFile, std::vector<char>& compressedBuffer);
+  void decompressData(std::ifstream &inFile,
+                      std::vector<char> &compressedBuffer);
 
   // Overload the subscript operator to return a reference to
   // std::vector<double>
@@ -46,10 +52,16 @@ public:
   // Get the number of arrays stored (size of the vector)
   size_t size() const;
 
+  // Resize the data structure to hold newSize arrays
+  void resize(size_t newSize);
+
   // Clear the data
   void clear();
 
 private:
+  // Filename for constant data
+  std::string cst_filename_;
+
   // Check whether constants are saved as compressed form
   bool isCompressed = false;
 

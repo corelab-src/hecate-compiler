@@ -42,15 +42,45 @@ def CipherType :TypeDef<Earth_Dialect, "Cipher", [DeclareTypeInterfaceMethods<HE
       Type that implement this interface can be analyzed and managed by scale management scheme.
   }];
   let mnemonic = "ci";
+
   let parameters = (ins "unsigned":$scale, "unsigned":$level);
-  let assemblyFormat = "`<` $scale `*` $level `>`";
+  let assemblyFormat = "`<` $scale `*` custom<Level>($level) `>`";
+  let extraClassDeclaration = [{
+    bool isCipher() const;
+    static ::mlir::ParseResult parseLevel(::mlir::AsmParser &parser, unsigned &level);
+    void printLevel(::mlir::AsmPrinter &printer, unsigned level) const;
+  }];
   let extraClassDefinition = [{
     bool $cppClass::isCipher() const { return true;}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const {return *this;}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return ::hecate::earth::PlainType::get(this->getContext(), getScale(), getLevel());}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::toErased() const  {return ::hecate::earth::ErasedType::get(this->getContext(), getScale(), getLevel());}
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const {return get(this->getContext(), scale, getLevel()); }
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
+    
+    bool $cppClass::hasUnknownLevel() const {
+      return getLevel() == hecate::earth::kUnknownLevel;
+    }
+
+    bool $cppClass::hasUnknownScale() const {
+      return getScale() == hecate::earth::kUnknownScale;
+    }
+
+
+    ::mlir::ParseResult $cppClass::parseLevel(AsmParser &p, unsigned &lvl) {
+      if (mlir::succeeded(p.parseOptionalQuestion())) 
+        { lvl = hecate::earth::kUnknownLevel; return mlir::success(); }
+
+      uint64_t v = 0; 
+      if (p.parseInteger(v)) 
+        return mlir::failure();
+
+      lvl = (unsigned)v; 
+      return mlir::success();
+    }
+
+    void $cppClass::printLevel(AsmPrinter &p, unsigned lvl) const {
+      if (lvl == hecate::earth::kUnknownLevel) { p << "?"; } else { p << lvl; }
+    }
   }];
   let genVerifyDecl = 0;
 }
@@ -63,38 +93,135 @@ def PlainType :TypeDef<Earth_Dialect, "Plain", [DeclareTypeInterfaceMethods<HESc
   }];
   let mnemonic = "pl";
   let parameters = (ins "unsigned":$scale, "unsigned":$level);
-  let assemblyFormat = "`<` $scale `*` $level `>`";
+  let assemblyFormat = "`<` $scale `*` custom<Level>($level) `>`";
+  let extraClassDeclaration = [{
+    static ::mlir::ParseResult parseLevel(::mlir::AsmParser &parser, unsigned &level);
+    void printLevel(::mlir::AsmPrinter &printer, unsigned level) const;
+  }];
+
   let extraClassDefinition = [{
-    bool $cppClass::isCipher() const { return false;}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return *this;}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const  {return ::hecate::earth::CipherType::get(this->getContext(), getScale(), getLevel());}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::toErased() const  {return ::hecate::earth::ErasedType::get(this->getContext(), getScale(), getLevel());}
+ 
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const  {return get(this->getContext(), scale, getLevel()); }
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
+
+    bool $cppClass::hasUnknownLevel() const {
+      return getLevel() == hecate::earth::kUnknownLevel;
+    }
+
+   bool $cppClass::hasUnknownScale() const {
+      return getScale() == hecate::earth::kUnknownScale;
+    }
+
+
+    ::mlir::ParseResult $cppClass::parseLevel(AsmParser &p, unsigned &lvl) {
+      if (mlir::succeeded(p.parseOptionalQuestion())) 
+        { lvl = hecate::earth::kUnknownLevel; return mlir::success(); }
+
+      uint64_t v = 0; 
+      if (p.parseInteger(v)) 
+        return mlir::failure();
+
+      lvl = (unsigned)v; 
+      return mlir::success();
+    }
+
+    void $cppClass::printLevel(AsmPrinter &p, unsigned lvl) const {
+      if (lvl == hecate::earth::kUnknownLevel) { p << "?"; } else { p << lvl; }
+    }
+
   }];
   let genVerifyDecl = 0;
 }
 
-def ErasedType :TypeDef<Earth_Dialect, "Erased", [DeclareTypeInterfaceMethods<HEScaleTypeInterface>, DeclareTypeInterfaceMethods<MemRefElementTypeInterface>]> {
+def ErasedType :TypeDef<Earth_Dialect, "Erased", [DeclareTypeInterfaceMethods<HEScaleTypeInterface>,DeclareTypeInterfaceMethods<MemRefElementTypeInterface>]> {
   let summary = "HE Type not being determined";
   let description = [{
     A type for Plain and Cipher Type conflict.
-      Type that implement this interface can be analyzed and managed by scale management scheme.
+    Types that implement this interface can be analyzed and managed by
+    the scale management scheme.
   }];
+
   let mnemonic = "er";
   let parameters = (ins "unsigned":$scale, "unsigned":$level);
-  let assemblyFormat = "`<` $scale `*` $level `>`";
+  let hasCustomAssemblyFormat = 1;
+
+  let extraClassDeclaration = [{
+    bool isErased() const;
+  }];
+
   let extraClassDefinition = [{
-    bool $cppClass::isCipher() const { return false;}
+ 
     ::hecate::earth::HEScaleTypeInterface $cppClass::toPlain() const {return ::hecate::earth::PlainType::get(this->getContext(), getScale(), getLevel());}
     ::hecate::earth::HEScaleTypeInterface $cppClass::toCipher() const  {return ::hecate::earth::CipherType::get(this->getContext(), getScale(), getLevel());}
-    ::hecate::earth::HEScaleTypeInterface $cppClass::toErased() const {return *this;}
+
+    bool $cppClass::isErased() const { return true; }
+
+    bool $cppClass::hasUnknownScale() const {
+      return getScale() == hecate::earth::kUnknownScale;
+    }
+    bool $cppClass::hasUnknownLevel() const {
+      return getLevel() == hecate::earth::kUnknownLevel;
+    }
+    
+    // Only `earth.er<scale * level>`+ '?'(Dynamic)
+::mlir::Type $cppClass::parse(::mlir::AsmParser &parser) {
+  auto *ctx = parser.getContext();
+  unsigned scale = kUnknownScale;
+  unsigned level = kUnknownLevel;
+
+  if (parser.parseLess())
+    return {};  
+
+  // scale is dynamic(?) or integer
+  if (succeeded(parser.parseOptionalQuestion())) {
+    scale = kUnknownScale;
+  } else if (parser.parseInteger(scale)) {
+    return {};
+  }
+
+  // '*'
+  if (parser.parseStar())
+    return {};
+
+  // level is dynamic(?) or integer
+  if (succeeded(parser.parseOptionalQuestion())) {
+    level = kUnknownLevel;
+  } else if (parser.parseInteger(level)) {
+    return {};
+  }
+
+  if (parser.parseGreater())
+    return {};
+
+  return $cppClass::get(ctx, scale, level);
+}
+    void $cppClass::print(::mlir::AsmPrinter &printer) const {
+      printer << '<';
+
+      if (hasUnknownScale())
+        printer << '?';
+      else
+        printer << getScale();
+
+      printer << " * ";
+
+      if (hasUnknownLevel())
+        printer << '?';
+      else
+        printer << getLevel();
+
+      printer << '>';
+    }
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchScale(unsigned scale) const  {return get(this->getContext(), scale, getLevel()); }
     ::hecate::earth::HEScaleTypeInterface $cppClass::switchLevel(unsigned level) const {return get(this->getContext(), getScale(), level);}
+
+
   }];
+
   let genVerifyDecl = 0;
 }
-
 
 def HETensor : TensorOf<[CipherType,PlainType, ErasedType]>;
 def CipherTensor : TensorOf<[CipherType]>;
@@ -194,44 +321,6 @@ def ConstantOp : Earth_Op<"constant",[]> {
       build($_builder, $_state, denseValues, $_builder.getF64FloatAttr(rms));
       }]>];
 }
-
-def VariableOp : Earth_Op<"variable",[]> {
-
-  let summary = "variable";
-
-  let arguments = (ins AnyAttr:$value);
-  // AnyAttr because of constant hoisting
-  let results = (outs ErasedTensor);
-
-  code extraClassDeclaration = [{
-    static bool isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs) ;
-    bool isConst();
-  }];
-
-  code extraClassDefinition = arithClassDefinition # [{
-    bool $cppClass::isConst(){
-      return false;
-    }
-    bool $cppClass::isCompatibleReturnTypes(::mlir::TypeRange lhs, ::mlir::TypeRange rhs){
-      return !rhs.back().dyn_cast<HEScaleTypeInterface>().isCipher();
-    }
-    bool $cppClass::isConsume() {
-      return false;
-    }
-    bool $cppClass::isSingle() {
-      return true;
-    }
-    ::llvm::SmallVector<double, 2> $cppClass::differentiate(::llvm::ArrayRef<double> gradient,
-        ::llvm::ArrayRef<double> estimation){
-      return {0 };
-    }
-    ::llvm::SmallVector<double, 1> $cppClass::estimateValue(::llvm::ArrayRef<double> estimation){
-      return {0};
-    }
-  }];
-}
-
-
 
 /* ######### Unary Operations ########## */
 
@@ -347,11 +436,7 @@ def BootstrapOp : Unary_Earth_Op<"bootstrap"> {
 }
 
 /* ######## Scale Management Operations ####### */
-def EraseTypeOp : Unary_Earth_Op<"erase"> {
-  let arguments = (ins HETensor:$value);
-  let results = (outs HETensor);
-  let hasCanonicalizer = 1;
-}
+
 
 def DummyOp : Unary_Earth_Op<"dummy", [SameOperandsAndResultType]> {
   let arguments = (ins HETensor:$value);
@@ -390,11 +475,7 @@ def MultIntOp: Unary_Earth_Op<"mult_int", [SameOperandsAndResultType]>  {
   let results = (outs HETensor);
   let hasCanonicalizer = 1;
 }
-def ScaleCastOp: Unary_Earth_Op<"scale_cast">  {
-  let arguments = (ins HETensor:$value, I64Attr:$integer);
-  let results = (outs HETensor);
-  let hasCanonicalizer = 1;
-}
+
 
 
 def ApplyScheduleOp : Unary_Earth_Op<"apply_schedule", [SameOperandsAndResultType]> {
@@ -605,14 +686,6 @@ def MulOp: Earth_Op<"mul", [Commutative]> {
         getOperand(lowerIdx).setType(getOperandScaleType(higherIdx).toPlain().switchScale(param));
         return;
       }
-      /* if (getOperandScale(0)+getOperandScale(1) < param ){ */
-      /*   OpBuilder builder(getOperation()); */
-      /*   getOperation()->setOperand(0, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(0), param - getOperandScale(0))); */
-      /* } */
-      /* if (getOperandScale(1) < param ){ */
-      /*   OpBuilder builder(getOperation()); */
-      /*   getOperation()->setOperand(1, builder.create<hecate::earth::UpscaleOp>( getLoc(), getOperand(1), param - getOperandScale(1))); */
-      /* } */
       processOperandsPARS(param);
     }
 
