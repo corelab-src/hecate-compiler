@@ -24,7 +24,7 @@ cmake -S . -B build -DMLIR_ROOT=$HOME/install/MLIR \
                 -DCMAKE_CXX_COMPILER=clang++ \
                 -DLLVM_EXTERNAL_LIT=$HOME/volume/llvm-project/build/bin/llvm-lit \
                 -DCMAKE_BUILD_TYPE=Release \
-                -DENABLE_PRINT_OPSTATS=ON
+                -DENABLE_PRINT_OPSTATS=OFF
 cmake --build build -j$(nproc)
 
 echo "successfully built the Hecate optimizer"
@@ -45,6 +45,8 @@ echo "========================================="
 # pip uninstall -y hetorch
 # pip install dist/hetorch-0.0.1.tar
 
+echo "successfully installed the Hecate"
+echo "========================================="
 cd
 
 echo "Successfully installed the Hecate Python packages"
@@ -52,7 +54,7 @@ echo "=========================================="
 echo "Setup complete! Available commands:"
 echo ""
 echo "Workflow commands:"
-echo "  hc-trace        - Trace benchmarks (requires --opt flag)"
+echo "  hc-trace        - Trace benchmarks "
 echo "  hc-opt          - Run optimizer on traced files (requires --opt flag)"
 echo "  hc-test         - Test optimized files (requires --opt flag)"
 echo "  hc-tot          - Run all three steps (trace, opt, test)"
@@ -77,3 +79,5 @@ echo "  hbt dacapo 40 ResNet HEONGPU GPU [additional-args]"
 echo "  hc-test dacapo 40 ResNet HEONGPU GPU [additional-args]"
 echo ""
 echo "=========================================="
+
+
