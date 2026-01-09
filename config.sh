@@ -6,23 +6,7 @@ alias hopt=$HECATE/build/bin/hecate-opt
 alias hopt-debug=$HECATE/build-debug/bin/hecate-opt
 
 mkdir -p $HECATE/examples/traced
-mkdir -p $HECATE/examples/optimized/eva
-mkdir -p $HECATE/examples/optimized/elasm
-mkdir -p $HECATE/examples/optimized/dacapo
-mkdir -p $HECATE/examples/optimized/pars
-mkdir -p $HECATE/examples/optimized/simple_loop
-mkdir -p $HECATE/examples/optimized/flex_loop
-mkdir -p $HECATE/examples/optimized/packed_loop
-mkdir -p $HECATE/examples/optimized/unroll_loop
-mkdir -p $HECATE/examples/optimized/packed_flex_loop
-mkdir -p $HECATE/examples/optimized/packed_unroll_loop
-mkdir -p $HECATE/examples/optimized/unroll_flex_loop
-mkdir -p $HECATE/examples/optimized/unroll_packed_loop
-mkdir -p $HECATE/examples/optimized/unroll_factor_loop
-mkdir -p $HECATE/examples/optimized/packed_unroll_flex_loop
-mkdir -p $HECATE/examples/optimized/dacapo_flex
-mkdir -p $HECATE/examples/optimized/dacapo_rh
-mkdir -p $HECATE/examples/optimized/pars_rh
+mkdir -p $HECATE/examples/traced/cst
 mkdir -p $HECATE/examples/benchinputs
 
 build-hopt()(

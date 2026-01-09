@@ -19,6 +19,10 @@ if __name__ == "__main__":
     HECATE = os.getenv("HECATE")
     print(HECATE)
     
+    # Ensure output director exists 
+    out_dir = os.path.join(HECATE, "examples", "optimized", compile_opt)
+    os.makedirs(out_dir, exist_ok=True)
+
     # Construct and execute the Hecate optimizer command
     # command = f"$HECATE/build/bin/hecate-opt --{compile_opt} \
     #         --ckks-config={HECATE}/profiled_{library}_{device}.json \
