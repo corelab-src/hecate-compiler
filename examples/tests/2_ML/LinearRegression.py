@@ -70,7 +70,6 @@ if __name__ == "__main__":
     argv = hc.hc_parser(__file__)
     compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv
     # eliminate benchmark from argv for hc.setLibnHW
-    argv.pop(2)
         
     # Setup Hecate environment
     hc.setLibnHW(argv) # Set the path to the libnHW.so
