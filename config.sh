@@ -108,7 +108,7 @@ except ValueError:
 " "$t0" "$t1" "$t2" "$t3"
 }
 
-hc-tot()(
+hc-all()(
     cd $HECATE/examples
     total_time=$(date +%s.%N)
     echo "======================================"
@@ -126,7 +126,37 @@ hc-tot()(
 
     _hc_print_time_table "$total_time" "$trace_time" "$opt_time" "$test_time"
     echo "======================================"
-    echo "Finished hc-tot ${@:1}"
+    echo "Finished hc-all ${@:1}"
+)
+
+hc-trace-opt()(
+    cd $HECATE/examples
+    begin_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Starting hc-trace ${@:1}"
+    hc-trace ${@:1}
+    trace_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Starting hc-opt ${@:1}"
+    hc-opt ${@:1}
+    opt_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Finished hc-trace-opt ${@:1}"
+)
+
+hc-opt-test()(
+    cd $HECATE/examples
+    begin_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Starting hc-trace ${@:1}"
+    hc-trace ${@:1}
+    trace_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Starting hc-opt ${@:1}"
+    hc-opt ${@:1}
+    opt_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Finished hc-trace-opt ${@:1}"
 )
 
 hc-eval()(
