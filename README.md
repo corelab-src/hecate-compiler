@@ -19,8 +19,41 @@ We aim to support privacy-preserving machine learning and deep learning applicat
     <!-- + [One-liner for compilation and testing](#one-liner-for-compilation-and-testing) -->
   * [Papers](#papers)
   * [Citations](#citations)
-
+  
 ## Installation 
+
+### Docker Installation (Recommended)
+
+The easiest way to get started is using Docker.
+
+#### Build Docker Image
+```bash
+# From project root or any directory
+./script/dockerbuild.sh
+
+# Or with custom image name/tag
+IMAGE_NAME=hecate IMAGE_TAG=v1.0 ./script/dockerbuild.sh
+```
+
+#### Run Container
+```bash
+docker run --gpus all -it \
+  -e HOST_USERNAME=$(whoami) \
+  -e HOST_UID=$(id -u) \
+  -e HOST_GID=$(id -g) \
+  --network=host \
+  --ipc=host \
+  --ulimit memlock=-1 \
+  --name hecate \
+  -v "$(pwd):/home/$(whoami)" \
+  hecate:latest
+```
+
+> **Note**: The `HOST_*` environment variables map your host user to the container, solving volume permission issues.
+
+---
+
+### Manual Installation
 
 ### Requirements 
 ```
@@ -92,10 +125,11 @@ sudo cmake --install build
 cd .. 
 ```
 #### Optional : Install Directory  to maintain multiple versions or a debug build
+CMAKE_CUDA_ARCHITECTURES: Ampere (86), Ada (89), Hopper (90), Blackwell (120)
 ```bash
 git clone git@git.corelab.or.kr:corelab/HEonGPU.git
 cd HEonGPU
-cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=86 -DCMAKE_INSTALL_PREFIX=<HEON_INSTALL>
+cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=120 -DCMAKE_INSTALL_PREFIX=<HEON_INSTALL>
 cmake --build build
 sudo cmake --install build
 cd .. 
