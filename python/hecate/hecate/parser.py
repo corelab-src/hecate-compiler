@@ -55,13 +55,12 @@ def hc_parser(command_path):
     # Positional argument: benchmark
     parser.add_argument("benchmark", type=str, nargs="?", default="Format", help="Benchmark name, default is Format")
     # Optional arguments
-    # parser.add_argument("--opt", type=str, default="dacapo", help="Compile type")
-    parser.add_argument("--opt", type=str, required=True, help="Compile type") # temporary required
+    parser.add_argument("--opt", type=str, default="dacapo", help="Compile type")
     parser.add_argument("--waterline", type=int, default=40, help="Waterline")
     parser.add_argument("--library", type=str, default="HEONGPU", help="Library")
     parser.add_argument("--device", type=str, default="GPU", choices=["GPU", "CPU"], help="Device")
     parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
-    parser.add_argument("--input", type=str, default="not used",
+    parser.add_argument("--input", type=str, default="default setup",
                         help="If set to 'True', load input data from the specific folder's benchmark_name.json file; otherwise")
     # split: dimension split
     parser.add_argument("--split", type=int, default=0,
@@ -79,7 +78,7 @@ def hc_parser(command_path):
     else:
         args.library = args.library.upper()
     
-    if args.input.lower() == "not used":
+    if args.input.lower() == "default setup":
         print("This benchmark does not use input data, inherit from parent class")
     elif args.input.lower() == "false":
         print(f"Input option = False. Use random input data in {args.benchmark} file")
@@ -129,7 +128,7 @@ def hc_parser(command_path):
     # flatten and pad input data, padding is optional
     global input_length, epochs, padded_length
     padded_data = []
-    if args.input.lower() == "not used":
+    if args.input.lower() == "default setup":
         input_length = 0
         padded_length = 0
         raw_shape = ()
@@ -156,10 +155,22 @@ def hc_parser(command_path):
     # convert arguments to before_command format
     argv = [args.opt, args.waterline, args.benchmark, args.library, args.device, args.epochs, padded_data]    
     # print command and arguments
-    print(f"{'Benchmark':<25}  {'Opt':<25} {'Waterline':<12}")
-    print(f"{args.benchmark:<25}  {args.opt:<25} {args.waterline:<12}\n")
-    print(f"{'Library':<12}  {'Device':<12} {'Epochs':<12} {'Input':<12}")
-    print(f"{args.library:<12}  {args.device:<12} {args.epochs:<12} {args.input:<12}\n")
+    
+    # Check if we are running a benchmark (hc-trace)
+    abs_path = os.path.abspath(command_path)
+    is_benchmark = "benchmarks" in abs_path
+
+    print("=" * 47)
+    print(f"[{'Benchmark':<9}]: {args.benchmark}")
+    if not is_benchmark:
+        print(f"[{'Opt':<9}]: {args.opt}")
+    print(f"[{'Waterline':<9}]: {args.waterline}")
+    print(f"[{'Library':<9}]: {args.library}")
+    if not is_benchmark:
+        print(f"[{'Device':<9}]: {args.device}")
+    print(f"[{'Epochs':<9}]: {args.epochs}")
+    print(f"[{'Input':<9}]: {args.input}")
+
     # print(f"{'Split':<12}  {'Padding':<12}")
     # print(f"{args.split:<12}  {args.padding:<12}\n")
     # print(f"{'args.split':<12} {'Padded shape':<12}  {'Flattened shape':<16}  {'Raw shape'}")
@@ -170,9 +181,9 @@ def hc_parser(command_path):
     #     print(f"{'0':<12} {padded_length:<12}  {input_length:<16}  {raw_shape}")
     # print("")
     # print("input_length:", input_length)
-    print("================================================")
+    print("=" * 47)
     print("arguments parsing and data pre-processing done")
-    print("================================================")
+    print("")
 
     return argv
 
