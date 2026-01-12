@@ -529,33 +529,33 @@ void registerPrototypePipeline(cl::opt<std::string> &outputFilename) {
           stem = outputName.stem();
           dir = outputName.parent_path();
         }
-        if (enable_check_smu)
+        if (opt.enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRemoveBootstrap());
         pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createBypassDetection({waterline, 0.5}));
-        pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createCandidateSelection({waterline, output_val}));
-        pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createDaCapoPlanner({waterline, output_val}));
+            hecate::earth::createBypassDetection({opt.waterline, 0.5}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createCandidateSelection(
+            {opt.waterline, opt.output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createDaCapoPlanner(
+            {opt.waterline, opt.output_val}));
         pm.addNestedPass<func::FuncOp>(
             hecate::earth::createBootstrapPlacement());
-        pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createProactiveRescaling({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createProactiveRescaling(
+            {opt.waterline, opt.output_val}));
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRescaleHoisting());
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
         pm.addPass(mlir::createCanonicalizerPass());
         //   pm.addNestedPass<func::FuncOp>(hecate::earth::createRescaleHoisting());
         pm.addPass(mlir::createCSEPass());
 
-        if (enable_check_smu)
+        if (opt.enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 
         pm.addPass(createCSEPass());
         pm.addPass(createCanonicalizerPass());
         //   pm.addNestedPass<func::FuncOp>(hecate::earth::createRescaleHoisting());
 
-        if (enable_printer)
+        if (opt.enable_printer)
           pm.addPass(createLocationSnapshotPass(
               OpPrintingFlags().enableDebugInfo(false, false),
               dir + "/" + stem + ".earth.mlir", "earth"));
@@ -566,7 +566,7 @@ void registerPrototypePipeline(cl::opt<std::string> &outputFilename) {
         pm.addNestedPass<func::FuncOp>(
             hecate::ckks::createUpscaleToMulcpConversionPass());
 
-        if (enable_printer)
+        if (opt.enable_printer)
           pm.addPass(createLocationSnapshotPass(
               OpPrintingFlags().enableDebugInfo(false, false),
               dir + "/" + stem + ".ckks.mlir", "ckks"));
@@ -588,20 +588,20 @@ void registerPrototypePipeline(cl::opt<std::string> &outputFilename) {
           stem = outputName.stem();
           dir = outputName.parent_path();
         }
-        if (enable_check_smu)
+        if (opt.enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
-        pm.addNestedPass<func::FuncOp>(
-            hecate::earth::createProactiveRescaling({waterline, output_val}));
+        pm.addNestedPass<func::FuncOp>(hecate::earth::createProactiveRescaling(
+            {opt.waterline, opt.output_val}));
         pm.addNestedPass<func::FuncOp>(hecate::earth::createRescaleHoisting());
         pm.addNestedPass<func::FuncOp>(hecate::earth::createEarlyModswitch());
 
-        if (enable_check_smu)
+        if (opt.enable_check_smu)
           pm.addPass(hecate::earth::createSMUChecker());
 
         pm.addPass(createCSEPass());
         pm.addPass(createCanonicalizerPass());
 
-        if (enable_printer)
+        if (opt.enable_printer)
           pm.addPass(createLocationSnapshotPass(
               OpPrintingFlags().enableDebugInfo(false, false),
               dir + "/" + stem + ".earth.mlir", "earth"));
@@ -612,7 +612,7 @@ void registerPrototypePipeline(cl::opt<std::string> &outputFilename) {
         pm.addNestedPass<func::FuncOp>(
             hecate::ckks::createUpscaleToMulcpConversionPass());
 
-        if (enable_printer)
+        if (opt.enable_printer)
           pm.addPass(createLocationSnapshotPass(
               OpPrintingFlags().enableDebugInfo(false, false),
               dir + "/" + stem + ".ckks.mlir", "ckks"));
