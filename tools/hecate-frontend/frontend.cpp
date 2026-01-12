@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 using namespace mlir;
+#define DEBUG 0
 
 void handler(int sig) {
   void *array[10];
@@ -51,6 +52,18 @@ valueID createConstant(Context *ctxt, double *data, int64_t len, char *filename,
   ctxt->valueMap.push_back(cons);
   return ctxt->valueMap.size() - 1;
 }
+valueID createEncode(Context *ctxt, valueID lhs, int64_t len, char *filename,
+                     size_t line) {
+  // EncodeOp is used to encode a index value into a plaintext
+  auto &&builder = *ctxt->builder;
+  auto &&source = ctxt->valueMap[lhs];
+  auto location =
+      mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+  // auto cons = builder.create<hecate::earth::EncodeOp>(location, source);
+  // ctxt->valueMap.push_back(cons);
+  return ctxt->valueMap.size() - 1;
+}
+
 valueID createArithConstant(Context *ctxt, int data, char *filename,
                             size_t line) {
   auto &&builder = *ctxt->builder;
@@ -101,6 +114,11 @@ void initFunc(Context *ctxt, funcID fun, valueID *args, size_t len) {
       args[i++] = valueMap.size() - 1;
     }
   }
+#if DEBUG
+  llvm::errs() << "Function " << funcOp.getName().str() << " created.\n";
+  llvm::errs() << "funcID: " << fun << "\n";
+  funcOp.dump();
+#endif
 }
 
 char *save(Context *c, char *const_name, char *mlir_name) {
@@ -108,17 +126,23 @@ char *save(Context *c, char *const_name, char *mlir_name) {
                                   c->builder->getStringAttr(mlir_name));
   std::string s_const_name(const_name);
   mlir::PassManager pm(&c->ctxt);
+#if DEBUG
+  llvm::errs() << "Before optimization:\n";
+  c->mod->dump();
+#endif
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopRotation());
-  /* pm.addNestedPass<func::FuncOp>( */
-  /*     earth::createElideConstant({s_const_name + "/"})); */
+  pm.addNestedPass<func::FuncOp>(hecate::earth::createLoopPeelFirstIteration());
+  pm.addPass(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(
+      earth::createElideConstant({s_const_name + "/" + "cst/"}));
   pm.addNestedPass<func::FuncOp>(earth::createPrivatizeConstant());
   pm.addPass(createCanonicalizerPass());
 
   auto ret = pm.run(*c->mod);
   std::error_code EC;
   llvm::raw_fd_ostream outputFile(mlir_name, EC);
+
   c->mod->print(outputFile, mlir::OpPrintingFlags()
                                 .printGenericOpForm()
                                 .enableDebugInfo()
@@ -147,6 +171,9 @@ valueID createUnary(Context *ctxt, size_t opcode, valueID lhs, char *filename,
     if (source.getType().dyn_cast<hecate::earth::HEScaleTypeInterface>()) {
       auto res = builder.create<hecate::earth::NegateOp>(location, source);
       valueMap.push_back(res);
+    } else {
+      auto res = builder.create<mlir::arith::NegFOp>(location, source);
+      valueMap.push_back(res);
     }
     break;
   }
@@ -167,6 +194,11 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
   auto &&srcl = valueMap[lhs];
   auto &&srcr = valueMap[rhs];
 
+#if DEBUG
+  llvm::errs() << "Creating Binary Operation: " << opcode << "\n";
+  srcl.dump();
+  srcr.dump();
+#endif
   switch (opcode) {
   case 6: {
     auto res = builder.create<hecate::earth::AddOp>(location, srcl, srcr);
@@ -196,10 +228,20 @@ valueID createBinary(Context *ctxt, size_t opcode, valueID lhs, valueID rhs,
     valueMap.push_back(res);
     break;
   }
+  case 102: {
+    auto res = builder.create<mlir::arith::DivFOp>(location, srcl, srcr);
+    valueMap.push_back(res);
+    break;
+  }
 
   default:
     assert(0 && "Binary Operation type is wrong");
   }
+#if DEBUG
+  llvm::errs() << "Binary Operation created.\n";
+  valueMap[valueMap.size() - 1].dump();
+  llvm::errs() << location << '\n';
+#endif
   return valueMap.size() - 1;
 }
 
@@ -221,20 +263,98 @@ void createCall(Context *ctxt, funcID fid, valueID *args, valueID *rets,
   auto &&builder = *ctxt->builder;
   auto location =
       mlir::FileLineColLoc::get(builder.getStringAttr(filename), line, 0);
+
+  auto &&callee = ctxt->funcMap[fid];
+  MLIRContext *ctx = callee.getContext();
+  mlir::OpBuilder::InsertPoint ip = builder.saveInsertionPoint();
+  // Get existing 'call_count' attribute (if any)
+  IntegerAttr countAttr = callee->getAttrOfType<IntegerAttr>("call_count");
+
+  // If the attribute exists, increment it; otherwise start from 1
+  int64_t newCount = 1;
+  if (countAttr)
+    newCount = countAttr.getInt() + 1;
+
+  // Create a new i64 IntegerAttr with the updated count
+  auto callCountAttr = IntegerAttr::get(IntegerType::get(ctx, 64), newCount);
+
+  // Set (or overwrite) the 'call_count' attribute on the callee
+  callee->setAttr("call_count", callCountAttr);
+
+  // Prepare types
+  mlir::Type cipherTy =
+      RankedTensorType::get(llvm::SmallVector<int64_t, 1>{1},
+                            builder.getType<hecate::earth::CipherType>(0, 0));
+  mlir::Type erasedTy = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 1>{1},
+      builder.getType<hecate::earth::ErasedType>(hecate::earth::kUnknownLevel,
+                                                 hecate::earth::kUnknownScale));
+
+  // callee-side
+  //  First time calling this function, set types as ErasedType/CipherType
+  if (!countAttr) {
+    // set function type ErasedType -> ErasedType
+    llvm::SmallVector<mlir::Type, 1> argTypes(callee.getNumArguments(),
+                                              erasedTy);
+    llvm::SmallVector<mlir::Type, 1> retTypes(callee.getNumResults(), erasedTy);
+    callee.setType(builder.getFunctionType(argTypes, retTypes));
+
+    // set argument types in function block
+    mlir::Block &entryBlock = callee.getBody().front();
+    for (auto arg : entryBlock.getArguments()) {
+      arg.setType(erasedTy);
+    }
+
+    // Arguments in function set as CipherType with level 0
+    builder.setInsertionPointToStart(&callee.front());
+    for (auto arg : callee.getArguments()) {
+      auto castOp =
+          builder.create<hecate::earth::CastOp>(location, cipherTy, arg);
+      arg.replaceAllUsesExcept(castOp.getResult(), castOp);
+    }
+    // Results in function set as ErasedType
+    auto terminator = callee.front().getTerminator();
+    for (size_t i = 0; i < terminator->getNumOperands(); i++) {
+      builder.setInsertionPoint(callee.front().getTerminator());
+      auto castOp = builder.create<hecate::earth::CastOp>(
+          location, erasedTy, terminator->getOperand(i));
+      terminator->setOperand(i, castOp);
+    }
+  }
+  builder.restoreInsertionPoint(ip);
+  // caller-side
+  // inputs set as ErasedType
   llvm::SmallVector<mlir::Value> inputs;
   for (size_t i = 0; i < len; i++) {
     auto v = ctxt->valueMap[args[i]];
     inputs.push_back(v);
   }
-
-  auto &&callee = ctxt->funcMap[fid];
   auto callOp = builder.create<mlir::func::CallOp>(
       location, callee.getFunctionType().getResults(), callee.getName(),
       inputs);
+  builder.setInsertionPoint(callOp);
+  for (size_t i = 0; i < callOp.getNumOperands(); i++) {
+    auto v = callOp.getOperand(i);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, erasedTy, v);
+    callOp.setOperand(i, castOp);
+  }
+
+  //  Results set as ErasedType
+  builder.setInsertionPointAfter(callOp);
   for (size_t i = 0; i < callOp.getResults().size(); i++) {
-    ctxt->valueMap.push_back(callOp.getResult(i));
+    auto v = callOp.getResult(i);
+    auto castOp = builder.create<hecate::earth::CastOp>(location, cipherTy, v);
+    ctxt->valueMap.push_back(castOp);
     rets[i] = ctxt->valueMap.size() - 1;
   }
+#if DEBUG
+  llvm::errs() << "Creating Call Operation to function: \n";
+  for (auto oper : callOp.getOperands()) {
+    oper.dump();
+  }
+  callOp.dump();
+
+#endif
 }
 
 void setOutput(Context *ctxt, funcID fun, valueID *ret, size_t len) {
@@ -245,6 +365,7 @@ void setOutput(Context *ctxt, funcID fun, valueID *ret, size_t len) {
     types.push_back(ctxt->valueMap[ret[i]].getType());
   }
   auto func = ctxt->funcMap[fun];
+  ctxt->builder->setInsertionPointToEnd(&func.front());
   ctxt->builder->create<mlir::func::ReturnOp>(func.getLoc(), rets);
   auto retType = func.getFunctionType();
   func.setFunctionType(

@@ -8,24 +8,26 @@ It includes command-line argument parsing via argparse and several helper functi
 """
 
 import faulthandler
+
 faulthandler.enable()
 
 import hecate as hc
 import hetorch.stat as stat
 
 # a_slot_length = 2 ** (17-1) # HEaaN GPU, 2^16 = 65536
-a_slot_length = 2 ** (16 -1) # HEONGPU, 2^15 = 32768
+a_slot_length = 2 ** (16 - 1)  # HEONGPU, 2^15 = 32768
 a_length, a_padded_length, a_epochs = None, None, None
+
 
 @hc.func("c,c")
 def LinearRegression(x_data, y_data):
     """
     @brief Perform linear regression using gradient descent.
-    
+
     This Hecate-traced function implements a simple linear regression using gradient descent.
     It takes input data and ground truth labels, computes the error, and updates the weight (W) and bias (b)
     over a specified number of epochs (iterations).
-    
+
     @param x_data The input data.
     @param y_data The ground truth labels.
     @return A tuple (W, b) where W is the learned weight and b is the learned bias.
@@ -37,16 +39,16 @@ def LinearRegression(x_data, y_data):
     W = 1.0
     b = 0.0
     learning_rate = -0.01
-    
+
     # Training loop
     for _ in range(epochs):
         xW = x_data * W
         xWb = xW + b
         error = xWb - y_data
         errX = error * x_data
-        meanErrX = errX *(1/half_length)
+        meanErrX = errX * (1 / half_length)
         gradW = stat.fold_sum_elements(meanErrX, length)
-        meanErr = error * (1/half_length)
+        meanErr = error * (1 / half_length)
         gradb = stat.fold_sum_elements(meanErr, length)
         # gradW = stat.sum_LRelements(meanErrX)
         # meanErr = error * (1/half_length)
@@ -60,20 +62,21 @@ def LinearRegression(x_data, y_data):
 
     return W, b
 
+
 # ------------------------------------------------------------------
 # Main Function
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     """
     @brief Main entry point for tracing and saving the Hecate module.
-    
+
     This function parses command-line arguments, then performs the Hecate module saving
     (which traces the defined functions), and finally prints the saved module name.
     """
     # aft_command : new-trace Format --opt dacapo --waterline 40 --library HEAAN --hardware GPU --epochs 2 --input True --padding True
     # aft_command : new-opt Format --opt dacapo --waterline 40 --library HEAAN --hardware GPU --epochs 2 --input True --padding True
     # aft_command : new-test Format --opt dacapo --waterline 40 --library HEAAN --hardware GPU --epochs 2 --input True --padding True
-    
+
     # Parse command-line arguments
     argv = hc.hc_parser(__file__)
     compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv

@@ -32,59 +32,78 @@ source_dir = source_path.parent
 hecate_dir = os.environ["HECATE"]
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 val_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=str(hecate_dir)+"/examples/data/CIFAR10", train=False, download=True, transform=transforms.Compose([
-        transforms.ToTensor(),
-        normalize,
-])),
-batch_size=128, shuffle=False,
-num_workers=4, pin_memory=True)
+    datasets.CIFAR10(
+        root=str(hecate_dir) + "/examples/data/CIFAR10",
+        train=False,
+        download=True,
+        transform=transforms.Compose(
+            [
+                transforms.ToTensor(),
+                normalize,
+            ]
+        ),
+    ),
+    batch_size=128,
+    shuffle=False,
+    num_workers=4,
+    pin_memory=True,
+)
+
 
 def getModel():
     model = torch.nn.DataParallel(vgg16_mpcb_orion())
-    model_dict = torch.load(str(hecate_dir)+"/examples/data/vgg16_mpcb_orion_silu_avgpool_model", map_location=torch.device('cpu'))
-    model.module.load_state_dict(model_dict['state_dict'])
+    model_dict = torch.load(
+        str(hecate_dir) + "/examples/data/vgg16_mpcb_orion_silu_avgpool_model",
+        map_location=torch.device("cpu"),
+    )
+    model.module.load_state_dict(model_dict["state_dict"])
     model = model.eval()
     return model
 
+
 def preprocess(x):
     import json
+
     lib_name = library
     hw_name = hardware
     config_name = f"profiled_{lib_name}_{hw_name}.json"
-    with open(str(hecate_dir) + "/" + config_name,'r') as f:
+    with open(str(hecate_dir) + "/" + config_name, "r") as f:
         config = json.load(f)
- 
+
     initial_shapes = {
-    # Constant
-    "nt" : config['polynomialDegree'] >> 1,
-    "bb" : 32,
-    # Input Characteristics (Cascaded)
-    "ko" : 1,
-    "ho" : 32,
-    "wo" : 32
+        # Constant
+        "nt": config["polynomialDegree"] >> 1,
+        "bb": 32,
+        # Input Characteristics (Cascaded)
+        "ko": 1,
+        "ho": 32,
+        "wo": 32,
     }
     conv1_shapes = CascadeConv(initial_shapes, model.module.conv_1_1.Conv2d)
     close = shapeClosure(**conv1_shapes)
     return close["MPP"](x)[0]
 
-def process(x) : 
+
+def process(x):
     model = getModel()
-    torch_res = model(x) 
+    torch_res = model(x)
     torch_res = torch_res.cpu().detach().numpy()[0]
     return torch_res
 
-def postprocess(res, torch_res) : 
+
+def postprocess(res, torch_res):
     torch_res_size = 1
     for i in range(len(torch_res.shape)):
         torch_res_size *= torch_res.shape[i]
-    return res[0,:torch_res_size].reshape(torch_res.shape)
+    return res[0, :torch_res_size].reshape(torch_res.shape)
     # return res[0,:torch_res_size].reshape(torch_res.shape)
 
-if __name__ == "__main__" :
+
+if __name__ == "__main__":
     print("MPCB-based VGG16 Test")
     model = getModel()
     model = model.eval()
-    
+
     mem_before = hc.print_mem("Before hevm.run()")
     a_compile_type = compile_type
     a_compile_opt = int(waterline)
@@ -93,7 +112,10 @@ if __name__ == "__main__" :
     stem = Path(__file__).stem
     hevm = hc.HEVM()
     stem = Path(__file__).stem
-    hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
+    hevm.load(
+        f"traced/cst/_hecate_{stem}.cst",
+        f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm",
+    )
 
     (input, target) = val_loader.dataset[0]
     input_var = input.unsqueeze(0)
@@ -103,12 +125,12 @@ if __name__ == "__main__" :
     [hevm.setInput(i, dat) for i, dat in enumerate([preprocess(input_var)])]
     timer = time.perf_counter_ns()
     hevm.run()
-    timer = time.perf_counter_ns() -timer
+    timer = time.perf_counter_ns() - timer
     res = hevm.getOutput()
     res = postprocess(res, reference)
     reference = reference / 32.0
-    err = res - reference 
+    err = res - reference
     # print(res)
     # print(reference)
-    rms = np.sqrt( np.sum(err*err) / res.shape[-1])
-    hevm.printer(timer/pow(10, 9), rms)
+    rms = np.sqrt(np.sum(err * err) / res.shape[-1])
+    hevm.printer(timer / pow(10, 9), rms)

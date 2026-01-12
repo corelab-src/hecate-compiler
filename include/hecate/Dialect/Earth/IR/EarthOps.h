@@ -27,10 +27,13 @@
 #define GET_TYPEDEF_CLASSES
 #include "hecate/Dialect/Earth/IR/EarthOpsTypes.h.inc"
 #define GET_OP_CLASSES
+#include "hecate/Dialect/Earth/IR/DynamicEarthOps.h.inc"
 #include "hecate/Dialect/Earth/IR/EarthOps.h.inc"
 
 namespace hecate {
 namespace earth {
+static constexpr unsigned kUnknownLevel = std::numeric_limits<unsigned>::max();
+static constexpr unsigned kUnknownScale = std::numeric_limits<unsigned>::max();
 void registerSCFOpInterfaceExternalModels(mlir::DialectRegistry &registry);
 ::hecate::earth::HEScaleTypeInterface getScaleType(mlir::Value v);
 ::mlir::RankedTensorType getTensorType(mlir::Value v);

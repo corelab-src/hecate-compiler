@@ -213,10 +213,10 @@ def BootstrappingLowering : Pass<"boot-lowering", "::mlir::func::FuncOp"> {
     Lowering the bootstrap operations with the arithmetic operations.
   }];
 }
-def LoopRotation : Pass<"loop-rotation", "::mlir::func::FuncOp"> {
-  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
+def LoopPeelFirstIteration : Pass<"loop-peel-first", "::mlir::func::FuncOp"> {
+  let summary = "Peeling the first iteration of the loop and remove EraseType from arguments";
   let description = [{
-    This pass changes the loop structure through rotation and removes EraseOp.
+    This pass peels the first iteration of the loop and removes EraseType from loop arguments.
   }];
 }
 def LoopUnroll : Pass<"loop-unrolling", "::mlir::func::FuncOp"> {
@@ -275,12 +275,6 @@ def WrapUpLoopBody : Pass<"wrapup-loop-body", "::mlir::func::FuncOp"> {
     "The maximum result value bits of return value">,
   ];
 }
-def RemoveErasedOp : Pass<"remove-erasedop", "::mlir::func::FuncOp"> {
-  let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
-  let description = [{
-    This pass changes the loop structure through rotation and removes EraseOp.
-  }];
-}
 def UnrollFactorAnalysis : Pass<"find-optimized-unrollfactor", "::mlir::func::FuncOp"> {
   let summary = "Rotation the loop in the FuncOp, and remove EraseOp";
   let description = [{
@@ -291,6 +285,18 @@ def RescaleHoisting : Pass<"rescale-hoisting", "::mlir::func::FuncOp"> {
   let summary = "Hoist rescalec operation to backwards";
   let description = [{
     This pass relocates the rescalec operation when operands of an operation are all from the rescalec.
+  }];
+}
+def CallerBootstrapMgmt : Pass<"caller-level-mgmt", "::mlir::ModuleOp"> {
+  let summary = "Bootstrap Management at Caller-side";
+  let description = [{
+  This pass manages the ciphertext level at caller-side.
+  }];
+}
+def CalleeBootstrapMgmt : Pass<"callee-level-mgmt", "::mlir::func::FuncOp"> {
+  let summary = "Bootstrap Management at Callee-side";
+  let description = [{
+  This pass manages the ciphertext level at callee-side.
   }];
 }
 /* def ScaleManagementStructuring : Pass<> */

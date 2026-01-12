@@ -31,55 +31,69 @@ hecate_dir = os.environ["HECATE"]
 # Data loading
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 val_loader = torch.utils.data.DataLoader(
-    datasets.CIFAR10(root=str(hecate_dir)+"/examples/data/CIFAR10", train=False, download=True,
-                     transform=transforms.Compose([transforms.ToTensor(), normalize])),
-    batch_size=128, shuffle=False, num_workers=4, pin_memory=True)
+    datasets.CIFAR10(
+        root=str(hecate_dir) + "/examples/data/CIFAR10",
+        train=False,
+        download=True,
+        transform=transforms.Compose([transforms.ToTensor(), normalize]),
+    ),
+    batch_size=128,
+    shuffle=False,
+    num_workers=4,
+    pin_memory=True,
+)
+
 
 def getModel():
     model = resnet20()
-    model_dict = torch.load(str(hecate_dir)+"/examples/data/resnet20_silu_model", 
-                           map_location=torch.device('cpu'))
-    model.load_state_dict(model_dict['state_dict'])
+    model_dict = torch.load(
+        str(hecate_dir) + "/examples/data/resnet20_silu_model",
+        map_location=torch.device("cpu"),
+    )
+    model.load_state_dict(model_dict["state_dict"])
     return model.eval()
 
 
 def process_reference(x):
     x = x.to("cpu")
     model = getModel().to(x.device)
-    
+
     with torch.no_grad():
         out = model(x)
         # out = model.module.conv1(x)
         # out = model.module.bn1(out)
-        # out = model.module.mish(out)        
+        # out = model.module.mish(out)
         # out = model.module.layer1(out)
 
         print("Reference output shape: ", out.shape)
     return out.flatten().cpu().numpy(), out.shape
 
+
 if __name__ == "__main__":
     print("ht-based ResNet20 Test")
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     model = getModel()
-    
+
     # Setup HEVM
     mem_before = hc.print_mem("Before hevm.run()")
     hc.setLibnHW(argv)
     hevm = hc.HEVM()
     stem = Path(__file__).stem
-    hevm.load(f"traced/_hecate_{stem}.cst", 
-              f"optimized/{compile_type}/{stem}.{waterline}._hecate_{stem}.hevm")
-    
+    hevm.load(
+        f"traced/cst/_hecate_{stem}.cst",
+        f"optimized/{compile_type}/{stem}.{waterline}._hecate_{stem}.hevm",
+    )
+
     # Get test input
     (input_img, target) = val_loader.dataset[0]
     input_var = input_img.unsqueeze(0)
     scale_factor = 32
-    
+
     # Get reference output
     reference, reference_shape = process_reference(input_var)
     print(f"Reference shape: {reference.shape}")
     print(f"Reference prediction: {np.argmax(reference)}")
-    
+
     # Pack input for HEVM
     packed_input = ht.orion_preprocess(input_var, scale_factor)
     print(f"Packed input shape: {packed_input.shape}")
@@ -94,7 +108,7 @@ if __name__ == "__main__":
     execution_time /= epochs
     mem_after = hc.print_mem("After hevm.run()")
     mem_diff = mem_after - mem_before
-    
+
     res_he = hevm.getOutput()
     ref_tensor = torch.from_numpy(reference)
     ref_tensor = ref_tensor.reshape(reference_shape)
@@ -102,12 +116,12 @@ if __name__ == "__main__":
 
     # # layer1
     # result_tensor = ht.orion_postprocess(result_tensor, reference_shape)
-    
+
     # # layer2
     # final_output_gap = 2
     # expected_clear_shape = torch.Size([1, 32, 16, 16])
     # result_tensor = ht.orion_multiplexed_postprocess(
-    #     result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor, 
+    #     result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor,
     #     expected_clear_shape,
     #     gap=final_output_gap,
     #     scale_factor=scale_factor
@@ -117,7 +131,7 @@ if __name__ == "__main__":
     # final_output_gap = 4
     # expected_clear_shape = torch.Size([1, 64, 8, 8]) # layer3
     # result_tensor = ht.orion_multiplexed_postprocess(
-    #     result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor, 
+    #     result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor,
     #     expected_clear_shape,
     #     gap=final_output_gap,
     #     scale_factor=scale_factor
@@ -126,24 +140,29 @@ if __name__ == "__main__":
     # avgpool, linear (gap = 1)
     final_output_gap = 1
     # expected_clear_shape = torch.Size([1, 64, 1, 1]) # avgpool
-    expected_clear_shape = torch.Size([1, 10, 1, 1]) # linear
+    expected_clear_shape = torch.Size([1, 10, 1, 1])  # linear
     result_tensor = ht.orion_multiplexed_postprocess(
-        result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor, 
+        result_tensor.unsqueeze(0) if result_tensor.dim() == 1 else result_tensor,
         expected_clear_shape,
-        gap=final_output_gap, 
-        scale_factor=1
+        gap=final_output_gap,
+        scale_factor=1,
     )
     ref_tensor = ref_tensor / scale_factor
-        
+
     # apply all postprocess
     result_tensor = result_tensor.reshape(reference_shape)
-    
+
     # Check if the shapes match before final comparison
-    assert result_tensor.shape == ref_tensor.shape, "result_tensor.shape: " + str(result_tensor.shape) + " != ref_tensor.shape: " + str(ref_tensor.shape)
-    rms = torch.sqrt(torch.mean(torch.pow(result_tensor - ref_tensor, 2)))    
+    assert result_tensor.shape == ref_tensor.shape, (
+        "result_tensor.shape: "
+        + str(result_tensor.shape)
+        + " != ref_tensor.shape: "
+        + str(ref_tensor.shape)
+    )
+    rms = torch.sqrt(torch.mean(torch.pow(result_tensor - ref_tensor, 2)))
     hevm.printer(execution_time, rms.item())
     print("CPU memory usage: ", mem_diff, "GB")
-    
+
     # Calculate error percentage (add small epsilon to avoid division by zero)
     diff = (result_tensor - ref_tensor).abs()
     bits = -torch.log2(diff)
@@ -153,7 +172,7 @@ if __name__ == "__main__":
     # # Find the maximum error value position (multi-dimensional support)
     # max_err_idx_flat = torch.argmax(error_percentage)
     # max_err_idx = np.unravel_index(max_err_idx_flat.cpu().numpy(), error_percentage.shape)
-    
+
     # print("\n================================================")
     # print("Evaluation Result")
     # print("================================================")
@@ -166,11 +185,15 @@ if __name__ == "__main__":
     # # print(f"Processed result:         {result_tensor}")
     # print(f"ref (max, min, mean, std): {ref_tensor.max():.7g}, {ref_tensor.min():.7g}, {ref_tensor.mean():.7g}, {ref_tensor.std():.7g}")
     # print(f"res (max, min, mean, std): {result_tensor.max():.7g}, {result_tensor.min():.7g}, {result_tensor.mean():.7g}, {result_tensor.std():.7g}")
-    bits_rms = torch.sqrt(torch.mean(bits ** 2))
-    error_rms = torch.sqrt(torch.mean(error_percentage ** 2))
-    print(f"bits (max, min, rms, std): {bits.max():.7g}, {bits.min():.7g}, {bits_rms:.7g}, {bits.std():.7g}")
-    print(f"error% (max, min, rms, std): {error_percentage.max():.7g}, {error_percentage.min():.7g}, {error_rms:.7g}, {error_percentage.std():.7g}")
-    
+    bits_rms = torch.sqrt(torch.mean(bits**2))
+    error_rms = torch.sqrt(torch.mean(error_percentage**2))
+    print(
+        f"bits (max, min, rms, std): {bits.max():.7g}, {bits.min():.7g}, {bits_rms:.7g}, {bits.std():.7g}"
+    )
+    print(
+        f"error% (max, min, rms, std): {error_percentage.max():.7g}, {error_percentage.min():.7g}, {error_rms:.7g}, {error_percentage.std():.7g}"
+    )
+
     # print("================================================")
     # print("Error distribution analysis:")
     # print("================================================")
@@ -193,7 +216,7 @@ if __name__ == "__main__":
     # # print(f"{'Reference:':<18} {ref_tensor[max_err_idx].item():.7g}")
     # # print(f"{'Difference:':<18} {diff[max_err_idx].item():.7g}")
     # # print(f"{'Error Percentage:':<18} {error_percentage[max_err_idx].item():.7g}%")
-    
+
     # target = torch.tensor([target])
     # criterion = nn.CrossEntropyLoss()
     # loss_ref = criterion(ref_tensor, target)
@@ -211,7 +234,7 @@ if __name__ == "__main__":
     # print(f"{'Reference Model Prediction:':<25} {pred_ref.item()} ({is_correct_ref})")
     # print(f"{'HE Model Prediction:':<25} {pred_he.item()} ({is_correct_he})")
     # print("================================================\n")
-    
+
     # torch.set_printoptions(profile="full")
     # # print(f"HE raw output:            {res_he}")
     # saved_path = str(source_dir)+"/../../AlexNet.pt"

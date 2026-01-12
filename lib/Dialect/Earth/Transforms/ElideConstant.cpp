@@ -30,13 +30,15 @@ struct ElideConstantPass
   void runOnOperation() override {
     auto func = getOperation();
 
+    // Prepare the constant data file name
+    std::string cst_path = name + (func.getName() + ".cst").str();
+    hecate::ConstData constData(cst_path);
+
     auto num_constants = 0;
     if (auto attr = func->getAttr("num_constants")) {
       num_constants = attr.dyn_cast<mlir::IntegerAttr>().getInt();
     }
-    hecate::ConstData constData;
-
-    SmallVector<SmallVector<double, 4>, 4> save_data;
+    constData.resize(num_constants);
 
     mlir::OpBuilder builder(func.getOperation());
 
@@ -44,16 +46,13 @@ struct ElideConstantPass
       if (auto datas = cop.getValue().dyn_cast<DenseElementsAttr>()) {
         constData.push_back(std::vector<double>(datas.value_begin<double>(),
                                                 datas.value_end<double>()));
-        cop.setValueAttr(
-            builder.getI64IntegerAttr(constData.size() + num_constants - 1));
+        cop.setValueAttr(builder.getI64IntegerAttr(num_constants++));
       }
     });
 
-    name = name + (func.getName() + ".cst").str();
-    constData.save(name, num_constants);
+    func->setAttr("num_constants", builder.getI64IntegerAttr(num_constants));
 
-    func->setAttr("num_constants",
-                  builder.getI64IntegerAttr(num_constants + save_data.size()));
+    constData.save();
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

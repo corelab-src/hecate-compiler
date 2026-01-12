@@ -10,16 +10,17 @@ add_mlir_dialect_library(EarthTransforms
  BootstrapPlacement.cpp
  CodeSegmentation.cpp
  Common.cpp
+ CallerBootstrapMgmt.cpp
+ CalleeBootstrapMgmt.cpp
  UpscaleBubbling.cpp
  EarlyModswitch.cpp
  FlexibleBootstrap.cpp
  RemoveBootstrap.cpp
- RemoveErasedOp.cpp
  DaCapoPlanner.cpp
  CoverageRecorder.cpp
  BypassDetection.cpp
  CandidateSelection.cpp
- LoopRotation.cpp
+ LoopPeelFirstIteration.cpp
  LoopUnroll.cpp
  SMUChecker.cpp
  SNRRescaling.cpp

@@ -101,6 +101,8 @@ public:
   std::vector<uint64_t> res_level;
   std::vector<uint64_t> res_dst;
   std::vector<int> integers;
+  std::vector<double> scalep;
+  std::vector<uint64_t> levelp;
 
   std::vector<std::vector<int64_t>> arg_shape;
   // Runtime configuration

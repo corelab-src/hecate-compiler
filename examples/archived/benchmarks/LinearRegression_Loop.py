@@ -1,15 +1,17 @@
 import hecate as hc
 import sys
 
-if(len(sys.argv) != 1):
+if len(sys.argv) != 1:
     a_epochs = int(sys.argv[1])
+
 
 def sum_elements(data):
     for i in range(12):
-        rot = data.rotate(1<<(11-i))
-        data = data +rot
+        rot = data.rotate(1 << (11 - i))
+        data = data + rot
 
     return data
+
 
 def create_mask(elements):
     mask = [[] for i in range(3)]
@@ -17,33 +19,33 @@ def create_mask(elements):
     temp0 = [0.0 for i in range(elements)]
     temp1 = [1.0 for i in range(elements)]
 
-    mask[0] = temp1 + temp0 
+    mask[0] = temp1 + temp0
     mask[1] = temp0 + temp1
     mask[2] = temp1 + temp1
 
     mask[0] = hc.Plain(mask[0])
     mask[1] = hc.Plain(mask[1])
     mask[2] = hc.Plain(mask[2])
-    
+
     return mask
 
 
 @hc.func("c,c,i")
-def LinearRegression_Loop(x_data, y_data, epochs) :
+def LinearRegression_Loop(x_data, y_data, epochs):
     W = hc.Plain([1.0])
     b = hc.Plain([0.0])
-    
+
     elements = 4096
     learning_rate = hc.Plain([-0.01])
 
-    with hc.loop(0, epochs, 1, inputarr = [W,b], num_elements = elements) as i:
-        xW = x_data*W
+    with hc.loop(0, epochs, 1, inputarr=[W, b], num_elements=elements) as i:
+        xW = x_data * W
         xWb = xW + b
         error = xWb - y_data
         errX = error * x_data
-        meanErrX = errX * hc.Plain([1/2048])
+        meanErrX = errX * hc.Plain([1 / 2048])
         gradW = sum_elements(meanErrX)
-        meanErr = error * hc.Plain([1/2048])
+        meanErr = error * hc.Plain([1 / 2048])
         gradb = sum_elements(meanErr)
         Wup = learning_rate * gradW
         bup = learning_rate * gradb
@@ -54,34 +56,35 @@ def LinearRegression_Loop(x_data, y_data, epochs) :
 
     return W, b
 
+
 # @hc.func("c,c,i")
-def LinearRegression_Loop(x_data, y_data, epochs) :
-   
+def LinearRegression_Loop(x_data, y_data, epochs):
+
     step = 1
     learning_rate = hc.Plain([-0.01])
-    
+
     elements = 4096
     mask = create_mask(elements)
-    W = mask[1] 
-    
+    W = mask[1]
+
     # for i in range(epochs):
-    with hc.loop(0, epochs, 1, inputarr = W) as i:
-        
+    with hc.loop(0, epochs, 1, inputarr=W) as i:
+
         xW = x_data * W
         y_predict = W + xW.rotate(elements)
-        mY = - y_data
+        mY = -y_data
 
         error0 = y_predict + mY
         error0 = error0 * mask[0]
-        error0 = error0 + error0.rotate(elements*(16-1)) 
+        error0 = error0 + error0.rotate(elements * (16 - 1))
         error1 = error0 * x_data
-        error  = [error0, error1]
-        gradW  = [error[i] * hc.Plain([1/2048]) for i in range(2)]
-        gradW  = [sum_elements(gradW[i]) for i in range(2)]
+        error = [error0, error1]
+        gradW = [error[i] * hc.Plain([1 / 2048]) for i in range(2)]
+        gradW = [sum_elements(gradW[i]) for i in range(2)]
 
-        concat_gradW  = gradW[0] * mask[0]
+        concat_gradW = gradW[0] * mask[0]
         concat_gradW1 = gradW[1] * mask[0]
-        concat_gradW += concat_gradW1.rotate(elements*(16-1)) 
+        concat_gradW += concat_gradW1.rotate(elements * (16 - 1))
         # concat_gradW = concat_gradW * hc.Plain([1/2048])
 
         Wup = concat_gradW * learning_rate
@@ -90,13 +93,10 @@ def LinearRegression_Loop(x_data, y_data, epochs) :
         # if a_compile_opt == 16 and (i+1) % 2 == 0 and i != 49:
         #     W = hc.bootstrap(W)
 
-    res = [W.rotate(elements*i) for i in range(2)]
+    res = [W.rotate(elements * i) for i in range(2)]
 
     return res[1], res[0]
 
 
-
 modName = hc.save("traced", "traced")
-print (modName)
-
-
+print(modName)

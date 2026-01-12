@@ -212,8 +212,8 @@ void HEVMInterface::printOperandsType(const HEVMOperation &op) {
   case opcode_t::ADDCP:
   case opcode_t::MULCP:
     if (!runConfig.settings.usePreencode) {
-      std::cout << ", (plains[" << op.rhs << "] <" << int16_t(op.rhs >> 10)
-                << " * " << uint64_t(op.rhs & 0x3FF) << ">)";
+      std::cout << ", (plains[" << op.rhs << "] <" << levelp[op.rhs] << " * "
+                << scalep[op.rhs] << ">)";
     } else {
       std::cout << ", (plains[" << op.rhs << "] <" << getPlainLevel(op.rhs)
                 << " * " << getPlainScale(op.rhs) << ">)";
@@ -333,9 +333,10 @@ void HEVMInterface::printResultsType(const HEVMOperation &op) {
 
 void HEVMInterface::printValueRange(const HEVMOperation &op) {
   auto opcode = static_cast<opcode_t>(op.opcode);
+  auto op_name = getOpName(opcode);
   msg_t plain_result = runVisible(op);
   rangeTracker.logOperation(op, num_op_, getOpName(opcode), plain_result);
-  if (opcode != opcode_t::ENCODE) {
+  if (opcode != opcode_t::ENCODE || op_name != "EMPTY") {
     msg_t he_result = decrypt(op.dst);
     checkPrecision(plain_result, he_result);
   }

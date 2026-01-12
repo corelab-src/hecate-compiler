@@ -16,21 +16,29 @@ hc.setLibnHW(sys.argv)
 stem = Path(__file__).stem
 hevm = hc.HEVM()
 stem = Path(__file__).stem
-hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
+hevm.load(
+    f"traced/_hecate_{stem}.cst",
+    f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm",
+)
+
 
 # argmin - need to compare values to assign data to clusters
 # 2 clusters is fine, but more than two clusters can cause problems in HE Kmeans
 def assign_clusters(X, centroids):
-    distances = np.array([np.sum((X - centroid) ** 2, axis=1) for centroid in centroids])
+    distances = np.array(
+        [np.sum((X - centroid) ** 2, axis=1) for centroid in centroids]
+    )
     # print(distances[:16])
 
     # data is assigned to the closer centroid
     # print(np.argmin(distances, axis=0)[:16])
     return np.argmin(distances, axis=0)
 
+
 # need mask for each cluster
 def compute_centroids(X, clusters, n_clusters):
     return np.array([X[clusters == k].mean(axis=0) for k in range(n_clusters)])
+
 
 def Kmeans(X, n_clusters=2, max_iter=10, tol=1e-4):
     # Initialize centroids
@@ -51,6 +59,7 @@ def Kmeans(X, n_clusters=2, max_iter=10, tol=1e-4):
         # print(centroids)
     return centroids, clusters
 
+
 # Generate some sample data
 X, Y = make_blobs(n_samples=256, centers=2, cluster_std=0.80, random_state=0)
 
@@ -65,13 +74,17 @@ hevm.setInput(1, y)
 hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
-timer = time.perf_counter_ns() -timer
+timer = time.perf_counter_ns() - timer
 res = hevm.getOutput()
 # res_ = np.concatenate((res[0][:2], res[1][:2]), axis=0)
 # cen_ = np.concatenate((centroids[0][:2], centroids[1][:2]), axis=0)
 
 # rms = np.sqrt(np.mean(np.power((res_[:4] - cen_), 2)))
-rms = np.sqrt(np.mean(np.power(res[0][:2] - centroids[0], 2) + np.power(res[1][:2] - centroids[1], 2)))
+rms = np.sqrt(
+    np.mean(
+        np.power(res[0][:2] - centroids[0], 2) + np.power(res[1][:2] - centroids[1], 2)
+    )
+)
 
 # hevm.printer(timer/pow(10,9), rms)
-hevm.printer(timer/pow(10,9), rms, epochs)
+hevm.printer(timer / pow(10, 9), rms, epochs)

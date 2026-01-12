@@ -9,18 +9,26 @@ import signal
 import sys
 from torch.autograd import Variable
 
-__all__ = ['VGG16','vgg16']
+__all__ = ["VGG16", "vgg16"]
 
 from pathlib import Path
 
 use_cuda = torch.cuda.is_available()
+
+
 class BasicConv2d(nn.Module):
     def __init__(self, inCH, outCh, ksize, padding=0, stride=1):
         super(BasicConv2d, self).__init__()
-        self.Conv2d = nn.Conv2d(kernel_size=ksize, in_channels=inCH, 
-                    out_channels=outCh, stride=stride, padding=padding)
+        self.Conv2d = nn.Conv2d(
+            kernel_size=ksize,
+            in_channels=inCH,
+            out_channels=outCh,
+            stride=stride,
+            padding=padding,
+        )
         self.bn = nn.BatchNorm2d(outCh)
-        self.mish = nn.SiLU() 
+        self.mish = nn.SiLU()
+
     def forward(self, x):
         x = self.Conv2d(x)
         x = self.bn(x)
@@ -55,14 +63,14 @@ class VGG16(nn.Module):
         self.conv_5_3 = BasicConv2d(512, 512, 3, padding=(1, 1))
         self.avgpool_5 = nn.AvgPool2d((2, 2), stride=2)
 
-        self.fc_1 = nn.Linear(512*1*1, 256)
+        self.fc_1 = nn.Linear(512 * 1 * 1, 256)
         self.dp_1 = nn.Dropout()
         self.fc_2 = nn.Linear(256, 128)
         self.bn_1 = nn.BatchNorm1d(128)
         self.fc_3 = nn.Linear(128, 10)
         self.mish = nn.SiLU()
 
-        if use_cuda :
+        if use_cuda:
             self.conv_1_1 = self.conv_1_1.cuda()
             self.conv_1_2 = self.conv_1_2.cuda()
             self.avgpool_1 = self.avgpool_1.cuda()
@@ -87,6 +95,7 @@ class VGG16(nn.Module):
             self.bn_1 = self.bn_1.cuda()
             self.fc_3 = self.fc_3.cuda()
             self.mish = self.mish.cuda()
+
     def forward(self, x):
         x = self.conv_1_1(x)
         x = self.conv_1_2(x)
@@ -110,7 +119,7 @@ class VGG16(nn.Module):
         x = self.conv_5_2(x)
         x = self.conv_5_3(x)
         x = self.avgpool_5(x)
-        x = x.view(-1, 512*1*1)
+        x = x.view(-1, 512 * 1 * 1)
         x = self.fc_1(x)
         x = self.mish(x)
         # x = self.dp_1(x)
