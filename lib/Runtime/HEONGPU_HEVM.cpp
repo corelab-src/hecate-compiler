@@ -74,45 +74,59 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   }
 
 void printDetailedMemoryUsage() {
-  size_t cuda_free_mem, cuda_total_mem;
-  cudaError_t err = cudaMemGetInfo(&cuda_free_mem, &cuda_total_mem);
-  if (err != cudaSuccess) {
-    std::cerr << "CUDA Error: " << cudaGetErrorString(err) << std::endl;
-    return;
+    size_t cuda_free_mem, cuda_total_mem;
+    cudaError_t err = cudaMemGetInfo(&cuda_free_mem, &cuda_total_mem);
+    if (err != cudaSuccess) {
+      std::cerr << "CUDA Error: " << cudaGetErrorString(err) << std::endl;
+      return;
+    }
+
+    double mb_size = 1024.0 * 1024.0;
+    double gb_size = 1024.0 * 1024.0 * 1024.0;
+    size_t device_pool_usage = MemoryPool::instance().get_current_device_pool_memory_usage();
+    size_t device_pool_free_mem = MemoryPool::instance().get_free_device_pool_memory();
+    size_t host_pool_usage = MemoryPool::instance().get_current_host_pool_memory_usage();
+    size_t host_pool_free_mem = MemoryPool::instance().get_free_host_pool_memory();
+    total_memory_usage = getCurrentMemoryUsage();
+
+    std::cout << std::fixed << std::setprecision(2);
+    // std::cout << "==================================================\n";
+    // std::cout << "GPU Memory Usage Report\n";
+    std::cout << "==================================================\n";
+    std::cout << "CUDA Memory:     " << std::setw(6)
+              << total_memory_usage / gb_size << " GB / " << std::setw(6)
+              << cuda_total_mem / gb_size << " GB "
+              << "(" << std::setw(2)
+              << (static_cast<double>(total_memory_usage) / cuda_total_mem) *
+                     100.0
+              << "%)\n";
+
+    std::cout << "--------------------------------------------------\n";
+    size_t device_pool_total = device_pool_usage + device_pool_free_mem;
+    std::cout << "Device Pool:     " << std::setw(6)
+              << device_pool_usage / gb_size << " GB / " << std::setw(6)
+              << device_pool_total / gb_size << " GB "
+              << "(" << std::setw(2)
+              << (static_cast<double>(device_pool_usage) / device_pool_total) *
+                     100.0
+              << "%)\n";
+    std::cout << "  Key / Data Memory:     " << std::setw(2)
+              << key_memory_pool_usage / gb_size << " GB / " << std::setw(2)
+              << data_memory_pool_usage / mb_size << " MB\n";
+    std::cout << "--------------------------------------------------\n";
+    size_t host_pool_total = host_pool_usage + host_pool_free_mem;
+    std::cout << "Host Pool:       " << std::setw(6)
+              << host_pool_usage / gb_size << " GB / " << std::setw(6)
+              << host_pool_total / gb_size << " GB "
+              << "(" << std::setw(2)
+              << (static_cast<double>(host_pool_usage) / host_pool_total) *
+                     100.0
+              << "%)\n";
+    std::cout << "==================================================\n";
+
+    // MemoryPool::instance().print_memory_pool_status/);
+    // std::cout << "==================================================\n";
   }
-
-  double mb_size = 1024.0 * 1024.0;
-  double gb_size = 1024.0 * 1024.0 * 1024.0;
-  size_t device_pool_usage = MemoryPool::instance().get_current_device_pool_memory_usage();
-  size_t device_pool_free_mem = MemoryPool::instance().get_free_device_pool_memory();
-  size_t host_pool_free_mem = MemoryPool::instance().get_free_host_pool_memory();
-  size_t host_pool_usage = MemoryPool::instance().get_current_host_pool_memory_usage();
-  total_memory_usage = getCurrentMemoryUsage();
-
-  std::cout << std::fixed << std::setprecision(2);
-  std::cout << "==================================================\n";
-  std::cout << "GPU Memory Usage Report\n";
-  std::cout << "==================================================\n";
-  std::cout << "CUDA Memory:     " 
-            << std::setw(6) << total_memory_usage / gb_size << " GB / " 
-            << std::setw(6) << cuda_total_mem / gb_size << " GB "
-            << "(" << std::setw(2) << (static_cast<double>(total_memory_usage) / cuda_total_mem) * 100.0 << "%)\n";
-  std::cout << "                 " 
-            << std::setw(6) << cuda_free_mem / gb_size << " GB Available\n";
-
-  std::cout << "--------------------------------------------------\n";
-  std::cout << "Total Memory Pool Usage: " << std::setw(2) << total_memory_pool_usage / gb_size << " GB\n";
-  std::cout << "  Current Available:     " << std::setw(2) << device_pool_free_mem / gb_size << " GB\n";
-  std::cout << "  Key Memory Pool:       " << std::setw(2) << key_memory_pool_usage / gb_size << " GB\n";
-  std::cout << "  Data Memory Pool:      " << std::setw(2) << data_memory_pool_usage / mb_size << " MB\n";
-  std::cout << "--------------------------------------------------\n";
-  std::cout << "Host Pool Usage:         " << std::setw(2) << host_pool_usage / gb_size << " GB\n";
-  std::cout << "  Host Pool Available:   " << std::setw(2) << host_pool_free_mem / gb_size << " GB\n";
-  std::cout << "==================================================\n";
-
-  MemoryPool::instance().print_memory_pool_status();
-  std::cout << "==================================================\n";
-}
 
   void loadHEONGPU(char *dir) {
     cudaSetDevice(0);
@@ -227,6 +241,9 @@ void printDetailedMemoryUsage() {
     iff.read((char *)res_level.data(), res_level.size() * sizeof(uint64_t));
     iff.read((char *)res_dst.data(), res_dst.size() * sizeof(uint64_t));
 
+    cudaDeviceSynchronize();
+    size_t memory_before_data = getMemoryPoolUsage();
+
     ciphers.resize(header.config_header.arg_length +
                        header.config_header.res_length,
                    heongpu::Ciphertext<Scheme>(*context));
@@ -242,6 +259,12 @@ void printDetailedMemoryUsage() {
     } else {
       plains.resize(1, heongpu::Plaintext<Scheme>(*context));
     }
+    cudaDeviceSynchronize();
+    data_memory_pool_usage = static_cast<uint64_t>(getMemoryPoolUsage() - memory_before_data) 
+                             + data_memory_pool_usage;
+    total_memory_pool_usage = key_memory_pool_usage + data_memory_pool_usage;
+    std::cout << "Data loading complete. Total: " 
+              << data_memory_pool_usage / (1024.0 * 1024.0) << " MB" << std::endl;
   }
 
   void resetResDst() {
@@ -430,8 +453,10 @@ void create_context(char *dir) { HEONGPU_HEVM::create_context(dir); }
 // Loader for server
 void load(void *vm, char *constant, char *vmfile) {
   auto hevm = static_cast<HEONGPU_HEVM *>(vm);
+  size_t initial_memory = hevm->getMemoryPoolUsage();
   hevm->loadConstants(constant);
   hevm->loadHEVM(vmfile, run_config);
+  hevm->data_memory_pool_usage = hevm->getMemoryPoolUsage() - initial_memory;
 }
 
 // Loader for client
