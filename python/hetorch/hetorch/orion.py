@@ -18,7 +18,6 @@ from hetorch.blas import (
     roll,
     cint,
     fint,
-    print_shift_mapping,
     masking_ciphertext,
     full_replicate_ciphertext,
     replicate_ciphertext,
@@ -90,9 +89,7 @@ def find_best_bsgs_ratio(nonZeroDiags, maxN, bsgs_ratio):
 def orion_cal_bsgs_list(out_dim, shift_list, bsgs_ratio):
     if not shift_list:
         return 0, 0, [], {}, []
-    print(
-        f"out_dim: {out_dim}, bsgs_ratio: {bsgs_ratio}, len(shift_list): {len(shift_list)}"
-    )
+    # print(f"out_dim: {out_dim}, bsgs_ratio: {bsgs_ratio}, len(shift_list): {len(shift_list)}")
     # print(f"shift_list: {shift_list}")
     # Find the optimal N1 using the Lattigo algorithm
     optimal_n1 = find_best_bsgs_ratio(shift_list, out_dim, bsgs_ratio)
@@ -126,7 +123,7 @@ def orion_cal_bsgs_list(out_dim, shift_list, bsgs_ratio):
 
 def masked_bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     out_dim, inter_dim = weight.shape
-    print(f"masked_bsgsCP_orion: weight (out_dim, inter_dim): {weight.shape}")
+    # print(f"masked_bsgsCP_orion: weight (out_dim, inter_dim): {weight.shape}")
     mask_input = torch.ones(inter_dim)  # shape (inter_dim,)
     mask_input = F.pad(
         mask_input, (0, slot_length - mask_input.shape[0]), mode="constant", value=0
@@ -137,7 +134,7 @@ def masked_bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio)
 
 def bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     out_dim, inter_dim = weight.shape
-    print(f"bsgsCP_orion: weight (out_dim, inter_dim): {weight.shape}")
+    # print(f"bsgsCP_orion: weight (out_dim, inter_dim): {weight.shape}")
     is_inter_dim_power_of_two = inter_dim == 2 ** cint(np.log2(inter_dim))
     is_out_dim_power_of_two = out_dim == 2 ** cint(np.log2(out_dim))
 
@@ -151,7 +148,7 @@ def bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
         value=0,
     )  # (out_dim, expand*out_dim)
     out_dim, inter_dim = weight.shape
-    print(f"After padding weight.shape: {weight.shape}")
+    # print(f"After padding weight.shape: {weight.shape}")
 
     is_out_dim_bigger = out_dim > inter_dim
     if is_out_dim_bigger:
@@ -188,7 +185,7 @@ def bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     if is_out_dim_bigger:
         weight = weight.T
     elif inter_dim == slot_length:
-        print(f"inter_dim {inter_dim} == slot_length, out_dim: {out_dim}")
+        # print(f"inter_dim {inter_dim} == slot_length, out_dim: {out_dim}")
         if inter_dim % out_dim != 0:
             expand = 1
             weight = weight.T
@@ -206,7 +203,7 @@ def bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
         weight = einops.rearrange(
             weight, "i1 (i2 i3) -> i3 (i2 i1)", i1=out_dim, i2=expand, i3=out_dim
         )  # transpose
-        print(f"after einops.rearrange, expand, weight.shape: {expand}, {weight.shape}")
+        # print(f"after einops.rearrange, expand, weight.shape: {expand}, {weight.shape}")
 
     shift_list = []
     if is_out_dim_bigger:
@@ -223,10 +220,6 @@ def bsgsCP_orion(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -368,10 +361,6 @@ def bsgsCP_orion_fc(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -513,10 +502,6 @@ def bsgsCP_orion_ptwo(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -655,10 +640,6 @@ def bsgsCP_orion_mlp(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -801,10 +782,6 @@ def bsgsCP_orion_lola(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -946,10 +923,6 @@ def bsgsCP_orion_lenet(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(cal_bsgs, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     padded_weight = torch.zeros((dimension_for_shift, slot_length), dtype=torch.double)
     if inter_dim == slot_length:
@@ -1037,10 +1010,6 @@ def bsgsCP_orion_core(input, weight, slot_length, bsgs_ratio=orion_bsgs_ratio):
     baby_step, giant_step, groups, best_shift_mapping, baby_step_list = (
         orion_cal_bsgs_list(out_dim, shift_list, bsgs_ratio)
     )
-    print(
-        f"After orion_cal_bsgs_list - baby_step: {baby_step}, giant_step: {giant_step}"
-    )
-    print_shift_mapping(best_shift_mapping)
 
     if out_dim == slot_length:
         padded_weight = weight

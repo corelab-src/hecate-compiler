@@ -274,7 +274,6 @@ class HEVM:
         print("waterline:", bench.group(3))
         print("library:", run_library)
         print("device:", run_hardware)
-        print("epoch:", epoch)
         print("----------------- Test Results -------------------")
         print("code size (bytes):", os.path.getsize(self.hevm_path))
         print("const size (bytes):", os.path.getsize(self.const_path))

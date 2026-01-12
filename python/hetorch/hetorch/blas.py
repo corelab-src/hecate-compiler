@@ -77,57 +77,14 @@ def replicate_ciphertext(result, input_length, repeat_times):
     return result, input_length, repeat_times
 
 
-def print_shift_mapping(shift_mapping):
-    if not shift_mapping:
-        return
-
-    gs_groups = {}
-    for shift, (gs, bs) in shift_mapping.items():
-        if gs not in gs_groups:
-            gs_groups[gs] = {}
-        gs_groups[gs][bs] = shift
-
-    all_baby_steps = set()
-    for gs_group in gs_groups.values():
-        all_baby_steps.update(gs_group.keys())
-
-    used_baby_steps = sorted(all_baby_steps)
-
-    all_values = list(shift_mapping.keys()) + list(gs_groups.keys())
-    max_width = max(len(str(val)) for val in all_values) if all_values else 5
-    max_width = max(max_width, 5)
-
-    print("GS\\BS  ", end="")
-    for bs in used_baby_steps:
-        print(f"{bs:<{max_width+1}}", end="")
-    print()
-
-    print("-" * (max_width + (max_width + 2) * len(used_baby_steps)))
-
-    for gs_value in sorted(gs_groups.keys()):
-        print(f"{gs_value:<{max_width+2}}", end="")
-
-        for bs in used_baby_steps:
-            if bs in gs_groups[gs_value]:
-                shift_value = gs_groups[gs_value][bs]
-                print(f"{shift_value:<{max_width+1}}", end="")
-            else:
-                print(f"{'-':<{max_width+1}}", end="")
-        print()
-
-
 # ------------------------------------------------------------------
 # bsgs reference
 # ------------------------------------------------------------------
-# TODO, move rtp reference bsgs to hetorch.blas from hetorch.blas_r2p
-# packed_orion_cal_bsgs_list from r2p
-
-
 # not used, just for reference
 def bsgsCP_no_reshape(input, weight, slot_length, bsgs_ratio=hetorch_bsgs_ratio):
     out_dim, inter_dim = weight.shape
-    print(f"bsgsCP weight.shape: {weight.shape}")
-    print(f"bsgsCP bsgs_ratio: {bsgs_ratio}")
+    print(f"bsgsCP_no_reshape weight.shape: {weight.shape}")
+    # print(f"bsgsCP_no_reshape bsgs_ratio: {bsgs_ratio}")
     mask_input = torch.ones(inter_dim)  # shape (inter_dim,)
     mask_input = F.pad(
         mask_input, (0, slot_length - mask_input.shape[0]), mode="constant", value=0

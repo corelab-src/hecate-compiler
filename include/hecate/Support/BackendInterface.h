@@ -117,7 +117,6 @@ public:
   uint64_t key_memory_pool_usage = 0;
   uint64_t data_memory_pool_usage = 0;
   uint64_t total_memory_pool_usage = 0;
-  uint64_t total_memory_usage = 0;
   uint64_t N;
   uint64_t L;
   uint64_t slot_size;
