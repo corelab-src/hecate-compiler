@@ -20,36 +20,19 @@ ninja
 )
 
 hc-trace()(
-    # check if --opt is in the arguments
-    has_opt=0
-    # for arg in "$@"; do
-    #     if [ "$arg" = "--opt" ]; then
-    #         has_opt=1
-    #         break
-    #     fi
-    # done
     cd $HECATE/examples
     found_file=$(find $HECATE/examples/benchmarks -mindepth 2 -name "$1.py" -type f | head -n 1)
     if [ -z "$found_file" ]; then
         echo "File not found"
         exit 1
     fi
-        echo "File found: $found_file"
-        echo "Command: python3 $found_file ${@:1}"
-        echo "================================================"
-        python3 $found_file ${@:1}
+    echo "File found: $found_file"
+    echo "Command: python3 $found_file ${@:1}"
+    echo "================================================"
+    python3 $found_file ${@:1}
 )
 
 hc-opt()(
-    # check if --opt is in the arguments
-    has_opt=0
-    for arg in "$@"; do
-        if [ "$arg" = "--opt" ]; then
-            has_opt=1
-            break
-        fi
-    done
-
     cd $HECATE/examples
     echo "Command: python3 $HECATE/examples/hc_opt.py ${@:1}"
     python3 $HECATE/examples/hc_opt.py ${@:1}
@@ -57,25 +40,16 @@ hc-opt()(
 )
 
 hc-test()(
-    # check if --opt is in the arguments
-    has_opt=0
-    for arg in "$@"; do
-        if [ "$arg" = "--opt" ]; then
-            has_opt=1
-            break
-        fi
-    done
-
     cd $HECATE/examples
     found_file=$(find $HECATE/examples/tests -mindepth 2 -name "$1.py" -type f | head -n 1)
     if [ -z "$found_file" ]; then
         echo "File not found"
         exit 1
     fi
-        echo "File found: $found_file"
-        echo "Command: python3 $found_file ${@:1}"
-        echo "======================================"
-        python3 "$found_file" "${@:1}"
+    echo "File found: $found_file"
+    echo "Command: python3 $found_file ${@:1}"
+    echo "======================================"
+    python3 "$found_file" "${@:1}"
 )
 
 _hc_print_time_table() {
@@ -148,15 +122,15 @@ hc-opt-test()(
     cd $HECATE/examples
     begin_time=$(date +%s.%N)
     echo "======================================"
-    echo "Starting hc-trace ${@:1}"
-    hc-trace ${@:1}
-    trace_time=$(date +%s.%N)
-    echo "======================================"
     echo "Starting hc-opt ${@:1}"
     hc-opt ${@:1}
     opt_time=$(date +%s.%N)
     echo "======================================"
-    echo "Finished hc-trace-opt ${@:1}"
+    echo "Starting hc-test ${@:1}"
+    hc-test ${@:1}
+    test_time=$(date +%s.%N)
+    echo "======================================"
+    echo "Finished hc-opt-test ${@:1}"
 )
 
 hc-eval()(
