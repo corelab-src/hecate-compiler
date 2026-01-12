@@ -5,9 +5,8 @@ using namespace llvm;
 using namespace mlir;
 using namespace hecate;
 
-void registerHecatePipeline(cl::opt<std::string> &outputFilename) {
-
-  static HecateOptOptions opt;
+void registerHecatePipeline(cl::opt<std::string> &outputFilename,
+                            const HecateOptOptions &opt) {
 
   PassPipelineRegistration<>(
       "eva", "Perform waterline rescaling and early modswitch",

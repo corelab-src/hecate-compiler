@@ -59,8 +59,6 @@ using namespace llvm;
 using namespace mlir;
 using namespace hecate;
 
-void registerHecatePipeline(cl::opt<std::string> &outputFilename);
-// void registerPrototypePipeline(cl::opt<std::string> &outputFilename);
 struct HecateOptOptions {
   // --- Scale Management Options ---
   cl::opt<int64_t> waterline{
@@ -104,4 +102,9 @@ struct HecateOptOptions {
                                  cl::desc("Unroll factor for scale management"),
                                  cl::init(1)};
 };
+void registerHecatePipeline(cl::opt<std::string> &outputFilename,
+                            const HecateOptOptions &opt);
+void registerPrototypePipeline(cl::opt<std::string> &outputFilename,
+                               const HecateOptOptions &opt);
+
 #endif // HECATE_TOOLS_HECATEOPT_HECATEOPTMAIN_H

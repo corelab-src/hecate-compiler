@@ -5,9 +5,9 @@ using namespace llvm;
 using namespace mlir;
 using namespace hecate;
 
-void registerPrototypePipeline(cl::opt<std::string> &outputFilename) {
+void registerPrototypePipeline(cl::opt<std::string> &outputFilename,
+                               const HecateOptOptions &opt) {
 
-  static HecateOptOptions opt;
   PassPipelineRegistration<>(
       "dacapo_flex", "Perform automatic bootstrapping placement",
       [&](OpPassManager &pm) {

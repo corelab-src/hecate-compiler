@@ -18,6 +18,8 @@ int main(int argc, char **argv) {
       "ckks-config", cl::desc("Set CKKS parameters from configuration file"),
       cl::init("./config.json")};
 
+  static HecateOptOptions opt;
+
   InitLLVM y(argc, argv);
 
   mlir::MLIRContext context;
@@ -48,8 +50,8 @@ int main(int argc, char **argv) {
   registerMLIRContextCLOptions();
   registerPassManagerCLOptions();
   registerDefaultTimingManagerCLOptions();
-  registerHecatePipeline(outputFilename);
-  // registerPrototypePipeline(outputFilename);
+  registerHecatePipeline(outputFilename, opt);
+  registerPrototypePipeline(outputFilename, opt);
   // This registration must be after registering pass manager options.
   MlirOptMainConfig::registerCLOptions(registry);
 
