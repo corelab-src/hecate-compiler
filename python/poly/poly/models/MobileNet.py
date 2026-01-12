@@ -9,27 +9,34 @@ import signal
 import sys
 from torch.autograd import Variable
 
-__all__ = ['MobileNet', 'mobilenet']
+__all__ = ["MobileNet", "mobilenet"]
 
 from pathlib import Path
 
 # use_cuda = torch.cuda.is_available()
 use_cuda = False
 FireBlockConfig = {
-    'fire2':{'s1x1':16, 'e1x1':64, 'e3x3':64},
-    'fire3':{'s1x1':16, 'e1x1':64, 'e3x3':64},
-    'fire4':{'s1x1':32, 'e1x1':128, 'e3x3':128},
-    'fire5':{'s1x1':32, 'e1x1':128, 'e3x3':128},
-    'fire6':{'s1x1':48, 'e1x1':192, 'e3x3':192},
-    'fire7':{'s1x1':48, 'e1x1':192, 'e3x3':192},
-    'fire8':{'s1x1':64, 'e1x1':256, 'e3x3':256},
-    'fire9':{'s1x1':64, 'e1x1':256, 'e3x3':256}
-    }
+    "fire2": {"s1x1": 16, "e1x1": 64, "e3x3": 64},
+    "fire3": {"s1x1": 16, "e1x1": 64, "e3x3": 64},
+    "fire4": {"s1x1": 32, "e1x1": 128, "e3x3": 128},
+    "fire5": {"s1x1": 32, "e1x1": 128, "e3x3": 128},
+    "fire6": {"s1x1": 48, "e1x1": 192, "e3x3": 192},
+    "fire7": {"s1x1": 48, "e1x1": 192, "e3x3": 192},
+    "fire8": {"s1x1": 64, "e1x1": 256, "e3x3": 256},
+    "fire9": {"s1x1": 64, "e1x1": 256, "e3x3": 256},
+}
+
 
 class BasicConv2d(nn.Module):
     def __init__(self, ksize, inCH, outCH, padding=0, stride=1):
         super(BasicConv2d, self).__init__()
-        self.Conv2d = nn.Conv2d(kernel_size=ksize, in_channels=inCH,out_channels=outCH, stride=stride, padding=padding)
+        self.Conv2d = nn.Conv2d(
+            kernel_size=ksize,
+            in_channels=inCH,
+            out_channels=outCH,
+            stride=stride,
+            padding=padding,
+        )
         self.bn = nn.BatchNorm2d(outCH)
         self.mish = nn.SiLU()
 
@@ -39,10 +46,18 @@ class BasicConv2d(nn.Module):
         x = self.mish(x)
         return x
 
+
 class DepthwiseConv2d(nn.Module):
     def __init__(self, ksize, inCH, outCH, padding=0, stride=1):
         super(DepthwiseConv2d, self).__init__()
-        self.dwConv2d = nn.Conv2d(kernel_size=ksize, in_channels=inCH,out_channels=inCH, stride=stride, padding=padding, groups=inCH)
+        self.dwConv2d = nn.Conv2d(
+            kernel_size=ksize,
+            in_channels=inCH,
+            out_channels=inCH,
+            stride=stride,
+            padding=padding,
+            groups=inCH,
+        )
         self.bn = nn.BatchNorm2d(inCH)
         self.pointwiseConv2d = BasicConv2d(ksize=1, inCH=inCH, outCH=outCH)
         self.mish = nn.SiLU()
@@ -72,18 +87,18 @@ class MobileNet(nn.Module):
             DepthwiseConv2d(ksize=3, inCH=512, outCH=512, padding=1),
             DepthwiseConv2d(ksize=3, inCH=512, outCH=512, padding=1),
             DepthwiseConv2d(ksize=3, inCH=512, outCH=1024, stride=2, padding=1),
-            DepthwiseConv2d(ksize=3, inCH=1024, outCH=1024, padding=1)
+            DepthwiseConv2d(ksize=3, inCH=1024, outCH=1024, padding=1),
         )
         self.avgpool = nn.AvgPool2d((2, 2))
-        self.linear = nn.Linear(1024*1*1, 10)
+        self.linear = nn.Linear(1024 * 1 * 1, 10)
 
-        if use_cuda : 
+        if use_cuda:
             self.pre_layer = self.pre_layer.cuda()
             self.Depthwise = self.Depthwise.cuda()
             self.avgpool = self.avgpool.cuda()
             self.linear = self.linear.cuda()
 
-    def forward(self, x) :
+    def forward(self, x):
         x = self.pre_layer(x)
         x = self.Depthwise(x)
         x = self.avgpool(x)

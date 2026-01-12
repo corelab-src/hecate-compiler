@@ -6,19 +6,22 @@ from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
 
-if(len(sys.argv) != 1):
+if len(sys.argv) != 1:
     a_epochs = int(sys.argv[1])
+
+
 def sum_elements(data):
     for i in range(1, 9):
-        rot  = data.rotate(2**i)
+        rot = data.rotate(2**i)
         data = data + rot
     return data
+
 
 def create_mask(elements):
     mask = [[] for _ in range(3)]
 
-    temp  = [0.0 for _ in range(elements-2)]
-    temp0 = [0.0 for _ in range(2*elements-2)]
+    temp = [0.0 for _ in range(elements - 2)]
+    temp0 = [0.0 for _ in range(2 * elements - 2)]
     temp1 = [1.0, 1.0]
     temp2 = [1.0, 0.0]
 
@@ -26,34 +29,37 @@ def create_mask(elements):
     mask[1] = temp1 + temp
     mask[2] = temp2
 
-    mask[0] = hc.Plain(mask[0])             # 11000000 ...512
-    mask[1] = hc.Plain(mask[1])             # 11000000 ...1024
-    mask[2] = hc.Plain(mask[2])             # 10101010 ...
+    mask[0] = hc.Plain(mask[0])  # 11000000 ...512
+    mask[1] = hc.Plain(mask[1])  # 11000000 ...1024
+    mask[2] = hc.Plain(mask[2])  # 10101010 ...
     return mask
+
 
 def copy(data, mask):
     data = data * mask
 
     for i in range(1, 9):
-        rot  = data.rotate(1024 - 2**i)
+        rot = data.rotate(1024 - 2**i)
         data = data + rot
 
     return data
 
+
 def newton_inverse(n, epoch):
     # intial guess should be lower than 2/n
-    x = hc.Plain([0.01])   # if set low, less chance of divergence
+    x = hc.Plain([0.01])  # if set low, less chance of divergence
     for _ in range(epoch):
-    # with hc.loop(0, epoch, step, inputarr = x) as i:
+        # with hc.loop(0, epoch, step, inputarr = x) as i:
         x = x * (hc.Plain([2.0]) - n * x)
 
     return x
+
 
 @hc.func("c,c,i")
 def Kmeans_Loop(x_data, y_data, epochs):
 
     # epochs = a_epochs         # this dataset saturates after 5+ epochs
-    epochs_newton = 5   # can be set bigger for more accuracy
+    epochs_newton = 5  # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
 
@@ -62,7 +68,9 @@ def Kmeans_Loop(x_data, y_data, epochs):
     test_mask = hc.Plain([1.0])
 
     # for _ in range(epochs):
-    with hc.loop(0, epochs, 1, inputarr = [centroid_0, centroid_1], num_elements = 1024) as i:
+    with hc.loop(
+        0, epochs, 1, inputarr=[centroid_0, centroid_1], num_elements=1024
+    ) as i:
         # calculate the distance difference from centroid to data point
         distance_0 = x_data - centroid_0
         distance_0 = distance_0 * distance_0
@@ -78,9 +86,9 @@ def Kmeans_Loop(x_data, y_data, epochs):
 
         # assign labels depending on the difference
         # sign_diff = hc.Plain([0.5]) + HE_sign(dist_diff)          # has some noise
-        sign_diff = hc.Plain([0.5]) + HE_sign(HE_sign(dist_diff))   # more accurate
+        sign_diff = hc.Plain([0.5]) + HE_sign(HE_sign(dist_diff))  # more accurate
 
-        label = sign_diff * mask[2]     # only the even indexes are valid
+        label = sign_diff * mask[2]  # only the even indexes are valid
 
         # calculate the label for each data point
         label_1 = label + label.rotate(elements - 1)
@@ -108,16 +116,16 @@ def Kmeans_Loop(x_data, y_data, epochs):
 # @hc.func("c,c,i")
 def Kmeans_Loop(x_data, y_data, epochs):
 
-    epochs_newton = 5   # can be set bigger for more accuracy
+    epochs_newton = 5  # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
 
     centroid_0 = copy(x_data, mask[0])
     centroid_1 = copy(x_data.rotate(2), mask[0])
-    centroid_  = centroid_0 + centroid_1.rotate(elements)
+    centroid_ = centroid_0 + centroid_1.rotate(elements)
 
     # for _ in range(epochs):
-    with hc.loop(0, epochs, 1, inputarr = [centroid_]) as i:
+    with hc.loop(0, epochs, 1, inputarr=[centroid_]) as i:
         # calculate the distance difference from centroid to data point
         distance_ = x_data - centroid_
         distance_ = distance_ * distance_
@@ -132,11 +140,11 @@ def Kmeans_Loop(x_data, y_data, epochs):
 
         # assign labels depending on the difference
         # sign_diff = hc.Plain([0.5]) + HE_sign(dist_diff)          # has some noise
-        sign_diff = hc.Plain([0.5]) + HE_sign(HE_sign2(dist_diff))   # more accurate
+        sign_diff = hc.Plain([0.5]) + HE_sign(HE_sign2(dist_diff))  # more accurate
 
-        sign_diff = hc.bootstrap(sign_diff);
-        label  = sign_diff * mask[2]                    # only the even indexes are valid
-        label_ = label + label.rotate(2*elements - 1)   # copy the even indexes
+        sign_diff = hc.bootstrap(sign_diff)
+        label = sign_diff * mask[2]  # only the even indexes are valid
+        label_ = label + label.rotate(2 * elements - 1)  # copy the even indexes
         label_ = hc.Plain([1.0]) - label_
 
         # get data points belonging to each label

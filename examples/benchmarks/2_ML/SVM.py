@@ -9,17 +9,19 @@ from poly.Poly import *
 argv = hc.hc_parser(__file__)
 compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
 
-if(len(sys.argv) != 1):
+if len(sys.argv) != 1:
     a_epochs = int(epochs)
 
+
 def sum_elements(array, n_samples):
-    array = array * hc.Plain([0.1])     # redundant code just changes boot. placement 
+    array = array * hc.Plain([0.1])  # redundant code just changes boot. placement
     for i in range(10):
-        rot = array.rotate(1<<i)
+        rot = array.rotate(1 << i)
         array = array + rot
         # array += rot
-    array = array * hc.Plain([10.0])     # redundant code just changes boot. placement
+    array = array * hc.Plain([10.0])  # redundant code just changes boot. placement
     return array
+
 
 def create_mask(elements):
     mask = [[] for i in range(1)]
@@ -30,6 +32,7 @@ def create_mask(elements):
     mask[0] = hc.Plain(mask[0])
 
     return mask
+
 
 @hc.func("c,c,c")
 def SVM(X0, X1, Y):
@@ -67,7 +70,7 @@ def SVM(X0, X1, Y):
         y_predict = HE_sign(y_predict)
 
         y_predict = hc.bootstrap(y_predict)
-        cond0 =  y_predict + hc.Plain([0.5])
+        cond0 = y_predict + hc.Plain([0.5])
         cond1 = -y_predict + hc.Plain([0.5])
 
         # correct classification weights are updated to only include the regularization term
@@ -76,7 +79,7 @@ def SVM(X0, X1, Y):
         # wrong classification updates the weights
         gradW0 += cond1 * (lambda_ * W0 - X0 * Y)
         gradW1 += cond1 * (lambda_ * W1 - X1 * Y)
-        gradb0  = cond1 * Y
+        gradb0 = cond1 * Y
 
         # sum the gradients
         gradW0 = sum_elements(gradW0, n_samples)
@@ -99,7 +102,7 @@ def SVM(X0, X1, Y):
 # @hc.func("c,c")
 # def SVM(x_data, y_data) :
 #     epochs = a_epochs
-    
+
 #     step = 1
 #     learning_rate = hc.Plain([-0.0001])
 #     lambda_param = hc.Plain([0.02])
@@ -113,24 +116,24 @@ def SVM(X0, X1, Y):
 #     for i in range(epochs):
 #         dot = W * x_data
 #         dot = dot + dot.rotate(elements)    # np.dot(x_i, W)
-#         dot = dot - W.rotate(elements*2)    # np.dot(x_i, W) - b 
+#         dot = dot - W.rotate(elements*2)    # np.dot(x_i, W) - b
 #         dot = dot * y_data                  # slots 0~4096
 #         dot = dot + hc.Plain([-1.0])
 #         dot = dot * hc.Plain([0.01])        # normalize input for sign function
-        
+
 #         cond = HE_sign(dot)
 #         cond = hc.bootstrap(cond)
 #         cond = HE_sign2(cond)
 #         cond = cond * mask[0]
 #         cond = cond + cond.rotate(elements*(16-1)) + cond.rotate(elements*(16-2))
-        
+
 #         cond1 = cond + hc.Plain([0.5])
 #         cond2 = hc.Plain([-1.0]) * cond + hc.Plain([0.5])
-        
+
 #         # Wup1 = condition1 * lambda_param * W
 #         Wup1 = cond1 * lambda_param * W
 #         Wup1 = Wup1 * mask[3]
-        
+
 #         # Wup2 = condition2 * (lambda_param * W - x_i * y[idx])
 #         Wup2 = -x_data
 #         Wup2 = Wup2 * y_data
@@ -138,7 +141,7 @@ def SVM(X0, X1, Y):
 #         Wup2 = cond2 * Wup2
 #         Wup2 = Wup2 * mask[3]
 #         bup2 = cond2 * y_data * mask[2]
-        
+
 #         Wup = (Wup1 + Wup2) * learning_rate
 #         Wup_1 = Wup * mask[0]
 #         Wup_2 = Wup * mask[1]
@@ -153,12 +156,12 @@ def SVM(X0, X1, Y):
 
 #         concat_gradW  = Wup_1 * mask[0]
 #         concat_gradW += Wup_2 * mask[1]
-#         concat_gradW += bup   * mask[2] 
+#         concat_gradW += bup   * mask[2]
 
-#         W = W + concat_gradW 
+#         W = W + concat_gradW
 
 #     res = [W.rotate(elements*i) for i in range(3)]
-    
+
 #     return res[0], res[1], res[2]
 
 modName = hc.save("traced", "traced")

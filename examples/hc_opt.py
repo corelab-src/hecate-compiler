@@ -18,8 +18,8 @@ if __name__ == "__main__":
     epochs = int(epochs)
     HECATE = os.getenv("HECATE")
     print(HECATE)
-    
-    # Ensure output director exists 
+
+    # Ensure output director exists
     out_dir = os.path.join(HECATE, "examples", "optimized", compile_opt)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     #         --mlir-print-ir-after-failure \
     #         -o {HECATE}/examples/optimized/{compile_opt}/{benchmark}.{waterline}.mlir \
     #         --mlir-timing"
-    
+
     # if there is no --enable-debug-printer, ckks and earth dialect is not created
     command = f"$HECATE/build/bin/hecate-opt --{compile_opt} --ckks-config={HECATE}/profiled_{library}_{device}.json --waterline={waterline}  --enable-debug-printer {HECATE}/examples/traced/{benchmark}.mlir --mlir-print-debuginfo --mlir-pretty-debuginfo --mlir-print-local-scope --mlir-disable-threading --mlir-timing --mlir-print-ir-after-failure -o {HECATE}/examples/optimized/{compile_opt}/{benchmark}.{waterline}.mlir"
     os.system(command)

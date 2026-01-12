@@ -1,4 +1,3 @@
-
 import hecate as hc
 from random import *
 import numpy as np
@@ -18,11 +17,16 @@ hc.setLibnHW(argv)
 stem = Path(__file__).stem
 hevm = hc.HEVM()
 stem = Path(__file__).stem
-hevm.load (f"traced/_hecate_{stem}.cst", f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm")
+hevm.load(
+    f"traced/_hecate_{stem}.cst",
+    f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm",
+)
 
 from sklearn import datasets
 
-X, y = datasets.make_blobs(n_samples=1024, n_features=2, centers=2, cluster_std=1, random_state=0)
+X, y = datasets.make_blobs(
+    n_samples=1024, n_features=2, centers=2, cluster_std=1, random_state=0
+)
 X0 = [item[0] for item in X]
 X1 = [item[1] for item in X]
 Y = np.where(y == 0, -1, 1)
@@ -39,13 +43,15 @@ b0 = np.ones(n_samples)
 # b = 0.0
 cond = []
 
-epochs = a_epoch 
+epochs = a_epoch
+
 
 def sum_elements(array, size):
     for i in range(int(np.log2(size))):
-        rot = np.roll(array, -2**i)
+        rot = np.roll(array, -(2**i))
         array = array + rot
     return array
+
 
 # Training process
 for _ in range(epochs):
@@ -55,8 +61,8 @@ for _ in range(epochs):
     # label the result based on function
     y_predict = np.sign(func)
 
-    cond0 =  0.5 * y_predict + 0.5    # correct classification
-    cond1 = -0.5 * y_predict + 0.5    # wrong classification
+    cond0 = 0.5 * y_predict + 0.5  # correct classification
+    cond1 = -0.5 * y_predict + 0.5  # wrong classification
 
     # correct classification weights are updated to only include the regularization term
     gradW0 = cond0 * (2 * lambda_param * W0)
@@ -85,12 +91,12 @@ for _ in range(epochs):
 #         # cond.append(condition)
 #         if condition:
 #             w_update_sum.append(lambda_param * W)
-#         else:                                           
+#         else:
 #             w_update_sum.append(lambda_param * W - x_i *  y[idx])
 #             b_update_sum = np.append(b_update_sum, y[idx])
-            
+
 #     # print(w_update_sum[:10], b_update_sum[:10])
-            
+
 #     w_update_sum = np.array(w_update_sum)
 #     b_update_sum = np.array(b_update_sum)
 
@@ -107,14 +113,19 @@ hevm.setInput(2, Y)
 hevm.setEpoch(0, a_epoch)
 timer = time.perf_counter_ns()
 hevm.run()
-timer = time.perf_counter_ns() -timer
+timer = time.perf_counter_ns() - timer
 res = hevm.getOutput()
 import math
+
 # rms = math.sqrt(np.power(res[0][0] - W[0], 2) + np.power(res[1][0] - W[1], 2) + np.power(res[2][0] - b, 2))
 
-se  = np.power(res[0][0] - W0[0], 2) + np.power(res[1][0] - W1[0], 2) + np.power(res[2][0] - b0[0], 2)
+se = (
+    np.power(res[0][0] - W0[0], 2)
+    + np.power(res[1][0] - W1[0], 2)
+    + np.power(res[2][0] - b0[0], 2)
+)
 mse = np.mean(se)
 rms = math.sqrt(mse)
 
 # hevm.printer(timer/pow(10,9), rms)
-hevm.printer(timer/pow(10,9), rms, epochs)
+hevm.printer(timer / pow(10, 9), rms, epochs)
