@@ -80,7 +80,7 @@ if __name__ == "__main__":
     hevm = hc.HEVM()  # Create a HEVM object
     # Load the compiled state trace (cst) and hevm (optimized code) files
     hevm.load(
-        f"traced/_hecate_{benchmark}.cst",
+        f"traced/cst/_hecate_{benchmark}.cst",
         f"optimized/{compile_opt}/{benchmark}.{waterline}._hecate_{benchmark}.hevm",
     )
 

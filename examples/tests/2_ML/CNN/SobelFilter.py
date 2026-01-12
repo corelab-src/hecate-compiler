@@ -60,7 +60,7 @@ if __name__ == "__main__":
     stem = Path(__file__).stem
     hevm = hc.HEVM()
     hevm.load(
-        f"traced/_hecate_{stem}.cst",
+        f"traced/cst/_hecate_{stem}.cst",
         f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm",
     )
 

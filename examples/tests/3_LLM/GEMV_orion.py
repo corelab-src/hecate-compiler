@@ -68,7 +68,7 @@ if __name__ == "__main__":
     hc.setLibnHW(argv)  # Set the path to the libnHW.so
     hevm = hc.HEVM()
     hevm.load(
-        f"traced/_hecate_{benchmark}.cst",
+        f"traced/cst/_hecate_{benchmark}.cst",
         f"optimized/{compile_opt}/{benchmark}.{waterline}._hecate_{benchmark}.hevm",
     )
     import torch.nn.functional as F
