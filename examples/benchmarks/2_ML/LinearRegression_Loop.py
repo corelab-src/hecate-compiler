@@ -18,7 +18,7 @@ a_slot_length = 2 ** (16 -1) # HEONGPU, 2^15 = 32768
 a_length, a_padded_length, a_epochs = None, None, None
     
 @hc.func("c,c,i")
-def Format_Loop(x_data, y_data, epochs):
+def LinearRegression_Loop(x_data, y_data, epochs):
     """
     @brief Perform linear regression using gradient descent.
     
