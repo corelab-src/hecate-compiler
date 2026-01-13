@@ -28,11 +28,11 @@ import os
 from random import uniform, seed
 
 # set and initialize global variables
-input_length, padded_length, epochs = 0, 0, 0
+input_length, padded_length, num_test, loop_count = 0, 0, 0, 0
 
 
 def hc_parser(command_path):
-    global input_length, padded_length, epochs
+    global input_length, padded_length, num_test, loop_count
     """
     @brief Parse command-line arguments.
 
@@ -43,16 +43,16 @@ def hc_parser(command_path):
     --waterline: Specifies the waterline.
     --library: Specifies the library.
     --hardware: Specifies the hardware.
-    --epochs: Specifies the number of epochs.
+    --num_test: Specifies the number of tests.
+    --loop_count: Specifies the number of loop counts.
     --input: Specifies the input data.
     --split: Specifies whether to split the input data into parts.
     --padding: Specifies whether to pad the input data.
     
-    @return A list containing the parsed and pre-processed arguments (opt, waterline, benchmark, library, hardware, epochs, padded_data).
+    @return A list containing the parsed and pre-processed arguments (opt, waterline, benchmark, library, hardware, num_test, loop_count, padded_data).
     """
     # Create an ArgumentParser instance with a description.
-    # archived_command : hc-test <$1 sys.argv[1] compile_type> <$2 sys.argv[2] waterline:int> <$3 sys.argv[3] benchmark:str> <$4 sys.argv[3] library:"HEAAN, SEAL, HEONGPU"> <$5 sys.argv[4] hardware:"GPU, CPU"> <$6 sys.argv[5] epochs:int>
-    # new_command : hc-trace <$1 sys.argv[1] benchmark:str> <$2 sys.argv[2] compile_type:str> <$3 sys.argv[3] waterline:int> <$4 sys.argv[4] library:str> <$5 sys.argv[5] hardware:str> <$6 sys.argv[6] epochs:int> <$7 sys.argv[7] input:str> <$8 sys.argv[8] padding:str> <$9 sys.argv[9] split:int>
+    # new_command : hc-trace <$1 sys.argv[1] benchmark:str> <$2 sys.argv[2] compile_type:str> <$3 sys.argv[3] waterline:int> <$4 sys.argv[4] library:str> <$5 sys.argv[5] hardware:str> <$6 sys.argv[6] num_test:int> <$7 sys.argv[7] loop_count:int> <$8 sys.argv[8] input:str> <$9 sys.argv[9] padding:str> <$10 sys.argv[10] split:int>
 
     parser = argparse.ArgumentParser(description="hc-trace and hc-test argument parser")
     # Positional argument: benchmark
@@ -70,7 +70,8 @@ def hc_parser(command_path):
     parser.add_argument(
         "--device", type=str, default="GPU", choices=["GPU", "CPU"], help="Device"
     )
-    parser.add_argument("--epochs", type=int, default=1, help="Number of epochs")
+    parser.add_argument("--num_test", type=int, default=1, help="Number of tests")
+    parser.add_argument("--loop_count", type=int, default=1, help="Loop Counts")
     parser.add_argument(
         "--input",
         type=str,
@@ -104,7 +105,8 @@ def hc_parser(command_path):
         args.library = args.library.upper()
 
     if args.input.lower() == "default setup":
-        print("This benchmark does not use input data, inherit from parent class")
+        pass
+        #print("This benchmark does not use input data, inherit from parent class")
     elif args.input.lower() == "false":
         print(f"Input option = False. Use random input data in {args.benchmark} file")
         print(
@@ -153,7 +155,7 @@ def hc_parser(command_path):
         parser.error("Error: Input command is not valid")
 
     # flatten and pad input data, padding is optional
-    global input_length, epochs, padded_length
+    global input_length, num_test, loop_count, padded_length
     padded_data = []
     if args.input.lower() == "default setup":
         input_length = 0
@@ -177,7 +179,8 @@ def hc_parser(command_path):
             padded_length = len(padded_data)
 
         input_length = len(flat_data)
-    epochs = args.epochs
+    num_test = args.num_test
+    loop_count = args.loop_count
 
     # convert arguments to before_command format
     argv = [
@@ -186,7 +189,8 @@ def hc_parser(command_path):
         args.benchmark,
         args.library,
         args.device,
-        args.epochs,
+        args.num_test,
+        args.loop_count,
         padded_data,
     ]
     # print command and arguments
@@ -195,16 +199,17 @@ def hc_parser(command_path):
     abs_path = os.path.abspath(command_path)
     is_benchmark = "benchmarks" in abs_path
 
-    print("=" * 47)
-    print(f"[{'Benchmark':<9}]: {args.benchmark}")
-    if not is_benchmark:
-        print(f"[{'Opt':<9}]: {args.opt}")
-    print(f"[{'Waterline':<9}]: {args.waterline}")
-    print(f"[{'Library':<9}]: {args.library}")
-    if not is_benchmark:
-        print(f"[{'Device':<9}]: {args.device}")
-    print(f"[{'Epochs':<9}]: {args.epochs}")
-    print(f"[{'Input':<9}]: {args.input}")
+    #print("=" * 47)
+    #print(f"[{'Benchmark':<9}]: {args.benchmark}")
+    #if not is_benchmark:
+    #    print(f"[{'Opt':<9}]: {args.opt}")
+    #print(f"[{'Waterline':<9}]: {args.waterline}")
+    #print(f"[{'Library':<9}]: {args.library}")
+    #if not is_benchmark:
+    #    print(f"[{'Device':<9}]: {args.device}")
+    #print(f"[{'Num Test':<9}]: {args.num_test}")
+    #print(f"[{'Loop Count':<9}]: {args.loop_count}")
+    #print(f"[{'Input':<9}]: {args.input}")
 
     # print(f"{'Split':<12}  {'Padding':<12}")
     # print(f"{args.split:<12}  {args.padding:<12}\n")
@@ -216,9 +221,8 @@ def hc_parser(command_path):
     #     print(f"{'0':<12} {padded_length:<12}  {input_length:<16}  {raw_shape}")
     # print("")
     # print("input_length:", input_length)
-    print("=" * 47)
-    print("arguments parsing and data pre-processing done")
-    print("")
+    # print("=" * 47)
+    # print("")
 
     return argv
 

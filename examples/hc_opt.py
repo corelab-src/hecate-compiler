@@ -12,10 +12,10 @@ import sys
 if __name__ == "__main__":
     # Parse command line arguments
     argv = hc.hc_parser(__file__)
-    compile_opt, waterline, benchmark, library, device, epochs, input_data = argv
+    compile_opt, waterline, benchmark, library, device, num_test, loop_count, input_data = argv
 
     num_elements = len(input_data)
-    epochs = int(epochs)
+    #epochs = int(epochs)
     HECATE = os.getenv("HECATE")
     print(HECATE)
 

@@ -11,9 +11,10 @@ import numpy as np
 import hecate as hc
 
 
-global input_length, epochs, padded_length
+global input_length, num_test, loop_count, padded_length
 input_length = hc.input_length
-epochs = hc.epochs
+num_test = hc.num_test
+loop_count = hc.loop_count
 padded_length = hc.padded_length
 
 # ------------------------------------------------------------------

@@ -21,8 +21,7 @@ from poly.models.ResNet import resnet20
 import hetorch as ht
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 seed(100)
 source_path = Path(__file__).resolve()
 source_dir = source_path.parent
@@ -99,13 +98,13 @@ if __name__ == "__main__":
     print(f"Packed input shape: {packed_input.shape}")
     print("\nRunning encrypted inference...")
     execution_time = 0
-    for _ in range(epochs):
+    for _ in range(num_test):
         hevm.setInput(0, packed_input)
         timer_start = time.perf_counter_ns()
         hevm.run()
         timer_end = (time.perf_counter_ns() - timer_start) / pow(10, 9)
         execution_time += timer_end
-    execution_time /= epochs
+    execution_time /= num_test
     mem_after = hc.print_mem("After hevm.run()")
     mem_diff = mem_after - mem_before
 

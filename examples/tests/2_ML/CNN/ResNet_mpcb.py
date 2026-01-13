@@ -24,8 +24,7 @@ import hecate.parser as UTIL
 import hetorch as ht
 
 argv = UTIL.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 seed(100)
 source_path = Path(__file__).resolve()
 source_dir = source_path.parent
@@ -131,7 +130,7 @@ if __name__ == "__main__":
     print("preprocess(input_var).shape", preprocess(input_var).shape)
 
     execution_time = 0
-    for _ in range(epochs):
+    for _ in range(num_test):
         resnet_input = [
             hevm.setInput(i, dat) for i, dat in enumerate([preprocess(input_var)])
         ]
@@ -139,7 +138,7 @@ if __name__ == "__main__":
         hevm.run()
         timer_end = (time.perf_counter_ns() - timer_start) / pow(10, 9)
         execution_time += timer_end
-    execution_time /= epochs
+    execution_time /= num_test
     mem_after = UTIL.print_mem("After hevm.run()")
     mem_diff = mem_after - mem_before
 

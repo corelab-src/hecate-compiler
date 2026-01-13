@@ -49,7 +49,7 @@ global IN_DIM, OUT_DIM, INTER_DIM
 
 if __name__ == "__main__":
     argv = hc.hc_parser(__file__)
-    compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv
+    compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
     # input, weight, bias = ht.json_to_data(benchmark)
     input, weight, bias = ht.binary_to_data(benchmark)

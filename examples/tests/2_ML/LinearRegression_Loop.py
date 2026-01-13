@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # Parse command line arguments
     argv = hc.hc_parser(__file__)
-    compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv
+    compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
     # eliminate benchmark from argv for hc.setLibnHW
 
     # Setup Hecate environment
@@ -90,21 +90,21 @@ if __name__ == "__main__":
     x_data, y_data, true_W, true_c = generate_LR_data(input_data)
 
     # Run Python reference implementation
-    ref_W, ref_c = python_format(x_data, y_data, epochs)
+    ref_W, ref_c = python_format(x_data, y_data, loop_count)
 
     # Run Hecate implementation
     hevm.setInput(0, x_data)
     hevm.setInput(1, y_data)
-    hevm.setEpoch(0, epochs)
+    hevm.setEpoch(0, loop_count)
     hevm.run()
 
     hevm.setInput(0, x_data)
     hevm.setInput(1, y_data)
-    hevm.setEpoch(0, epochs)
+    hevm.setEpoch(0, loop_count)
     timer_start = time.perf_counter_ns()
     hevm.run()
     execution_time = (time.perf_counter_ns() - timer_start) / pow(10, 9)
     # pow(10, 9) is to convert nanoseconds to seconds
     res = hevm.getOutput()
     rms = np.sqrt(np.mean(np.power(res[0] - ref_W, 2) + np.power(res[1] - ref_c, 2)))
-    hevm.printer(execution_time, rms, epochs)
+    hevm.printer(execution_time, rms, loop_count)

@@ -263,7 +263,7 @@ class HEVM:
             result[i] = data
         return result
 
-    def printer(self, latency, rms, epoch=10, mem_usage=0.0):
+    def printer(self, latency, rms, epoch=1, mem_usage=0.0):
         import re
 
         bench = re.search(r"optimized/(.*)/(.*)\.(.*)\._", self.hevm_path)

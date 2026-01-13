@@ -24,8 +24,7 @@ from pathlib import Path
 import time
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 seed(100)
 source_path = Path(__file__).resolve()
 source_dir = source_path.parent
