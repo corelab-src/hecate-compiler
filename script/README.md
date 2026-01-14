@@ -29,7 +29,7 @@ Clone other projects (llvm-project, SEAL, HEonGPU library).
 
 Build docker image.
 ```bash
-./Docker_Build.sh
+IMAGE_NAME=hecate IMAGE_TAG=v1.0 TARGET=cuda13 ./script/Docker_Build.sh
 ```
 
 Run docker container. Because the execution of existing container is able to reset, the script asks you to Reset (y/N). If you just want to execute the existing container, just press 'S'.
