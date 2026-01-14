@@ -1,93 +1,50 @@
-# Hecate Compiler Docker Scripts
-
-This folder contains Docker-related scripts for Hecate Compiler development and CI/CD.
-
-## 🐳 Quick Start
-
-### 1. Build Docker Image
-
+# Default Directory Tree
+After install projects through scripts, the default directory tree is below.
 ```bash
-# From anywhere (project root recommended)
-./script/dockerbuild.sh
+RootDir
+├── HEaaN
+├── SEAL
+├── hecate-compiler
+│   ├── build
+│   ├── cmake
+│   ├── docs
+│   ├── examples
+│   ├── include
+│   ├── lib
+│   ├── python
+│   ├── script
+│   └── tools
+├── install
+│   ├── MLIR
+│   ├── SEAL
+│   └── HEON
+└── llvm-project
 ```
 
-Custom image name/tag:
+# initialize
+Clone other projects (llvm-project, SEAL, HEonGPU library).
 ```bash
-IMAGE_NAME=my-hecate IMAGE_TAG=v1.0 ./script/dockerbuild.sh
+./Initialize.sh
 ```
 
-### 2. Run Container (Local Development)
-
+Build docker image.
 ```bash
-docker run --gpus all -it \
-  -e HOST_USERNAME=$(whoami) \
-  -e HOST_UID=$(id -u) \
-  -e HOST_GID=$(id -g) \
-  --network=host \
-  --ipc=host \
-  --ulimit memlock=-1 \
-  --name hecate \
-  -v "$(pwd):/home/$(whoami)/hecate-compiler" \
-  hecate-compiler:latest
+./Docker_Build.sh
 ```
 
----
-
-## 📁 Files
-
-| File | Description |
-|------|-------------|
-| `Dockerfile` | Docker image definition (base: `nvcr.io/nvidia/pytorch:25.06-py3`) |
-| `entrypoint.sh` | Runtime user creation script |
-| `dockerbuild.sh` | Image build script |
-
----
-
-## 🔧 Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `HOST_USERNAME` | Username inside container | `hecate` |
-| `HOST_UID` | User UID | `1000` |
-| `HOST_GID` | User GID | `1000` |
-| `IMAGE_NAME` | Docker image name | `hecate-compiler` |
-| `IMAGE_TAG` | Docker image tag | `latest` |
-
----
-
-## 🔄 CI/CD vs Local Development
-
-### CI/CD Mode
-Run without environment variables to use default user (`hecate:1000:1000`):
+Run docker container. Because the execution of existing container is able to reset, the script asks you to Reset (y/N). If you just want to execute the existing container, just press 'S'.
 ```bash
-docker run --gpus all -it hecate-compiler:latest
+./Docker_Run.sh
 ```
 
-### Local Development Mode
-Pass `HOST_*` environment variables to match your host user:
-```bash
-docker run --gpus all -it \
-  -e HOST_USERNAME=$(whoami) \
-  -e HOST_UID=$(id -u) \
-  -e HOST_GID=$(id -g) \
-  -v "/path/to/project:/home/$(whoami)/project" \
-  hecate-compiler:latest
+# in docker,
+Build all projects. You can also build a certain project.
+```
+./Build.sh all 120
 ```
 
-Benefits of this approach:
-- ✅ No volume permission issues
-- ✅ One image works for both local and CI/CD
-- ✅ Team members can share the same image
+Activate python environments and aliases.
+```
+source activate.sh
+```
 
----
-
-## 🔒 Security Notes
-
-The `HOST_UID`/`HOST_GID` approach is **safe for development** because:
-
-1. **No privilege escalation**: The container user only has the same permissions as your host user
-2. **Volume isolation**: Only mounted directories are accessible
-3. **Passwordless sudo**: Only affects the container, not the host system
-4. **Runtime user creation**: User info is not baked into the image
-
-> **Production recommendation**: For production deployments, consider using fixed non-root users and proper orchestration (Kubernetes securityContext, etc.)

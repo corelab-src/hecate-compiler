@@ -3,251 +3,31 @@ Hecate (Homomorphic Encryption Compiler for Approximate TEnsor computation) is a
 Hecate is built on the top of Multi-Level Intermediate Representation (MLIR) compiler framework. 
 We aim to support privacy-preserving machine learning and deep learning applications. 
 
+## Quick Start Guides
 
-  * [Installation](#installation)
-    + [Requirements](#requirements)
-    + [Install MLIR](#install-mlir)
-    + [Install SEAL](#install-seal)
-    + [Build Hecate](#build-hecate)
-    + [Configure Hecate](#configure-hecate)
-    + [Install Hecate Python Binding](#install-hecate-python-binding)
-  * [Tutorial](#tutorial)
-    + [Trace the example python file to Encrypted ARiTHmetic IR](#trace-the-example-python-file-to-encrypted-arithmetic-ir)
-    + [Compile the traced Earth Hecate IR](#compile-the-traced-earth-ir)
-    <!-- + [Test the optimized code](#test-the-optimized-code) -->
+   * [Installation](docs/Installation.md)
+    <!-- + [Requirements](docs/Installation.md#requirements) -->
+    <!-- + [Install MLIR](docs/Installation.md#install-mlir) -->
+    <!-- + [Install SEAL](docs/Installation.md#install-seal) -->
+    <!-- + [Install HEonGPU](docs/Installation.md#install-heongpu) -->
+    <!-- + [Build Hecate](docs/Installation.md#build-hecate) -->
+    <!-- + [Configure Hecate](docs/Installation.md#configure-hecate) -->
+    <!-- + [Install Hecate Python Binding](docs/Installation.md#install-hecate-python-binding) -->
+   * [Tutorial](docs/Tutorial.md)
+    <!-- + [Trace the example python file to Encrypted ARiTHmetic IR](docs/Tutorial.md#trace-the-example-python-file-to-encrypted-arithmetic-ir) -->
+    <!-- + [Compile the traced Earth Hecate IR](docs/Tutorial.md#compile-the-traced-earth-ir)
+    <!-- + [Test the optimized code](docs/Tutorial.md#test-code) -->
     <!-- + [One-liner for compilation and testing](#one-liner-for-compilation-and-testing) -->
-  * [Papers](#papers)
-  * [Citations](#citations)
+   * [Docs](docs/)
+      + [Docker Environment Setting](docs/Docker.md)
+      + [Support Operations](docs/SupportedOps.md)
+      + [How to MLIR Pass Test](docs/MLIRtest.md)
   
-## Installation 
-
-### Docker Installation (Recommended)
-
-The easiest way to get started is using Docker.
-
-#### Build Docker Image
-```bash
-# From project root or any directory
-./script/Docker_Build.sh
-
-# Or with custom image name/tag
-IMAGE_NAME=hecate IMAGE_TAG=v1.0 ./script/Docker_Build.sh
-```
-
-#### Run Container
-```bash
-docker run --gpus all -it \
-  -e HOST_USERNAME=$(whoami) \
-  -e HOST_UID=$(id -u) \
-  -e HOST_GID=$(id -g) \
-  --network=host \
-  --ipc=host \
-  --ulimit memlock=-1 \
-  --name hecate \
-  -v "$(pwd)/../:/home/$(whoami)/volume/" \
-  hecate-compiler:latest
-```
-
-> **Note**: The `HOST_*` environment variables map your host user to the container, solving volume permission issues.
-
----
-
-### Manual Installation
-
-### Requirements 
-```
-Ninja   
-git  
-cmake >= 3.22.1  
-python >= 3.10  
-clang,clang++ >= 14.0.0  
-```
-
-### Install MLIR 
-```bash
-git clone https://github.com/llvm/llvm-project.git
-cd llvm-project
-git checkout llvmorg-18.1.2
-cmake -GNinja -Bbuild \
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_INSTALL_UTILS=ON \
-  -DLLVM_TARGETS_TO_BUILD=host -DCMAKE_INSTALL_PREFIX=<MLIR_INSTALL>\
-  llvm
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-### Install SEAL 
-```bash
-git clone https://github.com/microsoft/SEAL.git
-cd SEAL
-git checkout 4.0.0
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX=<SEAL_INSTALL>
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-### Install HEonGPU 
-CMAKE_CUDA_ARCHITECTURES: Ampere (86), Ada (89), Hopper (90), Blackwell (120)
-```bash
-git clone https://github.com/corelab-src/HEonGPU.git
-git checkout corelab
-cd HEonGPU
-cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=120 -DCMAKE_INSTALL_PREFIX=<HEonGPU_INSTALL>
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-
-### Build Hecate 
-```bash
-git clone <this-repository>
-cd <this-repository>
-cmake -S . -B build \
-  -DMLIR_ROOT=<MLIR_INSTALL> -DSEAL_ROOT=<SEAL_INSTALL> \
-  -DHEonGPU_ROOT=<HEonGPU_INSTALL> -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-cmake --build build 
-```
-### Configure Hecate 
-```bash
-python3 -m venv .venv
-# if use nvidia-docker, use this command
-python3 -m venv --system-site-packages .venv
-
-source .venv/bin/activate
-source config.sh 
-```
-
-### Install Hecate Python Binding 
-```bash
-pip install -r requirements.txt
-./install.sh
-```
-
-## Tutorial 
-
-### Trace the example python file to Encrypted ARiTHmetic IR 
-
-```bash
-hc-trace <example-name>
-```
-e.g., 
-```bash
-hc-trace ResNet_mpcb
-```
-
-### Compile the traced Earth IR 
-
-```bash
-hc-opt <example-name> --opt <pars|dacapo> --waterline <waterline:integer> --library <library-name> --device <hardware-device>
-```
-e.g., 
-```bash
-hc-opt ResNet_mpcb --opt dacapo --waterline 40 --library HEONGPU --device GPU
-```
-This command will print like this:
-```
-===-------------------------------------------------------------------------===
-                         ... Execution time report ...
-===-------------------------------------------------------------------------===
-  Total Execution Time: 18.1769 seconds
-```
-
-You can see the optimized code in "$hecate-compiler/examples/optimized/dacapo/ResNet_mpcb.40.earth.mlir"\
-
-If you see an error message like "error: 'earth.bootstrap' op failed to infer returned types",\
-just wait as it is in the normal compilation process.
-
-
-### Test code
-We are currently conducting experiments using a modified version of the HEonGPU library.
-
-> **Note**: In addition, we have included the SEAL library, which does not natively support bootstrapping.
-We've provided a wrapper (SEAL\_HEVM.cpp) that modifies the bootstrapping algorithm into the decryption+encryption form.
-Please note that while this method allows you to test the results, it is not recommended from a privacy perspective.
-It need to generate trace code that matches SEAL parameters: In /examples/benchmarks/ResNet.py, "nt" : 2 ** 16 ----> "nt" : 2 ** 14
-
-If you want to test with the HEonGPU library, refer to the example below:
-```bash
-hc-test <example-name> --opt <pars|dacapo> --waterline <waterline:integer> --library <library-name> --device <hardware-device>
-```
-e.g., 
-```bash
-hc-test ResNet_mpcb --opt dacapo --waterline 40 --library HEONGPU --device GPU
-```
-This command will print like this:
-```
-==================================================
---------------- Runtime Option ------------------
-compiler: dacapo
-benchname: ResNet_mpcb
-waterline: 40
-library: HEONGPU
-device: GPU
------------------ Test Results -------------------
-code size (bytes): 166216
-const size (bytes): 9258474
-latency (s): 10.156035864
-rms: 0.0009392255808502616
-==================================================
-
-```
 ## Papers 
 **HALO: Loop-aware Bootstrapping Management for Fully Homomorphic Encryption**\
 Seonyoung Cheon, Yongwoo Lee, Hoyun Youm, Dongkwan Kim, Sungwoo Yun, Kunmo Jeong, Dongyoon Lee, and Hanjun Kim
 *Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating System (ASPLOS)*, April 2025. 
 [[Publication](https://dl.acm.org/doi/10.1145/3669940.3707275)]
-
-**DaCapo: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption**\
-Seonyoung Cheon, Yongwoo Lee, Ju Min Lee, Dongkwan Kim, Sunchul Jung, Taekyung Kim, Dongyoon Lee, and Hanjun Kim  
-*33rd USENIX Security Symposium (USENIX Security)*, August 2024. 
-[[Publication](https://www.usenix.org/system/files/usenixsecurity24-cheon.pdf)]
-
-**ELASM: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption** [[abstract](https://www.usenix.org/conference/usenixsecurity23/presentation/lee-yongwoo)]   
-Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim, Dongyoon Lee, and Hanjun Kim  
-*32nd USENIX Security Symposium (USENIX Security)*, August 2023. 
-[[Publication](https://www.usenix.org/system/files/usenixsecurity23-lee-yongwoo.pdf)]
-
-**HECATE: Performance-Aware Scale Optimization for Homomorphic Encryption Compiler**\[[IEEE Xplore](http://doi.org/10.1109/CGO53902.2022.9741265)]   
-Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shinnung Jeong, Changsu Kim, Eunkyung Kim, Dongyoon Lee, and Hanjun Kim  
-*Proceedings of the 2022 International Symposium on Code Generation and Optimization (CGO)*, April 2022. 
-[[Publication](http://corelab.or.kr/Pubs/cgo22_hecate.pdf)]
-
-## Citations 
-```bibtex
-@INPROCEEDINGS{lee:hecate:cgo,
-  author={Lee, Yongwoo and Heo, Seonyeong and Cheon, Seonyoung and Jeong, Shinnung and Kim, Changsu and Kim, Eunkyung and Lee, Dongyoon and Kim, Hanjun},
-  booktitle={2022 IEEE/ACM International Symposium on Code Generation and Optimization (CGO)}, 
-  title={HECATE: Performance-Aware Scale Optimization for Homomorphic Encryption Compiler}, 
-  year={2022},
-  volume={},
-  number={},
-  pages={193-204},
-  doi={10.1109/CGO53902.2022.9741265}}
-```
-```bibtex
-@INPROCEEDINGS{lee:elasm:sec,
-  title={{ELASM}: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption},
-  author={Lee, Yongwoo and Cheon, Seonyoung and Kim, Dongkwan and Lee, Dongyoon and Kim, Hanjun},
-  booktitle={{32nd} USENIX Security Symposium (USENIX Security 23)},
- year={2023},
- address = {Anaheim, CA},
- publisher = {USENIX Association},
- month = aug
-}
-```
-```bibtex
-@INPROCEEDINGS{cheon:dacapo:sec,
-  title={{DaCapo}: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption},
-  author={Cheon, Seonyoung and Lee, Yongwoo and Kim, Dongkwan and Lee, Ju Min and Jung, Sunchul and Kim, Taekyung and Lee, Dongyoon and Kim, Hanjun},
-  booktitle={{33rd} USENIX Security Symposium (USENIX Security 24)},
- year={2024},
- address = {Philadelphia, CA},
- publisher = {USENIX Association},
- month = aug
-}
-```
 ```bibtex
 @INPROCEEDINGS{cheon:halo:asplos,
   title = {HALO: Loop-aware Bootstrapping Management for Fully Homomorphic Encryption},
@@ -262,3 +42,55 @@ Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shinnung Jeong, Changsu Kim, Eunkyu
   series = {ASPLOS '25}
 }
 ```
+
+**DaCapo: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption**\
+Seonyoung Cheon, Yongwoo Lee, Ju Min Lee, Dongkwan Kim, Sunchul Jung, Taekyung Kim, Dongyoon Lee, and Hanjun Kim  
+*33rd USENIX Security Symposium (USENIX Security)*, August 2024. 
+[[Publication](https://www.usenix.org/system/files/usenixsecurity24-cheon.pdf)]
+```bibtex
+@INPROCEEDINGS{cheon:dacapo:sec,
+  title={{DaCapo}: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption},
+  author={Cheon, Seonyoung and Lee, Yongwoo and Kim, Dongkwan and Lee, Ju Min and Jung, Sunchul and Kim, Taekyung and Lee, Dongyoon and Kim, Hanjun},
+  booktitle={{33rd} USENIX Security Symposium (USENIX Security 24)},
+ year={2024},
+ address = {Philadelphia, CA},
+ publisher = {USENIX Association},
+ month = aug
+}
+```
+
+**ELASM: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption** [[abstract](https://www.usenix.org/conference/usenixsecurity23/presentation/lee-yongwoo)]   
+Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim, Dongyoon Lee, and Hanjun Kim  
+*32nd USENIX Security Symposium (USENIX Security)*, August 2023. 
+[[Publication](https://www.usenix.org/system/files/usenixsecurity23-lee-yongwoo.pdf)]
+```bibtex
+@INPROCEEDINGS{lee:elasm:sec,
+  title={{ELASM}: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption},
+  author={Lee, Yongwoo and Cheon, Seonyoung and Kim, Dongkwan and Lee, Dongyoon and Kim, Hanjun},
+  booktitle={{32nd} USENIX Security Symposium (USENIX Security 23)},
+ year={2023},
+ address = {Anaheim, CA},
+ publisher = {USENIX Association},
+ month = aug
+}
+```
+
+
+**HECATE: Performance-Aware Scale Optimization for Homomorphic Encryption Compiler**\[[IEEE Xplore](http://doi.org/10.1109/CGO53902.2022.9741265)]   
+Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shinnung Jeong, Changsu Kim, Eunkyung Kim, Dongyoon Lee, and Hanjun Kim  
+*Proceedings of the 2022 International Symposium on Code Generation and Optimization (CGO)*, April 2022. 
+[[Publication](http://corelab.or.kr/Pubs/cgo22_hecate.pdf)]
+```bibtex
+@INPROCEEDINGS{lee:hecate:cgo,
+  author={Lee, Yongwoo and Heo, Seonyeong and Cheon, Seonyoung and Jeong, Shinnung and Kim, Changsu and Kim, Eunkyung and Lee, Dongyoon and Kim, Hanjun},
+  booktitle={2022 IEEE/ACM International Symposium on Code Generation and Optimization (CGO)}, 
+  title={HECATE: Performance-Aware Scale Optimization for Homomorphic Encryption Compiler}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={193-204},
+  doi={10.1109/CGO53902.2022.9741265}}
+```
+
+
+
