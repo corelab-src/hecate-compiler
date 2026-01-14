@@ -4,11 +4,13 @@ set -euo pipefail
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-hecate-compiler}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+TARGET="${TARGET:-cuda13}"
 
-echo -e "\033[1;32m======Build ${IMAGE_NAME}:${IMAGE_TAG}======\033[0m"
+echo -e "\033[1;32m======Build ${IMAGE_NAME}:${IMAGE_TAG} for ${TARGET}======\033[0m"
 
-# Build the image (no build-args needed - user created at runtime)
+# Build the image
 docker build \
+    --target "${TARGET}" \
     -t "${IMAGE_NAME}:${IMAGE_TAG}" \
     "${SCRIPT_PATH}"
 

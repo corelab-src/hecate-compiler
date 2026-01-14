@@ -263,7 +263,7 @@ class HEVM:
             result[i] = data
         return result
 
-    def printer(self, latency, rms, epoch=10, mem_usage=0.0):
+    def printer(self, latency, rms, loop_count=1, mem_usage=0.0):
         import re
 
         bench = re.search(r"optimized/(.*)/(.*)\.(.*)\._", self.hevm_path)
@@ -274,6 +274,7 @@ class HEVM:
         print("waterline:", bench.group(3))
         print("library:", run_library)
         print("device:", run_hardware)
+        print("loop count:", loop_count)
         print("----------------- Test Results -------------------")
         print("code size (bytes):", os.path.getsize(self.hevm_path))
         print("const size (bytes):", os.path.getsize(self.const_path))

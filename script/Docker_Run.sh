@@ -1,8 +1,8 @@
-containername=hedl
-imageName=hedl_deploy_gpu
+containername=hecate
+imageName=hecate-compiler
 
 function dockerrun_f() {
-  docker run -it --gpus all --name ${containername} --hostname deploydocker --volume ${scriptPATH}/../../:/home/$USER/volume:rw --volume /home/$USER/.bashrc:/home/$USER/.bashrc:rw --volume /home/$USER/.vimrc:/home/$USER/.vimrc:rw ${imageName}:latest
+  docker run -it --gpus all --name ${containername} --hostname deploydocker --volume ${scriptPATH}/../../:/home/$USER/volume:rw ${imageName}:latest
 }
 
 scriptPATH=$( cd -- "$( dirname -- "$BASH_SOURCE[0]" )" &> /dev/null && pwd )

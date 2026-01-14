@@ -6,12 +6,12 @@ from pathlib import Path
 import time
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
 seed(100)
 a_compile_type = compile_type
 a_compile_opt = int(waterline)
-a_epoch = int(epochs)
+a_epoch = int(loop_count)
 hc.setLibnHW(argv)
 
 stem = Path(__file__).stem

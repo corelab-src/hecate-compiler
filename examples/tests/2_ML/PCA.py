@@ -19,7 +19,7 @@ source_dir = source_path.parent
 hecate_dir = os.environ["HECATE"]
 
 argv = hc.hc_parser(__file__)
-compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv
+compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
 config_name = f"profiled_{library}_{hardware}.json"
 with open(str(hecate_dir) + "/" + config_name, "r") as f:
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     y = Y.flatten()
     ref_timer_start = time.perf_counter_ns()
     cov = np.dot(X.T, X) / (n_samples - 1)
-    ref_tensor_np = python_reference_pca(x, y, cov, 1, epochs)
+    ref_tensor_np = python_reference_pca(x, y, cov, 1, loop_count)
 
     # ref_tensor_np = get_ground_truth_pca(X)
     ref_tensor = torch.from_numpy(ref_tensor_np)
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     rms = np.sqrt(
         np.mean([np.power(abs(result_tensor[i] - ref_tensor[i]), 2) for i in range(4)])
     )
-    hevm.printer(execution_time, rms.item())
+    hevm.printer(execution_time, rms.item(), loop_count)
     print("CPU memory usage: ", mem_diff, "GB")
 
     # Calculate error percentage (add small epsilon to avoid division by zero)

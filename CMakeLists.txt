@@ -122,7 +122,7 @@ if(NOT LLVM_EXTERNAL_LIT)
   )
   if(NOT LLVM_EXTERNAL_LIT)
     message(WARNING "llvm-lit not found, attempting to use lit")
-    find_program(LLVM_EXTERNAL_LIT "lit" REQUIRED)
+    find_program(LLVM_EXTERNAL_LIT "lit")
   endif()
 endif()
 

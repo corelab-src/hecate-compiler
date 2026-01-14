@@ -99,7 +99,7 @@ if __name__ == "__main__":
     from PIL import Image
 
     argv = hc.hc_parser(__file__)
-    compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
+    compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
     model = getModel()
     model = model.eval()
 

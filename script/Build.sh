@@ -73,23 +73,11 @@ function build_HEonGPU(){
   fi
 }
 
-#function build_openFHE(){
-  #cd ${deployPATH}/openfhe-development/
-  #echo -e "\n\033[1;32m======Build OpenFHE======\033[0m"
-  #cmake -S . -B build \
-  #  -DCMAKE_C_COMPILER=clang \
-  #  -DCMAKE_CXX_COMPILER=clang++ \
-  #  -DCMAKE_INSTALL_PREFIX=${installPATH}/openfhe
-  #cmake --build build
-  #cmake --install build
-#}
-
 function build_Hecate(){
   cd ${scriptPATH}/../
   echo -e "\n\033[1;32m======Build Hecate-Compiler======\033[0m"
   cmake -S . -B build -DMLIR_ROOT=${installPATH}/MLIR \
     -DSEAL_ROOT=${installPATH}/SEAL \
-    -DHEaaN_ROOT=${installPATH}/heaan \
     -DHEonGPU_ROOT=${installPATH}/HEON \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
@@ -100,6 +88,7 @@ function build_Hecate(){
 function check_Hecate(){
   cd ${scriptPATH}/../
   echo -e "\n\033[1;32m======Check Hecate-Compiler======\033[0m"
+  cmake -S . -B build -DLLVM_EXTERNAL_LIT=${deployPATH}/llvm-project/build/bin/llvm-lit
   #cmake -S . -B build -DMLIR_ROOT=${installPATH}/MLIR \
   #  -DSEAL_ROOT=${installPATH}/SEAL \
   #  -DHEaaN_ROOT=${installPATH}/heaan \
