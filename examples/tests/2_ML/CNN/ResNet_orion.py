@@ -69,7 +69,6 @@ def process_reference(x):
 
 
 if __name__ == "__main__":
-    print("ht-based ResNet20 Test")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = getModel()
 
