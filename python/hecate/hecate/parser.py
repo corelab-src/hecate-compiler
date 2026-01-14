@@ -93,6 +93,8 @@ def hc_parser(command_path):
     )
     # Todo: multi input data
     args, unknown = parser.parse_known_args()
+    if unknown:
+        parser.error(f"Unrecognized arguments: {' '.join(unknown)}")
 
     # set input data
     seed(100)

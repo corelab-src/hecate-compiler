@@ -14,7 +14,6 @@ We aim to support privacy-preserving machine learning and deep learning applicat
   * [Tutorial](#tutorial)
     + [Trace the example python file to Encrypted ARiTHmetic IR](#trace-the-example-python-file-to-encrypted-arithmetic-ir)
     + [Compile the traced Earth Hecate IR](#compile-the-traced-earth-ir)
-    + [Compile the traced Earth Hecate IR and Check the Optimized Code](#compile-the-traced-earth-ir-and-check-the-optimized-code)
     <!-- + [Test the optimized code](#test-the-optimized-code) -->
     <!-- + [One-liner for compilation and testing](#one-liner-for-compilation-and-testing) -->
   * [Papers](#papers)
@@ -29,10 +28,10 @@ The easiest way to get started is using Docker.
 #### Build Docker Image
 ```bash
 # From project root or any directory
-./script/dockerbuild.sh
+./script/Docker_Build.sh
 
 # Or with custom image name/tag
-IMAGE_NAME=hecate IMAGE_TAG=v1.0 ./script/dockerbuild.sh
+IMAGE_NAME=hecate IMAGE_TAG=v1.0 ./script/Docker_Build.sh
 ```
 
 #### Run Container
@@ -45,8 +44,8 @@ docker run --gpus all -it \
   --ipc=host \
   --ulimit memlock=-1 \
   --name hecate \
-  -v "$(pwd):/home/$(whoami)" \
-  hecate:latest
+  -v "$(pwd)/../:/home/$(whoami)/volume/" \
+  hecate-compiler:latest
 ```
 
 > **Note**: The `HOST_*` environment variables map your host user to the container, solving volume permission issues.
@@ -73,39 +72,13 @@ cmake -GNinja -Bbuild \
   -DCMAKE_C_COMPILER=clang \
   -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_INSTALL_UTILS=ON \
-  -DLLVM_TARGETS_TO_BUILD=host \
-  llvm
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-#### Optional : Install Directory  to maintain multiple versions or a debug build 
-```bash
-git clone https://github.com/llvm/llvm-project.git
-cd llvm-project
-git checkout llvmorg-18.1.2
-cmake -GNinja -Bbuild \ 
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release\
-  -DLLVM_ENABLE_PROJECTS=mlir -DLLVM_INSTALL_UTILS=ON \
   -DLLVM_TARGETS_TO_BUILD=host -DCMAKE_INSTALL_PREFIX=<MLIR_INSTALL>\
   llvm
 cmake --build build
 sudo cmake --install build
 cd .. 
 ```
-
 ### Install SEAL 
-```bash
-git clone https://github.com/microsoft/SEAL.git
-cd SEAL
-git checkout 4.0.0
-cmake -S . -B build
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-#### Optional : Install Directory  to maintain multiple versions or a debug build
 ```bash
 git clone https://github.com/microsoft/SEAL.git
 cd SEAL
@@ -116,20 +89,12 @@ sudo cmake --install build
 cd .. 
 ```
 ### Install HEonGPU 
-```bash
-git clone git@git.corelab.or.kr:corelab/HEonGPU.git
-cd HEonGPU
-cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=86 
-cmake --build build
-sudo cmake --install build
-cd .. 
-```
-#### Optional : Install Directory  to maintain multiple versions or a debug build
 CMAKE_CUDA_ARCHITECTURES: Ampere (86), Ada (89), Hopper (90), Blackwell (120)
 ```bash
-git clone git@git.corelab.or.kr:corelab/HEonGPU.git
+git clone https://github.com/corelab-src/HEonGPU.git
+git checkout corelab
 cd HEonGPU
-cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=120 -DCMAKE_INSTALL_PREFIX=<HEON_INSTALL>
+cmake -S . -B build -D CMAKE_CUDA_ARCHITECTURES=120 -DCMAKE_INSTALL_PREFIX=<HEonGPU_INSTALL>
 cmake --build build
 sudo cmake --install build
 cd .. 
@@ -139,14 +104,9 @@ cd ..
 ```bash
 git clone <this-repository>
 cd <this-repository>
-cmake -S . -B build 
-cmake --build build 
-```
-#### Optional : Install Directory  to maintain multiple versions or a debug build
-```bash
-git clone <this-repository>
-cd <this-repository>
-cmake -S . -B build -DMLIR_ROOT=<MLIR_INSTALL> -DSEAL_ROOT=<SEAL_INSTALL>
+cmake -S . -B build \
+  -DMLIR_ROOT=<MLIR_INSTALL> -DSEAL_ROOT=<SEAL_INSTALL> \
+  -DHEonGPU_ROOT=<HEonGPU_INSTALL> -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
 cmake --build build 
 ```
 ### Configure Hecate 
@@ -174,85 +134,75 @@ hc-trace <example-name>
 ```
 e.g., 
 ```bash
-hc-trace ResNet
+hc-trace ResNet_mpcb
 ```
 
 ### Compile the traced Earth IR 
 
 ```bash
-hopts <pars|dacapo> <waterline:integer> <example-name> <library-name> <hardware>
+hc-opt <example-name> --opt <pars|dacapo> --waterline <waterline:integer> --library <library-name> --device <hardware-device>
 ```
 e.g., 
 ```bash
-hopts dacapo 40 ResNet HEAAN GPU
+hc-opt ResNet_mpcb --opt dacapo --waterline 40 --library HEONGPU --device GPU
 ```
 This command will print like this:
 ```
-Estimated Latency: 13.980823 (sec)
-Number of Bootstrapping: 19
+===-------------------------------------------------------------------------===
+                         ... Execution time report ...
+===-------------------------------------------------------------------------===
+  Total Execution Time: 18.1769 seconds
 ```
 
-### Compile the traced Earth IR and Check the optimized code 
-```bash
-hbt <pars|dacapo> <waterline:integer> <example-name> <library-name> <hardware>
-```
-e.g., 
-```bash
-hbt dacapo 40 ResNet HEAAN GPU
-```
-This command will print like this:
-```
-Estimated Latency: 13.980823 (sec)
-Number of Bootstrapping: 19
-===---------------------------====
-  ... Execution Time Report ....
-```
-You can see the optimized code in "$hecate-compiler/examples/optimized/dacapo/ResNet.40.earth.mlir"\
+You can see the optimized code in "$hecate-compiler/examples/optimized/dacapo/ResNet_mpcb.40.earth.mlir"\
 
 If you see an error message like "error: 'earth.bootstrap' op failed to infer returned types",\
 just wait as it is in the normal compilation process.
 
 
 ### Test code
-We are currently conducting experiments using a modified version of the HEAAN library.\
-However, due to licensing restrictions, we cannot offer interfaces for testing our compiled code directly with the HEAAN library.\
-Therefore, we kindly ask you to attach a library that supports bootstrapping if you want to test compiled code. 
+We are currently conducting experiments using a modified version of the HEonGPU library.
 
-In addition, we have included the SEAL library, which does not natively support bootstrapping.
+> **Note**: In addition, we have included the SEAL library, which does not natively support bootstrapping.
 We've provided a wrapper (SEAL\_HEVM.cpp) that modifies the bootstrapping algorithm into the decryption+encryption form.
 Please note that while this method allows you to test the results, it is not recommended from a privacy perspective.
-If you want to test with the SEAL library, refer to the example below:
+It need to generate trace code that matches SEAL parameters: In /examples/benchmarks/ResNet.py, "nt" : 2 ** 16 ----> "nt" : 2 ** 14
 
-First, need to generate trace code that matches SEAL parameters:
-In /examples/benchmarks/ResNet.py, "nt" : 2**16 ----> "nt" : 2**14
-
+If you want to test with the HEonGPU library, refer to the example below:
+```bash
+hc-test <example-name> --opt <pars|dacapo> --waterline <waterline:integer> --library <library-name> --device <hardware-device>
 ```
-hc-trace ResNet
-hbt dacapo 40 ResNet SEAL CPU
-hc-test dacapo 40 ResNet SEAL CPU
+e.g., 
+```bash
+hc-test ResNet_mpcb --opt dacapo --waterline 40 --library HEONGPU --device GPU
 ```
 This command will print like this:
 ```
-======================================
----------------Option-----------------
+==================================================
+--------------- Runtime Option ------------------
 compiler: dacapo
-benchname: ResNet
+benchname: ResNet_mpcb
 waterline: 40
-library: SEAL
-device: CPU
----------------Result-----------------
-latency: 53.7260615
-rms: 0.00095152200605
-======================================
-```
-Currently, this compiler only supports code generation and testing for the SEAL version only with ResNet.
-For other benchmarks, compilation with the HEAAN viersion is possible, but program testing is not due to library license. (Ongoing Research)
+library: HEONGPU
+device: GPU
+----------------- Test Results -------------------
+code size (bytes): 166216
+const size (bytes): 9258474
+latency (s): 10.156035864
+rms: 0.0009392255808502616
+==================================================
 
+```
 ## Papers 
+**HALO: Loop-aware Bootstrapping Management for Fully Homomorphic Encryption**\
+Seonyoung Cheon, Yongwoo Lee, Hoyun Youm, Dongkwan Kim, Sungwoo Yun, Kunmo Jeong, Dongyoon Lee, and Hanjun Kim
+*Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating System (ASPLOS)*, April 2025. 
+[[Publication](https://dl.acm.org/doi/10.1145/3669940.3707275)]
+
 **DaCapo: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption**\
 Seonyoung Cheon, Yongwoo Lee, Ju Min Lee, Dongkwan Kim, Sunchul Jung, Taekyung Kim, Dongyoon Lee, and Hanjun Kim  
 *33rd USENIX Security Symposium (USENIX Security)*, August 2024. 
-[[Prepublication](https://www.usenix.org/system/files/sec24summer-prepub-336-cheon.pdf)]
+[[Publication](https://www.usenix.org/system/files/usenixsecurity24-cheon.pdf)]
 
 **ELASM: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption** [[abstract](https://www.usenix.org/conference/usenixsecurity23/presentation/lee-yongwoo)]   
 Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim, Dongyoon Lee, and Hanjun Kim  
@@ -298,4 +248,17 @@ Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shinnung Jeong, Changsu Kim, Eunkyu
  month = aug
 }
 ```
-
+```bibtex
+@INPROCEEDINGS{cheon:halo:asplos,
+  title = {HALO: Loop-aware Bootstrapping Management for Fully Homomorphic Encryption},
+  author = {Cheon, Seonyoung and Lee, Yongwoo and Youm, Hoyun and Kim, Dongkwan and Yun, Sungwoo and Jeong, Kunmo and Lee, Dongyoon and Kim, Hanjun},
+  booktitle = {Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, Volume 1},
+  year = {2025},
+  publisher = {Association for Computing Machinery},
+  doi = {10.1145/3669940.3707275},
+  pages = {572–585},
+  numpages = {14},
+  location = {Rotterdam, Netherlands},
+  series = {ASPLOS '25}
+}
+```
