@@ -15,7 +15,7 @@ We aim to support privacy-preserving machine learning and deep learning applicat
     <!-- + [Install Hecate Python Binding](docs/Installation.md#install-hecate-python-binding) -->
    * [Tutorial](docs/Tutorial.md)
     <!-- + [Trace the example python file to Encrypted ARiTHmetic IR](docs/Tutorial.md#trace-the-example-python-file-to-encrypted-arithmetic-ir) -->
-    <!-- + [Compile the traced Earth Hecate IR](docs/Tutorial.md#compile-the-traced-earth-ir)
+    <!-- + [Compile the traced Earth Hecate IR](docs/Tutorial.md#compile-the-traced-earth-ir) -->
     <!-- + [Test the optimized code](docs/Tutorial.md#test-code) -->
     <!-- + [One-liner for compilation and testing](#one-liner-for-compilation-and-testing) -->
    * [Docs](docs/)

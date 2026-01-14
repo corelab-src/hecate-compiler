@@ -9,7 +9,7 @@ cd <Project_root>
 
 # Or with custom image name/tag
 cd <Project_root>
-IMAGE_NAME=hecate IMAGE_TAG=v1.0 ./script/Docker_Build.sh
+IMAGE_NAME=hecate IMAGE_TAG=v1.0 TARGET=cuda13 ./script/Docker_Build.sh
 ```
 
 #### Run Container
