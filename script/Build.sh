@@ -128,7 +128,7 @@ elif [ $1 == 'env' ];then
 elif [ $1 == 'all' ];then
   build_llvm
   build_SEAL
-  build_HEaaN
+  #build_HEaaN
   build_HEonGPU "$@"
   build_Hecate
   set_ENV
