@@ -41,6 +41,9 @@ int main(int argc, char **argv) {
   // selectively include what you need like above. You only need to register
   // dialects that will be *parsed* by the tool, not the one generated
   // registerAllDialects(registry);
+  earth::registerEarthPasses();
+  ckks::registerCKKSPasses();
+  hecate::registerConversionPasses();
 
   // Uncomment the following to make *all* MLIR core passes available.
   // This is only useful for experimenting with the command line to compose
