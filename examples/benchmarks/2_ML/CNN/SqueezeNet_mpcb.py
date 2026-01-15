@@ -47,6 +47,7 @@ def getModel():
 def SqueezeNet_mpcb(ctxt):
     model = getModel()
     model = model.type(torch.double)
+    model = model.cpu()
     for p in model.parameters():
         p.requires_grad = False
     input_var = np.empty((1), dtype=object)

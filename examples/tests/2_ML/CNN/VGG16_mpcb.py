@@ -2,7 +2,7 @@ import hecate as hc
 import sys
 import poly
 import os
-from poly.models.VGG16_mpcb import *
+from poly.models.VGG16 import *
 from poly.MPCB import *
 
 import torch

@@ -2,7 +2,7 @@ import hecate as hc
 import sys
 import poly
 import os
-from poly.models.AlexNet_mpcb import alexnet
+from poly.models.AlexNet import alexnet
 from poly.MPCB import *
 
 import torch

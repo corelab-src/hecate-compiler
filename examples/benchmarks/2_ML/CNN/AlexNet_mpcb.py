@@ -18,7 +18,7 @@ import hecate as hc
 
 import numpy as np
 import poly
-from poly.models.AlexNet_mpcb import alexnet
+from poly.models.AlexNet import alexnet
 from poly.MPCB import *
 from poly.Func import *
 

@@ -51,6 +51,7 @@ def getModel():
 def MobileNet(ctxt):
     model = getModel()
     model = model.type(torch.double)
+    model = model.cpu()
     # input_var = input_var.type(torch.double)
     input_var = np.empty((1), dtype=object)
     input_var[0] = ctxt
@@ -109,7 +110,7 @@ def MobileNet(ctxt):
     out = HE_Pool(close, out)
     block_in = avgpool_1_shapes
 
-    out = HE_Linear(close["OP"], out, model.module.linear, scale=32.0)
+    out = HE_Linear(close["OP"], out, model.module.linear, initial_shapes["nt"], scale=32.0)
 
     print("end")
     return out

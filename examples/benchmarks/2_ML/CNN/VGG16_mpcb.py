@@ -19,7 +19,7 @@ import torchvision.datasets as datasets
 import numpy as np
 
 import poly
-from poly.models.VGG16_mpcb import *
+from poly.models.VGG16 import *
 from poly.MPCB import *
 from poly.Func import *
 
