@@ -7,7 +7,7 @@ RUN apt-get -y install sudo
 #RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
 RUN apt-get -y install ninja-build vim git wget
 RUN apt-get -y install python3 python3-dev python3-pip python3.10-venv
-RUN apt-get -y install libstdc++-12-dev libssl-dev libgmp-dev libomp-dev
+RUN apt-get -y install libstdc++-12-dev libssl-dev libgmp-dev libomp-dev libntl-dev
 RUN apt-get -y install clang-format clang-14 clang++-14 clang
 
 RUN wget https://cmake.org/files/v3.30/cmake-3.30.5.tar.gz

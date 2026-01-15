@@ -2,8 +2,8 @@ import hecate as hc
 import sys
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
-epochs = int(epochs)
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
+epochs = int(loop_count)
 
 
 def sum_elements(data):

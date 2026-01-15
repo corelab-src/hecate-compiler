@@ -21,5 +21,8 @@ git checkout corelab
 git submodule update --init --recursive
 cd ${deployPATH}
 
+cd ${scriptPATH}
+./Model_Download.sh
+
 cd ${currentPATH}
 
