@@ -21,7 +21,7 @@ ninja
 
 hc-trace()(
     cd $HECATE/examples
-    found_file=$(find $HECATE/examples/benchmarks -mindepth 2 -name "$1.py" -type f | head -n 1)
+    found_file=$(find $HECATE/examples/benchmarks -name "$1.py" -type f | head -n 1)
     if [ -z "$found_file" ]; then
         echo "File not found"
         exit 1
@@ -41,7 +41,7 @@ hc-opt()(
 
 hc-test()(
     cd $HECATE/examples
-    found_file=$(find $HECATE/examples/tests -mindepth 2 -name "$1.py" -type f | head -n 1)
+    found_file=$(find $HECATE/examples/tests -name "$1.py" -type f | head -n 1)
     if [ -z "$found_file" ]; then
         echo "File not found"
         exit 1
