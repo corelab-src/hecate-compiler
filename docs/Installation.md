@@ -8,6 +8,12 @@ python >= 3.10
 clang,clang++ >= 14.0.0  
 ```
 
+### Model Download
+```bash
+cd <hecate-compiler>/script
+./Model_Download.sh
+```
+
 ### Install MLIR 
 ```bash
 git clone https://github.com/llvm/llvm-project.git

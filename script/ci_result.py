@@ -12,7 +12,7 @@ parser.add_argument("input_dir", type=str, help="Directory containing result fil
 args = parser.parse_args()
 
 current_date = datetime.now().strftime("%Y-%m-%d")
-output_dir = os.path.expanduser("results/sorted_results")
+output_dir = os.path.join(os.path.expanduser(args.input_dir), "sorted_results")
 os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(output_dir, f"{current_date}.csv")
 
