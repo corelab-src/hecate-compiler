@@ -55,7 +55,7 @@ def getModel():
         str(hecate_dir) + "/examples/data/vgg16_silu_avgpool_model",
         map_location=torch.device("cpu"),
     )
-    model.module.load_state_dict(model_dict["state_dict"])
+    model.module.load_state_dict(model_dict)
     model = model.eval()
     return model
 

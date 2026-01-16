@@ -7,10 +7,10 @@ from poly.Func import *
 from poly.Poly import *
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
 if len(sys.argv) != 1:
-    a_epochs = int(epochs)
+    a_epochs = int(loop_count)
 
 
 def sum_elements(array, n_samples):

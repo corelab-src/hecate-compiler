@@ -31,14 +31,14 @@ after_script:
     tags:
         - hestia_runner
     rules:
-        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && $SCHEDULE_TYPE == 'irregularly'"
+        - if: "$SCHEDULE_TYPE == 'irregularly'"
           when: always
 
 .weekly_template:
     tags:
         - hestia_runner
     rules:
-        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && ($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
+        - if: "($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
           when: always
 
 Preparing Environment - docker build:
@@ -548,7 +548,7 @@ save_result:
     dependencies:
         - Hecate build
     rules:
-        - if: "$CI_COMMIT_BRANCH == 'main' && $CI_PIPELINE_SOURCE == 'schedule' && ($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
+        - if: "($SCHEDULE_TYPE == 'weekly' || $SCHEDULE_TYPE == 'irregularly')"
           when: always
 
 
