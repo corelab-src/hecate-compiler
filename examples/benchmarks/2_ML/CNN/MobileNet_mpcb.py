@@ -48,7 +48,7 @@ def getModel():
 
 
 @hc.func("c")
-def MobileNet(ctxt):
+def MobileNet_mpcb(ctxt):
     model = getModel()
     model = model.type(torch.double)
     model = model.cpu()

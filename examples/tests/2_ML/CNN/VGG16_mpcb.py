@@ -50,9 +50,9 @@ val_loader = torch.utils.data.DataLoader(
 
 
 def getModel():
-    model = torch.nn.DataParallel(vgg16_mpcb_orion())
+    model = torch.nn.DataParallel(vgg16())
     model_dict = torch.load(
-        str(hecate_dir) + "/examples/data/vgg16_mpcb_orion_silu_avgpool_model",
+        str(hecate_dir) + "/examples/data/vgg16_silu_avgpool_model",
         map_location=torch.device("cpu"),
     )
     model.module.load_state_dict(model_dict["state_dict"])
