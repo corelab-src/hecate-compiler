@@ -56,7 +56,7 @@ def GEMV(*ctxts):
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     argv = hc.hc_parser(__file__)
-    compile_opt, waterline, benchmark, library, hardware, epochs, input_data = argv
+    compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
     # generate input data
     input, weight, bias = ht.generate_random_data(

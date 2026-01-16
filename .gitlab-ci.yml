@@ -229,6 +229,8 @@ testing Pass of Hecate compiler:
         WATERLINE: "40"
         LIBRARY: "SEAL"
         HARDWARE: "CPU"
+        NUMTEST: "1"
+        LOOPCOUNT: "1"
     allow_failure: true
 
 .benchmark_script:
@@ -242,14 +244,15 @@ testing Pass of Hecate compiler:
         cd ${CI_DOCKER_HOME}/hecate-compiler &&
         source config.sh && 
         export LLVM_SYMBOLIZER_PATH='${CI_INSTALL_DIR}/MLIR/bin/llvm-symbolizer' && 
-        python3 ./examples/hc_opt.py $CI_JOB_NAME --opt $COMPILER --waterline $WATERLINE --library $LIBRARY --device $HARDWARE" || exit 1
+        python3 ./examples/hc_opt.py $CI_JOB_NAME --opt $COMPILER --waterline $WATERLINE --library $LIBRARY --device $HARDWARE --num_test $NUMTEST --loop_count $LOOPCOUNT" || exit 1
     - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "set -e && 
         cd ${CI_DOCKER_HOME} &&
         source .venv/bin/activate && 
         cd ${CI_DOCKER_HOME}/hecate-compiler &&
         source config.sh && 
-        echo 'y' | hc-test $CI_JOB_NAME --opt $COMPILER --waterline $WATERLINE --library $LIBRARY --device $HARDWARE > ${CI_RESULTS_DIR}/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}-${HARDWARE}.txt" || exit 1
-    - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "echo ${CI_RESULTS_DIR}/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}-${HARDWARE}.txt" || exit 1
+        echo 'y' | hc-test $CI_JOB_NAME --opt $COMPILER --waterline $WATERLINE --library $LIBRARY --device $HARDWARE --num_test $NUMTEST --loop_count $LOOPCOUNT > ${CI_RESULTS_DIR}/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}-${HARDWARE}-${NUMTEST}-${LOOPCOUNT}.txt" || exit 1
+    - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "echo ${CI_RESULTS_DIR}/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}-${HARDWARE}-${NUMTEST}-${LOOPCOUNT}.txt" || exit 1
+    - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cat ${CI_RESULTS_DIR}/$CI_JOB_NAME-${WATERLINE}-${LIBRARY}-${COMPILER}-${HARDWARE}-${NUMTEST}-${LOOPCOUNT}.txt" || exit 1
   after_script:
     - date
     - echo "Cleaning up benchmark processes"
@@ -262,8 +265,8 @@ Initialization:
         - .benchmark_template
     script:
         - echo "Preparing and Initialization"
+        #- docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME}/script/ && ./Model_Download.sh"
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "rm ${CI_RESULTS_DIR}/*.txt"
-        - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME}/script/ && ./Model_Download.sh"
     needs:
         - Hecate build
         - Setting Hecate python environment
@@ -425,12 +428,121 @@ MobileNet-40-HEONGPU-Dacapo :
         - Hecate build
         - Setting Hecate python environment
 
+LinearRegressionLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LinearRegression_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - MobileNet-40-HEONGPU-Dacapo
+        - Hecate build
+        - Setting Hecate python environment
+
+PolynomialRegressionLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "PolynomialRegression_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - LinearRegressionLoop-52-HEONGPU-Halo
+        - Hecate build
+        - Setting Hecate python environment
+
+MultivariateLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Multivariate_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - PolynomialRegressionLoop-52-HEONGPU-Halo
+        - Hecate build
+        - Setting Hecate python environment
+
+SVMLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "SVM_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - MultivariateLoop-52-HEONGPU-Halo
+        - Hecate build
+        - Setting Hecate python environment
+
+KmeansLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "Kmeans_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - SVMLoop-52-HEONGPU-Halo
+        - Hecate build
+        - Setting Hecate python environment
+
+LogisticRegressionLoop-52-HEONGPU-Halo :
+    extends:
+        - .benchmark_template
+        - .benchmark_script
+    variables:
+        CI_JOB_NAME: "LogisticRegression_Loop"
+        COMPILER: "halo"
+        WATERLINE: "52"
+        LIBRARY: "HEONGPU"
+        HARDWARE: "GPU"
+        LOOPCOUNT: "10"
+    # For Sequential Testing
+    needs:
+        - Initialization
+        - KmeansLoop-52-HEONGPU-Halo
+        - Hecate build
+        - Setting Hecate python environment
+
 # Using tools, show all results of testing to a file.
 save_result:
     stage: save_result
     script:
         - echo "Save Results"
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "python3 ${CI_DOCKER_HOME}/hecate-compiler/script/ci_result.py ${CI_RESULTS_DIR}"
+        - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cat ${CI_RESULTS_DIR}/sorted_results/latest.csv"
     tags:
         - hestia_runner
     dependencies:

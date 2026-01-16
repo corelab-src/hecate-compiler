@@ -78,9 +78,9 @@ if __name__ == "__main__":
     # aft_command : new-test Format --opt dacapo --waterline 40 --library HEAAN --hardware GPU --epochs 2 --input True --padding True
 
     # Parse command-line arguments
-    #argv = hc.hc_parser(__file__)
-    #compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
-    #a_epochs = int(loop_count)
+    argv = hc.hc_parser(__file__)
+    compile_opt, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
+    a_epochs = int(loop_count)
 
     # Save the traced Hecate module and print the module name.
     modName = hc.save("traced", "traced")
