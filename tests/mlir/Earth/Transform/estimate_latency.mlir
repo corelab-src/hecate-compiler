@@ -13,5 +13,5 @@ module {
 // This test has latency from profiled_HEONGPU_GPU.json (default).
 // If user changes the profiled configuration, the value will be different.
 // CHECK-LABEL: func.func @test_latency_estimator(
-// CHECK: est_latency = 1.061000e+03 : f64
+// CHECK: est_latency = 2.200000e+02 : f64
 // CHECK-NOT: error

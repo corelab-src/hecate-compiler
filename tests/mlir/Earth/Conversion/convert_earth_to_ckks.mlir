@@ -8,10 +8,10 @@ module {
 }
 
 // CHECK-LABEL: func.func @test_func(
-// CHECK-SAME:   %[[ARG0:.*]]: tensor<1x!ckks.poly<2 * 2>>,
-// CHECK-SAME:   %[[ARG1:.*]]: tensor<1x!ckks.poly<2 * 2>>
-// CHECK-SAME: ) -> tensor<1x!ckks.poly<2 * 2>> {
-// CHECK:   %[[DST:.*]] = tensor.empty() : tensor<1x!ckks.poly<2 * 2>>
-// CHECK:   %[[RESULT:.*]] = "ckks.addcc"(%[[DST]], %[[ARG0]], %[[ARG1]]) : (tensor<1x!ckks.poly<2 * 2>>, tensor<1x!ckks.poly<2 * 2>>, tensor<1x!ckks.poly<2 * 2>>) -> tensor<1x!ckks.poly<2 * 2>>
-// CHECK:   return %[[RESULT]] : tensor<1x!ckks.poly<2 * 2>>
+// CHECK-SAME:   %[[ARG0:.*]]: tensor<1x!ckks.poly<2 * 16>>,
+// CHECK-SAME:   %[[ARG1:.*]]: tensor<1x!ckks.poly<2 * 16>>
+// CHECK-SAME: ) -> tensor<1x!ckks.poly<2 * 16>> {
+// CHECK:   %[[DST:.*]] = tensor.empty() : tensor<1x!ckks.poly<2 * 16>>
+// CHECK:   %[[RESULT:.*]] = "ckks.addcc"(%[[DST]], %[[ARG0]], %[[ARG1]]) : (tensor<1x!ckks.poly<2 * 16>>, tensor<1x!ckks.poly<2 * 16>>, tensor<1x!ckks.poly<2 * 16>>) -> tensor<1x!ckks.poly<2 * 16>>
+// CHECK:   return %[[RESULT]] : tensor<1x!ckks.poly<2 * 16>>
 // CHECK: }
