@@ -25,24 +25,25 @@ hevm.load(
     f"traced/cst/_hecate_{stem}.cst",
     f"optimized/{a_compile_type}/{stem}.{a_compile_opt}._hecate_{stem}.hevm",
 )
+n_samples = 2048
 
-x0 = [uniform(-1, 1) for a in range(4096)]
-x1 = [uniform(-1, 1) for a in range(4096)]
-x2 = [uniform(-1, 1) for a in range(4096)]
+x0 = [uniform(-1, 1) for a in range(n_samples)]
+x1 = [uniform(-1, 1) for a in range(n_samples)]
+x2 = [uniform(-1, 1) for a in range(n_samples)]
 a0 = [0.5, 0.08, 0.04]
 a1 = [0.6, 0.07, 0.05]
 a2 = [0.7, 0.06, 0.06]
 y0 = [
     a0[0] * x0[i] + a0[1] * x1[i] + a0[2] * x2[i] + uniform(-0.01, 0.01)
-    for i in range(4096)
+    for i in range(n_samples)
 ]
 y1 = [
     a1[0] * x0[i] + a1[1] * x1[i] + a1[2] * x2[i] + uniform(-0.01, 0.01)
-    for i in range(4096)
+    for i in range(n_samples)
 ]
 y2 = [
     a2[0] * x0[i] + a2[1] * x1[i] + a2[2] * x2[i] + uniform(-0.01, 0.01)
-    for i in range(4096)
+    for i in range(n_samples)
 ]
 X = [x0, x1, x2]
 Y = [y0, y1, y2]
@@ -56,14 +57,14 @@ learning_rate = -0.01
 itr = [0, 1, 2]
 for k in range(epochs):
     for j in range(3):
-        wX0 = [X[0][i] * W[j][0] for i in range(4096)]
-        wX1 = [X[1][i] * W[j][1] for i in range(4096)]
-        wX2 = [X[2][i] * W[j][2] for i in range(4096)]
-        error = [wX0[i] + wX1[i] + wX2[i] - Y[j][i] for i in range(4096)]
-        err0 = [error[i] * X[0][i] for i in range(4096)]
-        err1 = [error[i] * X[1][i] for i in range(4096)]
-        err2 = [error[i] * X[2][i] for i in range(4096)]
-        gradW = [sum(err0) / 2048, sum(err1) / 2048, sum(err2) / 2048]
+        wX0 = [X[0][i] * W[j][0] for i in range(n_samples)]
+        wX1 = [X[1][i] * W[j][1] for i in range(n_samples)]
+        wX2 = [X[2][i] * W[j][2] for i in range(n_samples)]
+        error = [wX0[i] + wX1[i] + wX2[i] - Y[j][i] for i in range(n_samples)]
+        err0 = [error[i] * X[0][i] for i in range(n_samples)]
+        err1 = [error[i] * X[1][i] for i in range(n_samples)]
+        err2 = [error[i] * X[2][i] for i in range(n_samples)]
+        gradW = [sum(err0) / 1024, sum(err1) / 1024, sum(err2) / 1024]
         Wup = [learning_rate * gradW[i] for i in range(3)]
         for i in range(3):
             W[j][i] += Wup[i]

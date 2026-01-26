@@ -10,7 +10,7 @@ if len(sys.argv) != 1:
 
 
 def sum_elements(data):
-    for i in range(12):
+    for i in range(11):
         rot = data.rotate(1 << i)
         data += rot
 
@@ -73,7 +73,7 @@ def Multivariate_Loop(x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epoc
     W1 = [hc.Plain([1.5]) for i in range(3)]
     W2 = [hc.Plain([2.0]) for i in range(3)]
     W = W0 + W1 + W2
-    elements = 4096
+    elements = 2048
 
     # for _ in range(epochs):
     with hc.loop(0, epochs, 1, W, num_elements=elements) as k:
@@ -99,7 +99,7 @@ def Multivariate_Loop(x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epoc
         gradW = [grad0, grad1, grad2, grad3, grad4, grad5, grad6, grad7, grad8]
 
         gradW = [
-            sum_elements(gradW[i]) * hc.Plain([1 / 2048]) * learning_rate
+            sum_elements(gradW[i]) * hc.Plain([1 / 1024]) * learning_rate
             for i in range(9)
         ]
         W = [W[i] + gradW[i] for i in range(9)]
@@ -113,7 +113,7 @@ def Multivariate_Loop(x0_data, x1_data, x2_data, y0_data, y1_data, y2_data, epoc
     step = 1
     learning_rate = hc.Plain([-0.01])
 
-    elements = 4096
+    elements = 4096 
     W0 = [1.0 for _ in range(elements * 3)]
     W1 = [1.5 for _ in range(elements * 3)]
     W2 = [2.0 for _ in range(elements * 3)]

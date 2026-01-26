@@ -10,7 +10,7 @@ if len(sys.argv) != 1:
 
 
 def sum_elements(data):
-    for i in range(12):
+    for i in range(11):
         rot = data.rotate(1 << i)
         data += rot
 
@@ -58,7 +58,7 @@ def Multivariate(x0_data, x1_data, x2_data, y0_data, y1_data, y2_data):
             error = [error0 * X[i] for i in range(3)]
             sumerror = [sum_elements(error[i]) for i in range(3)]
 
-            gradW = [sumerror[i] * hc.Plain([1 / 2048]) for i in range(3)]
+            gradW = [sumerror[i] * hc.Plain([1 / 1024]) for i in range(3)]
             Wup = [gradW[i] * learning_rate for i in range(3)]
             for i in range(3):
                 W[j][i] += Wup[i]
@@ -99,7 +99,7 @@ def Multivariate(x0_data, x1_data, x2_data, y0_data, y1_data, y2_data):
             error = [error0 * X[i] for i in range(3)]
             sumerror = [sum_elements(error[i]) for i in range(3)]
 
-            gradW = [sumerror[i] * hc.Plain([1 / 2048]) for i in range(3)]
+            gradW = [sumerror[i] * hc.Plain([1 / 1024]) for i in range(3)]
             Wup = [gradW[i] * learning_rate for i in range(3)]
             for i in range(3):
                 W[j][i] += Wup[i]
