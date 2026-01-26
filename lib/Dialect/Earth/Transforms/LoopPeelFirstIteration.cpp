@@ -94,16 +94,6 @@ struct LoopPeelFirstIterationPass
         targetLoop.getResult(i).setType(yieldVal.getType());
       }
     }
-
-    // 3. Walk internal operations to update types (Bootstrap, Rotate, Negate)
-    targetLoop.walk([&](hecate::earth::HEScaleOpInterface sop) {
-      if (llvm::isa<hecate::earth::BootstrapOp>(sop) ||
-          llvm::isa<hecate::earth::RotateOp>(sop) ||
-          llvm::isa<hecate::earth::NegateOp>(sop)) {
-        // Propagate operand type to result type
-        sop->getResult(0).setType(sop->getOperand(0).getType());
-      }
-    });
   }
   void runOnOperation() override {
 
@@ -149,6 +139,16 @@ struct LoopPeelFirstIterationPass
         cleanUpErasedTypeWrapper(forOp);
       }
     }
+    // 3. Walk internal operations to update types (Bootstrap, Rotate, Negate)
+    func.walk([&](hecate::earth::HEScaleOpInterface sop) {
+      if (llvm::isa<hecate::earth::BootstrapOp>(sop) ||
+          llvm::isa<hecate::earth::RotateOp>(sop) ||
+          llvm::isa<hecate::earth::NegateOp>(sop)) {
+        // Propagate operand type to result type
+        sop->getResult(0).setType(sop->getOperand(0).getType());
+      }
+    });
+
     // Update function signature if return types have changed
     auto funcType = func.getFunctionType();
     mlir::SmallVector<mlir::Type, 4> retTypes;
@@ -157,11 +157,6 @@ struct LoopPeelFirstIterationPass
     }
     func.setFunctionType(
         builder.getFunctionType(funcType.getInputs(), retTypes));
-
-    if (failed(pm.run(mod))) {
-      llvm::errs() << "loop transform failed" << '\n';
-      func.dump();
-    }
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
