@@ -124,6 +124,7 @@ public:
   // Virtual functions to be implemented by derived classes
   virtual void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) = 0;
   virtual void encode_online(uint16_t dst) = 0;
+  virtual void encode_online(uint16_t dst, int depth) = 0;
   virtual void rotate(int16_t dst, int16_t src, int16_t offset) = 0;
   virtual void negate(int16_t dst, int16_t src) = 0;
   virtual void rescale(int16_t dst, int16_t src) = 0;
