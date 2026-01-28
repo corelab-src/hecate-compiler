@@ -7,11 +7,9 @@ from poly.Func import *
 from poly.Poly import *
 
 argv = hc.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
 
-if len(sys.argv) != 1:
-    a_epochs = int(epochs)
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
+epochs = int(loop_count)
 
 def sum_elements(array, n_samples):
     array = array * hc.Plain([0.1])  # redundant code just changes boot. placement
@@ -40,7 +38,6 @@ def SVM(X0, X1, Y):
     step = 1
     lambda_ = hc.Plain([0.02])
     learning_rate = hc.Plain([-0.001])
-    epochs = a_epochs
     # lr_lambda = hc.Plain([-0.00002])
 
     n_samples = 1024

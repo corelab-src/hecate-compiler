@@ -8,11 +8,9 @@ from poly.Poly import *
 import hecate.parser as UTIL
 
 argv = UTIL.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
 
-if len(sys.argv) != 1:
-    a_epochs = int(epochs)
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
+epochs = int(loop_count)
 
 def sum_elements(data):
     for i in range(1, 9):
@@ -62,7 +60,7 @@ def newton_inverse(n, epoch):
 @hc.func("c,c")
 def Kmeans(x_data, y_data):
 
-    epochs = a_epochs  # this dataset saturates after 5+ epochs
+    # epochs = a_epochs  # this dataset saturates after 5+ epochs
     epochs_newton = 5  # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
