@@ -139,7 +139,6 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     q_prime_list.insert(q_prime_list.begin(), 52);
     // std::vector<int> q_prime_list(27, 52);
     std::vector<int> p_prime_list(6, 52);
-    p_prime_list.insert(p_prime_list.begin(), 52);
 
     context.set_coeff_modulus_bit_sizes(q_prime_list, p_prime_list);
 
@@ -182,6 +181,10 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
         shifts.push_back(i * j);
       }
     }
+    // sort shifts and remove duplicates
+    std::sort(shifts.begin(), shifts.end());
+    shifts.erase(std::unique(shifts.begin(), shifts.end()), shifts.end());
+
     galois_key = std::make_unique<heongpu::Galoiskey<Scheme>>(context, shifts);
 
     keygen.generate_galois_key(
@@ -305,9 +308,11 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     // encoder->encode(plains[0], constData[dst], std::pow(2.0, scalep[dst]));
     encoder->encode(plains[0], *msgs[dst], std::pow(2.0, scalep[dst]),
                     L - levelp[dst]);
-    // for (int i = L; i > levelp[dst]; i--) {
-    // operators->mod_drop_inplace(plains[0]);
-    // }
+  }
+
+  void encode_online(uint16_t dst, int depth) override {
+    // plaintext, message, scale, depth
+    encoder->encode(plains[0], *msgs[dst], std::pow(2.0, scalep[dst]), depth);
   }
 
   void encode_internal(heongpu::Plaintext<Scheme> &dst, std::vector<double> src,
@@ -325,9 +330,8 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   void encode(int16_t dst, int16_t src, int8_t level, int8_t scale) override {
     return;
   }
-  void rotate(int16_t dst, int16_t src, int16_t offset) override {
 
-    ciphers[dst] = ciphers[src];
+  void rotate(int16_t dst, int16_t src, int16_t offset) override {
 
     // Adjust offset to be within the range of -slot_size to slot_size
     if (-slot_size <= offset && offset < -(slot_size / 2))
@@ -335,34 +339,36 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     else if ((slot_size / 2) <= offset && offset < slot_size)
       offset -= slot_size;
 
-    operators->rotate_rows_inplace(ciphers[dst], *galois_key, offset);
+    operators->rotate_rows(ciphers[src], ciphers[dst], *galois_key, offset);
   }
+
   void negate(int16_t dst, int16_t src) override {
     operators->negate(ciphers[src], ciphers[dst]);
   }
+
   void rescale(int16_t dst, int16_t src) override {
-    // rescale_inplace can occur error
-    ciphers[dst] = ciphers[src];
-    operators->set_rescale_required(ciphers[dst], true);
-    operators->rescale_inplace(ciphers[dst]);
+    operators->rescale(ciphers[src], ciphers[dst]);
+    operators->set_rescale_required(ciphers[dst], false);
   }
+
   void modswitch(int16_t dst, int16_t src, int16_t downFactor) override {
-    ciphers[dst] = ciphers[src];
-    for (int i = 0; i < downFactor; i++) {
-      operators->mod_drop_inplace(ciphers[dst]);
-    }
+    operators->mod_drop_multi(ciphers[src], ciphers[dst], downFactor);
   }
+
   void upscale(int16_t dst, int16_t src, int16_t upFactor) override {
     assert(0 && "This VM does not support native upscale op");
   }
+
   void addcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     operators->add(ciphers[lhs], ciphers[rhs], ciphers[dst]);
   }
+
   void addcp(int16_t dst, int16_t lhs, int16_t rhs) override {
     if (run_config.settings.usePreencode) {
       operators->add_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
-      encode_online(rhs);
+      // encode_online(rhs);
+      encode_online(rhs, ciphers[lhs].depth());
       operators->add_plain(ciphers[lhs], plains[0], ciphers[dst]);
     }
   }
@@ -370,20 +376,22 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   void mulcc(int16_t dst, int16_t lhs, int16_t rhs) override {
     operators->multiply(ciphers[lhs], ciphers[rhs], ciphers[dst]);
     operators->relinearize_inplace(ciphers[dst], *relin_key);
-    operators->set_rescale_required(ciphers[dst], false);
+    operators->set_rescale_required(ciphers[dst], true);
   }
   void mulcp(int16_t dst, int16_t lhs, int16_t rhs) override {
     if (run_config.settings.usePreencode) {
       operators->multiply_plain(ciphers[lhs], plains[rhs], ciphers[dst]);
     } else {
-      encode_online(rhs);
+      // encode_online(rhs);
+      encode_online(rhs, ciphers[lhs].depth());
       operators->multiply_plain(ciphers[lhs], plains[0], ciphers[dst]);
     }
-    operators->set_rescale_required(ciphers[dst], false);
+    operators->set_rescale_required(ciphers[dst], true);
   }
   void bootstrap(int16_t dst, int64_t src, uint64_t targetLevel) override {
-    ciphers[dst] = ciphers[src];
-    bootstrapper->execute_hoisted(ciphers[dst], targetLevel);
+    // ciphers[dst] = ciphers[src];
+    // bootstrapper->execute_hoisted_inplace(ciphers[dst], targetLevel);
+    bootstrapper->execute_hoisted(ciphers[src], ciphers[dst], targetLevel);
   }
 
   void copyCipher(int16_t dst, int16_t lhs) override {
@@ -405,8 +413,8 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   double getPlainScale(int16_t i) override {
     return std::log2(plains[i].scale());
   }
-  int getCipherLevel(int16_t i) override { return L - ciphers[i].depth(); }
-  int getPlainLevel(int16_t i) override { return L - plains[i].depth(); }
+  int getCipherLevel(int16_t i) override { return ciphers[i].level(); }
+  int getPlainLevel(int16_t i) override { return L - plains[i].depth() - 1; }
 };
 
 extern "C" {
