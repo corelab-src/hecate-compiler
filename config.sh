@@ -28,7 +28,7 @@ hc-trace()(
     fi
     echo "File found: $found_file"
     echo "Command: python3 $found_file ${@:1}"
-    echo "================================================"
+    echo "======================================"
     python3 $found_file ${@:1}
 )
 
@@ -98,8 +98,8 @@ hc-all()(
     hc-test ${@:1}
     test_time=$(date +%s.%N)
 
-    _hc_print_time_table "$total_time" "$trace_time" "$opt_time" "$test_time"
-    echo "======================================"
+    # _hc_print_time_table "$total_time" "$trace_time" "$opt_time" "$test_time"
+    # echo "======================================"
     echo "Finished hc-all ${@:1}"
 )
 
