@@ -5,14 +5,13 @@ import poly
 from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
+
 import hecate.parser as UTIL
 
 argv = UTIL.hc_parser(__file__)
-compile_type, waterline, benchmark, library, hardware, epochs, input_data = argv
 
-if len(sys.argv) != 1:
-    a_epochs = int(epochs)
-
+compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
+epochs = int(loop_count)
 
 def sum_elements(data):
     for i in range(1, 9):
@@ -62,7 +61,6 @@ def newton_inverse(n, epoch):
 @hc.func("c,c")
 def Kmeans(x_data, y_data):
 
-    epochs = a_epochs  # this dataset saturates after 5+ epochs
     epochs_newton = 5  # can be set bigger for more accuracy
     elements = 512
     mask = create_mask(elements)
@@ -70,7 +68,7 @@ def Kmeans(x_data, y_data):
     centroid_0 = copy(x_data, mask[0])
     centroid_1 = copy(x_data.rotate(2), mask[0])
 
-    for _ in range(epochs):
+    for _ in range(epochs):  # this dataset saturates after 5+ epochs
         # calculate the distance difference from centroid to data point
         distance_0 = x_data - centroid_0
         distance_0 = distance_0 * distance_0
