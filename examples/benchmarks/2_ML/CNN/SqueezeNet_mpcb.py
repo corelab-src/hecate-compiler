@@ -64,7 +64,7 @@ def SqueezeNet_mpcb(ctxt):
     initial_shapes = {
         # Constant
         # "nt" : 2**16,
-        "nt": 2**16,
+        "nt": 2**15,
         "bb": 32,
         # Input Characteristics (Cascaded)
         "ko": 1,

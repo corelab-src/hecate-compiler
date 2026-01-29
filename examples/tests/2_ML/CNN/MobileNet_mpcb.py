@@ -61,9 +61,17 @@ def getModel():
 
 def preprocess(x):
     # print(x.shape)
+    import json
+
+    lib_name = library
+    hw_name = hardware
+    config_name = f"profiled_{lib_name}_{hw_name}.json"
+    with open(str(hecate_dir) + "/" + config_name, "r") as f:
+        config = json.load(f)
+ 
     initial_shapes = {
         # Constant
-        "nt": 2**16,
+        "nt": config["polynomialDegree"] >> 1,
         "bb": 32,
         # Input Characteristics (Cascaded)
         "ko": 1,
