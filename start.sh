@@ -4,9 +4,7 @@
 
 # Set the working directory to the location of this script
 export HOME=$( cd -- "$( dirname -- "$BASH_SOURCE[0]" )" &> /dev/null && pwd )
-export HECATE=$HOME/volume/hecate-compiler
-export CC="clang"
-export CXX="clang++"
+export HECATE=$HOME/hecate-compiler
 
 echo "HECATE DIR: $HECATE"
 
@@ -21,22 +19,18 @@ if [ ! -d ".venv" ]; then
     exit 1
 fi
 source .venv/bin/activate
-
 # Load configuration (creates directories and defines functions)
 source config.sh
 
 # Build the Hecate optimizer
 echo "=========================================="
 echo "Building the Hecate optimizer"
-cmake -S . -B build -DMLIR_ROOT=$HOME/install/MLIR \
-                -DSEAL_ROOT=$HOME/install/SEAL \
-                -DHEaaN_ROOT=$HOME/install/heaan \
+cmake -S . -B build -DMLIR_ROOT=$HOME/models/install/ \
                 -DHEonGPU_ROOT=$HOME/install/HEonGPU \
                 -DCMAKE_C_COMPILER=clang \
                 -DCMAKE_CXX_COMPILER=clang++ \
-                -DLLVM_EXTERNAL_LIT=$HOME/volume/llvm-project/build/bin/llvm-lit \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DENABLE_PRINT_OPSTATS=ON
+                -DLLVM_EXTERNAL_LIT=$HOME/models/install/bin/llvm-lit \
+                -DCMAKE_BUILD_TYPE=Release
 
 cmake --build build -j$(nproc)
 

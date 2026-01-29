@@ -19,11 +19,13 @@
 #include "hecate/Support/ConstData.h"
 #include "hecate/Support/HEVMHeader.h"
 
+#define ENABLE_PRINT_OPSTATS
 hecate::RuntimeConfig run_config{
 #ifdef ENABLE_PRINT_OPSTATS
     .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
 #else
     .debug = {.printOpStats = true, .printOpTypes = false, .printRange = false},
+
 #endif
     .settings = {.usePreencode = false, .libName = "heongpu"}};
 
@@ -43,8 +45,9 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   std::unique_ptr<heongpu::HEContext<Scheme>> context;
   std::unique_ptr<heongpu::Secretkey<Scheme>> secret_key;
   std::unique_ptr<heongpu::Publickey<Scheme>> public_key;
-  std::unique_ptr<heongpu::Galoiskey<Scheme>> galois_key;
-  std::unique_ptr<heongpu::Relinkey<Scheme>> relin_key;
+  // gal_key and relin_key should be shared ptr for sharing bootstrapper class
+  std::shared_ptr<heongpu::Galoiskey<Scheme>> galois_key;
+  std::shared_ptr<heongpu::Relinkey<Scheme>> relin_key;
   std::unique_ptr<heongpu::HEEncoder<Scheme>> encoder;
   std::unique_ptr<heongpu::HEEncryptor<Scheme>> encryptor;
   std::unique_ptr<heongpu::HEArithmeticOperator<Scheme>> operators;
@@ -130,12 +133,12 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   }
 
   void loadHEONGPU(char *dir) {
+
     cudaSetDevice(0);
     auto strdir = std::string(dir);
     // Initialize MemoryPool
     MemoryPool::instance().initialize();
     MemoryPool::instance().use_memory_pool(true);
-
     heongpu::HEContext<Scheme> context(
         heongpu::keyswitching_type::KEYSWITCHING_METHOD_II,
         // heongpu::sec_level_type::sec128);
@@ -155,29 +158,19 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
 
     // getCurrentMemoryUsage();
     heongpu::HEKeyGenerator<Scheme> keygen(context);
-
     // Hamming weight of secret key is 32
     secret_key = std::make_unique<heongpu::Secretkey<Scheme>>(context, 32);
     keygen.generate_secret_key(*secret_key);
-
-    // Hamming weight of sparse key is 32
-    heongpu::Secretkey<Scheme> sparse_key(context, 32);
-    keygen.generate_secret_key(sparse_key);
-
-    heongpu::Switchkey<Scheme> switch_key_d2s(context);
-    keygen.generate_switch_key(switch_key_d2s, sparse_key, *secret_key);
-    heongpu::Switchkey<Scheme> switch_key_s2d(context);
-    keygen.generate_switch_key(switch_key_s2d, *secret_key, sparse_key);
 
     // heongpu::Publickey<Scheme> public_key(context);
     public_key = std::make_unique<heongpu::Publickey<Scheme>>(context);
     keygen.generate_public_key(*public_key, *secret_key);
 
     // heongpu::Relinkey<Scheme> relin_key(context);
-    relin_key = std::make_unique<heongpu::Relinkey<Scheme>>(context);
+    // relin_key = std::make_shared<heongpu::Relinkey<Scheme>>(context);
+    relin_key = std::make_shared<heongpu::Relinkey<Scheme>>(context);
     keygen.generate_relin_key(*relin_key, *secret_key);
 
-    // heongpu::Galoiskey<Scheme> galois_key(context);
     std::vector<int> shifts;
     for (int i = 0; i < MAX_SHIFT; i++) {
       int power = pow(2, i);
@@ -193,14 +186,13 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     std::sort(shifts.begin(), shifts.end());
     shifts.erase(std::unique(shifts.begin(), shifts.end()), shifts.end());
 
-    galois_key = std::make_unique<heongpu::Galoiskey<Scheme>>(context, shifts);
+    // custom shifts vector
+    galois_key = std::make_shared<heongpu::Galoiskey<Scheme>>(context, shifts);
 
     keygen.generate_galois_key(
         *galois_key,
         *secret_key); // This way will create 16(2x8) different power
                       // of 2, if you need more change from define.h
-    cudaDeviceSynchronize();
-    this->context = std::make_unique<heongpu::HEContext<Scheme>>(context);
     encoder = std::make_unique<heongpu::HEEncoder<Scheme>>(context);
     encryptor =
         std::make_unique<heongpu::HEEncryptor<Scheme>>(context, *public_key);
@@ -213,10 +205,23 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
     auto scale = std::pow(2, 52);
 
     galois_key->store_in_device();
+    cudaDeviceSynchronize();
 
+    // Hamming weight of sparse key is 32
+    heongpu::Secretkey<Scheme> sparse_key(context, 32);
+    keygen.generate_secret_key(sparse_key);
+
+    heongpu::Switchkey<Scheme> switch_key_d2s(context);
+    keygen.generate_switch_key(switch_key_d2s, sparse_key, *secret_key);
+    heongpu::Switchkey<Scheme> switch_key_s2d(context);
+    keygen.generate_switch_key(switch_key_s2d, *secret_key, sparse_key);
+
+    this->context =
+        std::make_unique<heongpu::HEContext<Scheme>>(std::move(context));
     bootstrapper = std::make_unique<heongpu::Bootstrap>(
-        context, *secret_key, *relin_key, *galois_key, switch_key_d2s,
+        *this->context, *secret_key, relin_key, galois_key, switch_key_d2s,
         switch_key_s2d, 3, 1.0, scale);
+    cudaDeviceSynchronize();
   }
 
   void loadClient(char *dir) {}
@@ -270,6 +275,7 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   void preprocess(std::vector<HEVMOperation> &heops) {
     std::vector<double> datas(slot_size, 0.0);
     std::vector<double> identity(slot_size, 1.0);
+    std::set<int16_t> offsets;
     for (HEVMOperation &op : heops) {
       if (op.opcode == uint64_t(opcode_t::ENCODE)) {
         levelp[op.dst] = op.rhs >> 10;
@@ -283,7 +289,6 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
           for (int i = L; i > levelp[op.dst]; i--) {
             operators->mod_drop_inplace(plains[op.dst]);
           }
-
         } else {
           to_msg(op.dst, op.lhs);
         }
@@ -312,9 +317,6 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   }
 
   void encode_online(uint16_t dst) override {
-    // if (debug)
-    // std::cout << scalep[dst] << " " << levelp[dst] << std::endl;
-    // encoder->encode(plains[0], constData[dst], std::pow(2.0, scalep[dst]));
     encoder->encode(plains[0], *msgs[dst], std::pow(2.0, scalep[dst]),
                     L - levelp[dst]);
   }
@@ -341,12 +343,8 @@ struct HEONGPU_HEVM : virtual hecate::HEVMInterface {
   }
 
   void rotate(int16_t dst, int16_t src, int16_t offset) override {
-
     // Adjust offset to be within the range of -slot_size to slot_size
-    if (-slot_size <= offset && offset < -(slot_size / 2))
-      offset += slot_size;
-    else if ((slot_size / 2) <= offset && offset < slot_size)
-      offset -= slot_size;
+    offset %= slot_size;
 
     operators->rotate_rows(ciphers[src], ciphers[dst], *galois_key, offset);
   }
