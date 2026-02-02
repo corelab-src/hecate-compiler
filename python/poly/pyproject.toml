@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poly"
+version = "0.0.1"
+description = "Polynomial API"
+requires-python = ">=3.6"
+dependencies = ["numpy", "hecate"]
+
+authors = [
+  { name = "yongwoo", email = "dragonrain96@gmail.com" },
+  { name = "seonyoung", email = "seonyoung@yonsei.ac.kr" },
+]
+
+keywords = [
+  "yongwoo",
+  "seonyoung",
+  "homomorphic encryption",
+  "ckks",
+  "hecate",
+  "elasm",
+  "dacapo",
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = []
+

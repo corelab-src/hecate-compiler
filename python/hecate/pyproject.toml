@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hecate"
+version = "0.0.1"
+description = "PYPI package for hecate binding"
+requires-python = ">=3.6"
+dependencies = ["numpy"]
+keywords = ["yongwoo", "homomorphic encryption", "ckks", "hecate", "elasm"]
+
+authors = [
+  { name = "yongwoo", email = "dragonrain96@gmail.com" }
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+]
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+exclude = []
+
