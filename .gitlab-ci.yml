@@ -482,41 +482,41 @@ MultivariateLoop-52-HEONGPU-Halo :
         - Hecate build
         - Setting Hecate python environment
 
-SVMLoop-52-HEONGPU-Halo :
-    extends:
-        - .benchmark_template
-        - .benchmark_script
-    variables:
-        CI_JOB_NAME: "SVM_Loop"
-        COMPILER: "halo"
-        WATERLINE: "52"
-        LIBRARY: "HEONGPU"
-        HARDWARE: "GPU"
-        LOOPCOUNT: "10"
-    # For Sequential Testing
-    needs:
-        - Initialization
-        - MultivariateLoop-52-HEONGPU-Halo
-        - Hecate build
-        - Setting Hecate python environment
-
-KmeansLoop-52-HEONGPU-Halo :
-    extends:
-        - .benchmark_template
-        - .benchmark_script
-    variables:
-        CI_JOB_NAME: "Kmeans_Loop"
-        COMPILER: "halo"
-        WATERLINE: "52"
-        LIBRARY: "HEONGPU"
-        HARDWARE: "GPU"
-        LOOPCOUNT: "10"
-    # For Sequential Testing
-    needs:
-        - Initialization
-        - SVMLoop-52-HEONGPU-Halo
-        - Hecate build
-        - Setting Hecate python environment
+# SVMLoop-52-HEONGPU-Halo :
+#     extends:
+#         - .benchmark_template
+#         - .benchmark_script
+#     variables:
+#         CI_JOB_NAME: "SVM_Loop"
+#         COMPILER: "halo"
+#         WATERLINE: "52"
+#         LIBRARY: "HEONGPU"
+#         HARDWARE: "GPU"
+#         LOOPCOUNT: "10"
+#     # For Sequential Testing
+#     needs:
+#         - Initialization
+#         - MultivariateLoop-52-HEONGPU-Halo
+#         - Hecate build
+#         - Setting Hecate python environment
+#
+# KmeansLoop-52-HEONGPU-Halo :
+#     extends:
+#         - .benchmark_template
+#         - .benchmark_script
+#     variables:
+#         CI_JOB_NAME: "Kmeans_Loop"
+#         COMPILER: "halo"
+#         WATERLINE: "52"
+#         LIBRARY: "HEONGPU"
+#         HARDWARE: "GPU"
+#         LOOPCOUNT: "10"
+#     # For Sequential Testing
+#     needs:
+#         - Initialization
+#         - SVMLoop-52-HEONGPU-Halo
+#         - Hecate build
+#         - Setting Hecate python environment
 
 LogisticRegressionLoop-52-HEONGPU-Halo :
     extends:
@@ -532,9 +532,10 @@ LogisticRegressionLoop-52-HEONGPU-Halo :
     # For Sequential Testing
     needs:
         - Initialization
-        - KmeansLoop-52-HEONGPU-Halo
+        - MultivariateLoop-52-HEONGPU-Halo
         - Hecate build
         - Setting Hecate python environment
+        #- KmeansLoop-52-HEONGPU-Halo
 
 # Using tools, show all results of testing to a file.
 save_result:
