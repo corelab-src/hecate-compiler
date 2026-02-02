@@ -184,13 +184,11 @@ Setting Hecate python environment:
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME} && source .venv/bin/activate && cd ${CI_DOCKER_HOME}/hecate-compiler && pip install -r requirements.txt"
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME} && source .venv/bin/activate && 
             cd ${CI_DOCKER_HOME}/hecate-compiler/python/hecate && 
-            python setup.py sdist --format=tar && 
-            pip uninstall hecate --yes && pip install dist/hecate-0.0.1.tar"
+            pip uninstall hecate --yes || true && pip install -e ."
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME} && source .venv/bin/activate && 
             cd ${CI_DOCKER_HOME}/hecate-compiler/python/poly && 
-            python setup.py sdist --format=tar && 
-            pip uninstall poly --yes && 
-            pip install dist/poly-0.0.1.tar"
+            pip uninstall poly --yes || true && 
+            pip install -e ."
         - docker exec -i -u ${CI_USER} hecate_ci_container bash -c "cd ${CI_DOCKER_HOME} && source .venv/bin/activate && 
             cd ${CI_DOCKER_HOME}/hecate-compiler/python/hetorch && 
             pip uninstall hetorch --yes || true && 
