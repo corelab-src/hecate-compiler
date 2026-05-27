@@ -12,7 +12,7 @@ import faulthandler
 faulthandler.enable()
 
 import hecate as hc
-import hetorch.stat as stat
+import hetorch as ht
 
 # a_slot_length = 2 ** (17-1) # HEaaN GPU, 2^16 = 65536
 a_slot_length = 2 ** (16 - 1)  # HEONGPU, 2^15 = 32768
@@ -45,9 +45,9 @@ def LinearRegression_Loop(x_data, y_data, epochs):
         error = xWb - y_data
         errX = error * x_data
         meanErrX = errX * hc.Plain([1 / 2048])
-        gradW = stat.sum_LRelements(meanErrX)
+        gradW = ht.sum_LRelements(meanErrX)
         meanErr = error * hc.Plain([1 / 2048])
-        gradb = stat.sum_LRelements(meanErr)
+        gradb = ht.sum_LRelements(meanErr)
         Wup = learning_rate * gradW
         bup = learning_rate * gradb
         W = W + Wup

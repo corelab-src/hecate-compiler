@@ -23,7 +23,7 @@ a_weight, a_bias, a_input = None, None, None
 source_path = Path(__file__).resolve()
 source_dir = source_path.parent
 
-fc_gemv_cp = ht.bsgsCP_orion
+fc_gemv_cp = ht.gemvCP_linear
 # (OUT_DIM, INTER_DIM) * (INTER_DIM, IN_DIM) + (OUT_DIM, IN_DIM) = (OUT_DIM, IN_DIM) by W^T * X^T + b^T
 IN_DIM, INTER_DIM, OUT_DIM, VALUE_RANGE = 1, 64, 64, 1
 

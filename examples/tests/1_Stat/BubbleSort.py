@@ -1,5 +1,5 @@
 import hecate as hc 
-import hecate.parser as UTIL
+
 import sys 
 import time 
 import numpy as np 
@@ -7,7 +7,7 @@ import numpy as np
 from random import * 
 from pathlib import Path 
 
-argv = UTIL.hc_parser(__file__)
+argv = hc.hc_parser(__file__)
 compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 
 a_compile_type = compile_type

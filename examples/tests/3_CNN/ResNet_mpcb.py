@@ -21,10 +21,9 @@ from random import *
 import pprint
 
 from pathlib import Path
-import hecate.parser as UTIL
 import hetorch as ht
 
-argv = UTIL.hc_parser(__file__)
+argv = hc.hc_parser(__file__)
 compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 seed(100)
 source_path = Path(__file__).resolve()
@@ -92,10 +91,16 @@ def process(x):
 
 
 def postprocess(flattened_output, output_shape, scale_factor=32):
-    torch_res_size = 1
+    if len(flattened_output.shape) == 2 and flattened_output.shape[0] == 1:
+        output = flattened_output[0]
+    else:
+        output = flattened_output
+    output_length = 1
     for i in range(len(output_shape)):
-        torch_res_size *= output_shape[i]
-    return flattened_output[0, :torch_res_size].reshape(output_shape) * scale_factor
+        output_length *= output_shape[i]
+    output = output[:output_length]
+    result_tensor = output.reshape(output_shape)
+    return result_tensor * scale_factor
 
 
 if __name__ == "__main__":
@@ -112,7 +117,7 @@ if __name__ == "__main__":
     a_compile_type = compile_type
     a_compile_opt = int(waterline)
     hc.setLibnHW(argv)
-    mem_before = UTIL.print_mem("Before hevm.run()")
+    mem_before = hc.print_mem("Before hevm.run()")
     stem = Path(__file__).stem
     hevm = hc.HEVM()
     stem = Path(__file__).stem
@@ -140,18 +145,14 @@ if __name__ == "__main__":
         timer_end = (time.perf_counter_ns() - timer_start) / pow(10, 9)
         execution_time += timer_end
     execution_time /= num_test
-    mem_after = UTIL.print_mem("After hevm.run()")
+    mem_after = hc.print_mem("After hevm.run()")
     mem_diff = mem_after - mem_before
 
     res_he = hevm.getOutput()
     ref_tensor = torch.from_numpy(reference)
     ref_tensor = ref_tensor.reshape(reference_shape)
     result_he = torch.from_numpy(res_he)
-    result_tensor = ht.orion_postprocess(result_he, reference_shape, 32.0)
-    # result_tensor = orion_multiplexed_postprocess(result_he, reference_shape, scale_factor)
-    # result_tensor = postprocess(result_he, reference_shape)
-
-    # apply all postprocess
+    result_tensor = ht.postprocess(result_he, reference_shape)
     result_tensor = result_tensor.reshape(reference_shape)
 
     # Check if the shapes match before final comparison

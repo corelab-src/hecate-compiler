@@ -4,9 +4,9 @@ import numpy as np
 import sys
 from pathlib import Path
 import time
-import hecate.parser as UTIL
 
-argv = UTIL.hc_parser(__file__)
+
+argv = hc.hc_parser(__file__)
 compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 seed(100)
 a_compile_type = compile_type

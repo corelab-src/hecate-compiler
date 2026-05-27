@@ -6,9 +6,9 @@ from poly.MPCB import *
 from poly.Func import *
 from poly.Poly import *
 
-import hecate.parser as UTIL
 
-argv = UTIL.hc_parser(__file__)
+
+argv = hc.hc_parser(__file__)
 
 compile_type, waterline, benchmark, library, hardware, num_test, loop_count, input_data = argv
 epochs = int(loop_count)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import torch
 import hecate as hc
 
@@ -7,8 +8,6 @@ Empty = hc.Empty
 # ------------------------------------------------------------------
 # Utility Functions for Torch
 # ------------------------------------------------------------------
-
-
 # W * X + b :: (OUT_DIM, INTER_DIM) * (INTER_DIM, IN_DIM) + (OUT_DIM, IN_DIM) = (OUT_DIM, IN_DIM)
 def linear_generate_random_data(
     OUT_DIM: int, INTER_DIM: int, IN_DIM: int, VALUE_RANGE: float

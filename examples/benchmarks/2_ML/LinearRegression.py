@@ -12,7 +12,7 @@ import faulthandler
 faulthandler.enable()
 
 import hecate as hc
-import hetorch.stat as stat
+import hetorch as ht
 
 # a_slot_length = 2 ** (17-1) # HEaaN GPU, 2^16 = 65536
 a_slot_length = 2 ** (16 - 1)  # HEONGPU, 2^15 = 32768
@@ -47,12 +47,12 @@ def LinearRegression(x_data, y_data):
         error = xWb - y_data
         errX = error * x_data
         meanErrX = errX * (1 / half_length)
-        gradW = stat.fold_sum_elements(meanErrX, length)
+        gradW = ht.fold_sum_elements(meanErrX, length)
         meanErr = error * (1 / half_length)
-        gradb = stat.fold_sum_elements(meanErr, length)
-        # gradW = stat.sum_LRelements(meanErrX)
+        gradb = ht.fold_sum_elements(meanErr, length)
+        # gradW = ht.sum_LRelements(meanErrX)
         # meanErr = error * (1/half_length)
-        # gradb = stat.sum_LRelements(meanErr)
+        # gradb = ht.sum_LRelements(meanErr)
         Wup = learning_rate * gradW
         bup = learning_rate * gradb
         W = W + Wup

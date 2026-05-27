@@ -166,8 +166,6 @@ if __name__ == "__main__":
     ref_tensor = torch.from_numpy(reference)
     ref_tensor = ref_tensor.reshape(reference_shape)
     result_he = torch.from_numpy(res_he)
-    # result_tensor = orion_postprocess(result_he, reference_shape, scale_factor)
-    # result_tensor = orion_multiplexed_postprocess(result_he, reference_shape, scale_factor)
     result_tensor = postprocess(result_he, reference_shape)
 
     # Check if the shapes match before final comparison

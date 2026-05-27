@@ -1,5 +1,4 @@
 from .blas import *
-from .orion import *
 from .stat import *
 from .util import *
 
