@@ -152,7 +152,7 @@ if __name__ == "__main__":
     ref_tensor = torch.from_numpy(reference)
     ref_tensor = ref_tensor.reshape(reference_shape)
     result_he = torch.from_numpy(res_he)
-    result_tensor = ht.postprocess(result_he, reference_shape)
+    result_tensor = postprocess(result_he, reference_shape)
     result_tensor = result_tensor.reshape(reference_shape)
 
     # Check if the shapes match before final comparison
