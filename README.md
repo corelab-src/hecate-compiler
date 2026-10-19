@@ -1,4 +1,7 @@
-# hecate-compiler
+# Recifhe (hecate-compiler)
+> [!NOTE]
+> The paper on Recifhe has been accepted for publication in IEEE Computer Architecture Letters (CAL). The implementation will be released in this repository by the end of 2026.
+
 Hecate (Homomorphic Encryption Compiler for Approximate TEnsor computation) is an optimizing compiler for the CKKS FHE scheme, built by Compiler Optimization Research Laboratory (Corelab) @ Yonsei University. 
 Hecate is built on the top of Multi-Level Intermediate Representation (MLIR) compiler framework. 
 We aim to support privacy-preserving machine learning and deep learning applications. 
@@ -23,9 +26,26 @@ We aim to support privacy-preserving machine learning and deep learning applicat
       + [Support Operations](docs/SupportedOps.md)
       + [How to MLIR Pass Test](docs/MLIRtest.md)
   
-## Papers 
+## Papers
+**Ciphertext- and Polynomial-Level Optimization for Fully Homomorphic Encryption (Recifhe)**\
+Seongho Kim, Heelim Choi, Jaemin Kim, Seonyoung Cheon, Dongkwan Kim, Jaeho Lee, Hoyun Youm, Dongyoon Lee, Hanjun Kim, and Yongwoo Lee\
+*IEEE Computer Architecture Letters (CAL)*, 2026. (To appear) [[arXiv](https://arxiv.org/abs/2607.15750)]
+```bibtex
+% volume, number, pages, and DOI will be updated upon publication.
+@ARTICLE{kim:recifhe:cal,
+  title = {Ciphertext- and Polynomial-Level Optimization for Fully Homomorphic Encryption},
+  author = {Kim, Seongho and Choi, Heelim and Kim, Jaemin and Cheon, Seonyoung and Kim, Dongkwan and Lee, Jaeho and Youm, Hoyun and Lee, Dongyoon and Kim, Hanjun and Lee, Yongwoo},
+  journal = {IEEE Computer Architecture Letters},
+  year = {2026},
+  note = {To appear},
+  eprint = {2607.15750},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CR}
+}
+```
+
 **HALO: Loop-aware Bootstrapping Management for Fully Homomorphic Encryption**\
-Seonyoung Cheon, Yongwoo Lee, Hoyun Youm, Dongkwan Kim, Sungwoo Yun, Kunmo Jeong, Dongyoon Lee, and Hanjun Kim
+Seonyoung Cheon, Yongwoo Lee, Hoyun Youm, Dongkwan Kim, Sungwoo Yun, Kunmo Jeong, Dongyoon Lee, and Hanjun Kim\
 *Proceedings of the 30th ACM International Conference on Architectural Support for Programming Languages and Operating System (ASPLOS)*, April 2025. 
 [[Publication](https://dl.acm.org/doi/10.1145/3669940.3707275)]
 ```bibtex
@@ -52,10 +72,10 @@ Seonyoung Cheon, Yongwoo Lee, Ju Min Lee, Dongkwan Kim, Sunchul Jung, Taekyung K
   title={{DaCapo}: Automatic Bootstrapping Management for Efficient Fully Homomorphic Encryption},
   author={Cheon, Seonyoung and Lee, Yongwoo and Kim, Dongkwan and Lee, Ju Min and Jung, Sunchul and Kim, Taekyung and Lee, Dongyoon and Kim, Hanjun},
   booktitle={{33rd} USENIX Security Symposium (USENIX Security 24)},
- year={2024},
- address = {Philadelphia, CA},
- publisher = {USENIX Association},
- month = aug
+  year={2024},
+  address = {Philadelphia, CA},
+  publisher = {USENIX Association},
+  month = aug
 }
 ```
 
@@ -68,10 +88,10 @@ Yongwoo Lee, Seonyoung Cheon, Dongkwan Kim, Dongyoon Lee, and Hanjun Kim
   title={{ELASM}: Error-Latency-Aware Scale Management for Fully Homomorphic Encryption},
   author={Lee, Yongwoo and Cheon, Seonyoung and Kim, Dongkwan and Lee, Dongyoon and Kim, Hanjun},
   booktitle={{32nd} USENIX Security Symposium (USENIX Security 23)},
- year={2023},
- address = {Anaheim, CA},
- publisher = {USENIX Association},
- month = aug
+  year={2023},
+  address = {Anaheim, CA},
+  publisher = {USENIX Association},
+  month = aug
 }
 ```
 
@@ -89,7 +109,8 @@ Yongwoo Lee, Seonyeong Heo, Seonyoung Cheon, Shinnung Jeong, Changsu Kim, Eunkyu
   volume={},
   number={},
   pages={193-204},
-  doi={10.1109/CGO53902.2022.9741265}}
+  doi={10.1109/CGO53902.2022.9741265}
+}
 ```
 
 
